@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-text font-sans;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+}
+
+@layer components {
+  /* Glassmorphism effect */
+  .glass {
+    @apply bg-surface/40 backdrop-blur-md border border-border;
+  }
+  
+  .glass-strong {
+    @apply bg-surface/60 backdrop-blur-xl border border-border-light;
+  }
+
+  .glass-ultra {
+    @apply bg-surface/80 backdrop-blur-2xl border border-border-light shadow-2xl shadow-primary/10;
+  }
+  
+  /* Custom scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-2;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-surface/20;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-primary/50 rounded-full;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/70;
+  }
+  
+  /* Button styles */
+  .btn-primary {
+    @apply px-6 py-3 bg-primary hover:bg-secondary text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg hover:shadow-primary/50;
+  }
+  
+  .btn-secondary {
+    @apply px-6 py-3 glass hover:glass-strong text-text rounded-lg font-medium transition-all duration-200;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply glass rounded-xl p-6 transition-all duration-200 hover:border-primary/50;
+  }
+  
+  /* Input styles */
+  .input {
+    @apply w-full px-4 py-3 glass rounded-lg text-text placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all;
+  }
+}
