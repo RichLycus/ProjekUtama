@@ -17,6 +17,10 @@ import json
 from pathlib import Path
 from typing import List, Tuple, Dict
 
+# Get project root directory (where script is located)
+SCRIPT_DIR = Path(__file__).parent.absolute()
+PROJECT_ROOT = SCRIPT_DIR
+
 # Color codes for terminal output
 class Colors:
     GREEN = '\033[92m'
