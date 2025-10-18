@@ -2,6 +2,20 @@
 
 This folder contains utility scripts for development and deployment.
 
+## 🌍 Universal Compatibility
+
+**All scripts are universal and work anywhere:**
+- ✅ Local development (macOS, Windows, Linux)  
+- ✅ Docker containers
+- ✅ CI/CD pipelines
+- ✅ Remote servers
+
+**Scripts automatically detect your project directory!**
+
+📖 **See [scripts-universal.md](scripts-universal.md) for platform-specific examples**
+
+---
+
 ## 📋 Available Scripts
 
 ### 1. `verify_setup.py` ✅

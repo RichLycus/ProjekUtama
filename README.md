@@ -154,6 +154,8 @@ chimera-ai/
 
 ## 🔧 Utility Scripts
 
+**Universal scripts that work anywhere** (local, Docker, CI/CD):
+
 ### `verify_setup.py`
 Check project health before GitHub push:
 ```bash
@@ -169,7 +171,7 @@ python3 build_release.py --clean     # Clean and rebuild
 python3 build_release.py --info      # Show release info
 ```
 
-📖 **See [docs/scripts.md](docs/scripts.md) for detailed guide**
+📖 **See [docs/scripts-universal.md](docs/scripts-universal.md) for complete guide**
 
 ## 📝 Notes
 

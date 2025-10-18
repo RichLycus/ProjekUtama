@@ -126,7 +126,7 @@ def check_python_version() -> bool:
 def check_package_json() -> bool:
     """Check if package.json exists and is valid"""
     print_info("Checking package.json...")
-    package_json = Path('/app/package.json')
+    package_json = PROJECT_ROOT / 'package.json'
     if not package_json.exists():
         print_error("package.json not found!")
         return False
@@ -143,7 +143,7 @@ def check_package_json() -> bool:
 def check_node_modules() -> bool:
     """Check if node_modules is installed"""
     print_info("Checking node_modules...")
-    node_modules = Path('/app/node_modules')
+    node_modules = PROJECT_ROOT / 'node_modules'
     if not node_modules.exists():
         print_warning("node_modules not found! Run: yarn install")
         return False
@@ -155,7 +155,7 @@ def check_node_modules() -> bool:
 def check_typescript() -> bool:
     """Check TypeScript compilation"""
     print_info("Checking TypeScript compilation...")
-    success, output = run_command(['npx', 'tsc', '--noEmit'], cwd='/app')
+    success, output = run_command(['npx', 'tsc', '--noEmit'], cwd=str(PROJECT_ROOT))
     if success:
         print_success("TypeScript compilation: No errors")
         return True
@@ -167,7 +167,7 @@ def check_typescript() -> bool:
 def check_build() -> bool:
     """Check if build works"""
     print_info("Checking build process (this may take a minute)...")
-    success, output = run_command(['yarn', 'build'], cwd='/app')
+    success, output = run_command(['yarn', 'build'], cwd=str(PROJECT_ROOT))
     if success:
         print_success("Build successful!")
         return True
@@ -179,7 +179,7 @@ def check_build() -> bool:
 def check_gitignore() -> bool:
     """Check if .gitignore exists and has required entries"""
     print_info("Checking .gitignore...")
-    gitignore = Path('/app/.gitignore')
+    gitignore = PROJECT_ROOT / '.gitignore'
     if not gitignore.exists():
         print_error(".gitignore not found!")
         return False
@@ -202,7 +202,7 @@ def check_large_files(max_size_mb: int = 100) -> List[Tuple[Path, int]]:
     large_files = []
     exclude_dirs = {'node_modules', 'release', 'dist', 'dist-electron', '.git', 'build'}
     
-    root = Path('/app')
+    root = PROJECT_ROOT
     for file_path in root.rglob('*'):
         if file_path.is_file():
             # Skip excluded directories
@@ -228,7 +228,7 @@ def check_release_folder() -> Dict[str, any]:
     """Check release folder size and files"""
     print_info("Checking release folder...")
     
-    release_path = Path('/app/release')
+    release_path = PROJECT_ROOT / 'release'
     if not release_path.exists():
         print_info("Release folder not found (will be created on build)")
         return {'exists': False, 'size': 0, 'files': []}
@@ -262,7 +262,7 @@ def check_project_structure() -> bool:
     
     missing = []
     for path_str in required_paths:
-        path = Path('/app') / path_str
+        path = PROJECT_ROOT / path_str
         if not path.exists():
             missing.append(path_str)
     
@@ -289,7 +289,7 @@ def check_documentation() -> bool:
     
     missing = []
     for doc in doc_files:
-        path = Path('/app') / doc
+        path = PROJECT_ROOT / doc
         if not path.exists():
             missing.append(doc)
     
@@ -303,7 +303,8 @@ def check_documentation() -> bool:
 def main():
     """Main verification function"""
     print(f"\n{Colors.BOLD}ChimeraAI Setup Verification{Colors.END}")
-    print(f"{Colors.BOLD}{'='*60}{Colors.END}\n")
+    print(f"{Colors.BOLD}{'='*60}{Colors.END}")
+    print(f"{Colors.BLUE}Project: {PROJECT_ROOT}{Colors.END}\n")
     
     checks_passed = 0
     checks_failed = 0

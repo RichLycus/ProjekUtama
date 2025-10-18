@@ -17,6 +17,10 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
+# Get project root directory (where script is located)
+SCRIPT_DIR = Path(__file__).parent.absolute()
+PROJECT_ROOT = SCRIPT_DIR
+
 class Colors:
     GREEN = '\033[92m'
     RED = '\033[91m'
@@ -42,7 +46,7 @@ def print_info(text: str):
 def clean_release_folder():
     """Clean release folder"""
     print_info("Cleaning release folder...")
-    release_path = Path('/app/release')
+    release_path = PROJECT_ROOT / 'release'
     if release_path.exists():
         shutil.rmtree(release_path)
         print_success("Release folder cleaned")
@@ -57,7 +61,7 @@ def run_build():
     try:
         result = subprocess.run(
             ['yarn', 'build'],
-            cwd='/app',
+            cwd=str(PROJECT_ROOT),
             check=True,
             capture_output=False
         )
@@ -69,7 +73,7 @@ def run_build():
 
 def get_release_info():
     """Get information about built releases"""
-    release_path = Path('/app/release')
+    release_path = PROJECT_ROOT / 'release'
     if not release_path.exists():
         print_error("Release folder not found!")
         return []
@@ -96,7 +100,7 @@ def create_download_instructions():
     
     if not files:
         print_info("No release builds found.")
-        print_info("Builds are located in: /app/release/")
+        print_info(f"Builds are located in: {PROJECT_ROOT / 'release'}")
         return
     
     print_success(f"Found {len(files)} release build(s):")
@@ -111,7 +115,7 @@ def create_download_instructions():
     print_info("To download these files from your container/server:")
     print("   1. Use SCP/SFTP to transfer files")
     print("   2. Or create a temporary web server:")
-    print(f"      cd /app/release")
+    print(f"      cd {PROJECT_ROOT / 'release'}")
     print(f"      python3 -m http.server 8080")
     print()
 
@@ -124,7 +128,8 @@ def main():
     args = parser.parse_args()
     
     print(f"\n{Colors.BOLD}ChimeraAI Release Builder{Colors.END}")
-    print(f"{Colors.BOLD}{'='*60}{Colors.END}\n")
+    print(f"{Colors.BOLD}{'='*60}{Colors.END}")
+    print(f"{Colors.BLUE}Project: {PROJECT_ROOT}{Colors.END}\n")
     
     if args.info:
         create_download_instructions()
