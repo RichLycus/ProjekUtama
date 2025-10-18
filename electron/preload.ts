@@ -13,8 +13,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
   
   // Python Tool execution (Phase 2)
-  // runPythonTool: (toolId: string, params: any) => ipcRenderer.invoke('python-tool:run', toolId, params),
-  // onToolStatus: (callback: Function) => ipcRenderer.on('python-tool:status', (_event, data) => callback(data)),
+  uploadTool: (formData: any) => ipcRenderer.invoke('tool:upload', formData),
+  listTools: (filters: any) => ipcRenderer.invoke('tool:list', filters),
+  getTool: (toolId: string) => ipcRenderer.invoke('tool:get', toolId),
+  executeTool: (toolId: string, params: any) => ipcRenderer.invoke('tool:execute', toolId, params),
+  toggleTool: (toolId: string) => ipcRenderer.invoke('tool:toggle', toolId),
+  deleteTool: (toolId: string) => ipcRenderer.invoke('tool:delete', toolId),
+  validateTool: (toolId: string) => ipcRenderer.invoke('tool:validate', toolId),
+  installDeps: (toolId: string) => ipcRenderer.invoke('tool:install-deps', toolId),
+  getToolLogs: (toolId: string) => ipcRenderer.invoke('tool:logs', toolId),
+  getCategories: () => ipcRenderer.invoke('tool:categories'),
   
   // AI Chat (Phase 3)
   // sendChatMessage: (message: string, context?: any) => ipcRenderer.invoke('ai-chat:send', message, context),
@@ -28,8 +36,17 @@ export interface ElectronAPI {
   maximizeWindow: () => void
   closeWindow: () => void
   isMaximized: () => Promise<boolean>
-  // runPythonTool: (toolId: string, params: any) => Promise<any>
-  // onToolStatus: (callback: (data: any) => void) => void
+  // Python Tools (Phase 2)
+  uploadTool: (formData: any) => Promise<any>
+  listTools: (filters: any) => Promise<any>
+  getTool: (toolId: string) => Promise<any>
+  executeTool: (toolId: string, params: any) => Promise<any>
+  toggleTool: (toolId: string) => Promise<any>
+  deleteTool: (toolId: string) => Promise<any>
+  validateTool: (toolId: string) => Promise<any>
+  installDeps: (toolId: string) => Promise<any>
+  getToolLogs: (toolId: string) => Promise<any>
+  getCategories: () => Promise<any>
   // sendChatMessage: (message: string, context?: any) => Promise<void>
   // onChatResponse: (callback: (data: any) => void) => void
 }

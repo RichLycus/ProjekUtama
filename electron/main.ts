@@ -97,6 +97,132 @@ function setupIPC() {
     const window = BrowserWindow.getFocusedWindow()
     return window ? window.isMaximized() : false
   })
+
+  // Python Tools API handlers
+  const BACKEND_URL = 'http://localhost:8001'
+
+  ipcMain.handle('tool:upload', async (_event, formData) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const FormData = (await import('form-data')).default
+      
+      const form = new FormData()
+      Object.keys(formData).forEach(key => {
+        form.append(key, formData[key])
+      })
+      
+      const response = await fetch(`${BACKEND_URL}/api/tools/upload`, {
+        method: 'POST',
+        body: form
+      })
+      return await response.json()
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('tool:list', async (_event, filters = {}) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const params = new URLSearchParams(filters)
+      const response = await fetch(`${BACKEND_URL}/api/tools?${params}`)
+      return await response.json()
+    } catch (error: any) {
+      return { tools: [], error: error.message }
+    }
+  })
+
+  ipcMain.handle('tool:get', async (_event, toolId) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const response = await fetch(`${BACKEND_URL}/api/tools/${toolId}`)
+      return await response.json()
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('tool:execute', async (_event, toolId, params) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const response = await fetch(`${BACKEND_URL}/api/tools/${toolId}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      })
+      return await response.json()
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('tool:toggle', async (_event, toolId) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const response = await fetch(`${BACKEND_URL}/api/tools/${toolId}/toggle`, {
+        method: 'PUT'
+      })
+      return await response.json()
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('tool:delete', async (_event, toolId) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const response = await fetch(`${BACKEND_URL}/api/tools/${toolId}`, {
+        method: 'DELETE'
+      })
+      return await response.json()
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('tool:validate', async (_event, toolId) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const response = await fetch(`${BACKEND_URL}/api/tools/${toolId}/validate`, {
+        method: 'POST'
+      })
+      return await response.json()
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('tool:install-deps', async (_event, toolId) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const response = await fetch(`${BACKEND_URL}/api/tools/${toolId}/install-deps`, {
+        method: 'POST'
+      })
+      return await response.json()
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('tool:logs', async (_event, toolId) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const response = await fetch(`${BACKEND_URL}/api/tools/${toolId}/logs`)
+      return await response.json()
+    } catch (error: any) {
+      return { logs: [], error: error.message }
+    }
+  })
+
+  ipcMain.handle('tool:categories', async () => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const response = await fetch(`${BACKEND_URL}/api/tools/categories`)
+      return await response.json()
+    } catch (error: any) {
+      return { categories: [], error: error.message }
+    }
+  })
 }
 
 // IPC Handlers will be added here in future phases

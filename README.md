@@ -12,6 +12,9 @@
 - **🚀 [Development Guide](docs/DEVELOPMENT.md)** - Setup & development
 - **📅 [Phase 0 Complete](docs/phase/phase_0.md)** - Foundation status
 - **✨ [Phase 1.5 Complete](docs/PHASE-1.5-IMPROVEMENTS.md)** - Modern UI Layer
+- **🔧 [Phase 2 Backend Complete](docs/phase/phase_2_backend.md)** - Tools API
+- **⚡ [Quick Start Phase 2](docs/QUICK_START_PHASE2.md)** - Get started now!
+- **🧪 [Backend Testing Guide](docs/BACKEND_TESTING_GUIDE.md)** - Test backend API
 
 ## 🚀 Phase 0 - Foundation Complete
 
@@ -137,7 +140,8 @@ chimera-ai/
 - **Phase 0**: ✅ **COMPLETE** - Foundation & Architecture
 - **Phase 1**: ✅ **COMPLETE** - Animated avatar, glassmorphism, page transitions
 - **Phase 1.5**: ✅ **COMPLETE** - Modern UI Layer (Frameless window, custom controls)
-- **Phase 2**: 🚧 **NEXT** - Python Tools - Tool execution framework  
+- **Phase 2 Backend**: ✅ **COMPLETE** - Python Tools API & Management System
+- **Phase 2 Frontend**: 🚧 **IN PROGRESS** - Tools UI Components
 - **Phase 3**: AI Chat - Ollama integration
 - **Phase 4**: Animations - Advanced avatar states
 - **Phase 5**: Games & Polish - Final features
@@ -199,13 +203,25 @@ python3 build_release.py --info      # Show release info
 
 ---
 
-**Current Status**: Phase 1.5 Complete ✅  
-**Next**: Phase 2 - Python Tools Integration
+**Current Status**: Phase 2 Backend Complete ✅  
+**Next**: Phase 2 Frontend - Tools UI Components
 
-### Phase 1.5 Highlights 🎉
-- ✅ Frameless modern window design
-- ✅ Custom window controls (minimize, maximize, close)
-- ✅ Draggable header region
-- ✅ Fixed all preload script errors
-- ✅ Implemented Content Security Policy
-- ✅ Production build successful (109 MB AppImage)
+### Phase 2 Backend Highlights 🎉
+- ✅ FastAPI backend with 10+ REST endpoints
+- ✅ Auto-validation system (syntax, imports, structure)
+- ✅ Safe tool execution (subprocess isolation)
+- ✅ Category-based organization (7 categories)
+- ✅ Dependency auto-installer
+- ✅ Comprehensive logging system
+- ✅ Example tools included (JSON Formatter, Text Counter, CSV Converter)
+
+### Quick Start:
+```bash
+# Start full stack (Backend + Frontend)
+./launcher_app.sh
+
+# Or backend only
+cd backend && python3 server.py
+```
+
+📖 **[See Backend Testing Guide](docs/BACKEND_TESTING_GUIDE.md)** for manual testing!

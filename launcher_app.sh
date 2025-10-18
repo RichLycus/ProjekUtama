@@ -84,7 +84,8 @@ show_banner() {
 ║    ╚██████╗██║  ██║██║██║ ╚═╝ ██║███████╗██║  ██║██║  ██║║
 ║     ╚═════╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝║
 ║                                                           ║
-║            🐳 Universal Launcher v2.0                     ║
+║            🚀 Universal Launcher v2.0 (Phase 2)          ║
+║            Backend API + Electron + React                 ║
 ║            (Local + Docker Support)                       ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
@@ -219,7 +220,7 @@ install_dependencies() {
 check_ports() {
     log_step "Checking if ports are available..."
     
-    local ports=(5173 3000 3001)  # Vite, alternative ports
+    local ports=(5173 3000 3001 8001)  # Vite, alternative ports, Backend API
     
     for port in "${ports[@]}"; do
         if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
@@ -243,6 +244,116 @@ check_ports() {
             log_success "Port $port is available"
         fi
     done
+}
+
+#############################################
+# Backend Functions (Phase 2)
+#############################################
+
+check_python() {
+    log_step "Checking Python environment..."
+    
+    if command -v python3 > /dev/null 2>&1; then
+        PYTHON_VERSION=$(python3 --version | cut -d ' ' -f 2)
+        log_success "Python $PYTHON_VERSION found"
+        return 0
+    elif command -v python > /dev/null 2>&1; then
+        PYTHON_VERSION=$(python --version | cut -d ' ' -f 2)
+        log_success "Python $PYTHON_VERSION found"
+        return 0
+    else
+        log_error "Python not found. Please install Python 3.8+"
+        exit 1
+    fi
+}
+
+install_backend_deps() {
+    log_step "Installing backend dependencies..."
+    
+    if [ ! -d "$PROJECT_DIR/backend" ]; then
+        log_warning "Backend directory not found, skipping..."
+        return 0
+    fi
+    
+    cd "$PROJECT_DIR/backend"
+    
+    if [ -f "requirements.txt" ]; then
+        log_info "Installing Python packages..."
+        if python3 -m pip install -q -r requirements.txt 2>&1 | tee -a "$LOG_FILE"; then
+            log_success "Backend dependencies installed!"
+        else
+            log_error "Failed to install backend dependencies"
+            exit 1
+        fi
+    else
+        log_warning "No requirements.txt found in backend"
+    fi
+    
+    cd "$PROJECT_DIR"
+}
+
+start_backend() {
+    log_step "Starting backend API server..."
+    
+    if [ ! -d "$PROJECT_DIR/backend" ]; then
+        log_warning "Backend directory not found, skipping..."
+        return 0
+    fi
+    
+    cd "$PROJECT_DIR/backend"
+    
+    # Create backend log file
+    BACKEND_LOG="$LOG_DIR/backend_$(date +%Y%m%d_%H%M%S).log"
+    
+    # Check if backend is already running
+    if lsof -Pi :8001 -sTCP:LISTEN -t >/dev/null 2>&1; then
+        log_warning "Backend already running on port 8001"
+        return 0
+    fi
+    
+    log_info "Starting FastAPI server on port 8001..."
+    log_info "Backend logs: $BACKEND_LOG"
+    
+    # Start backend in background
+    python3 server.py > "$BACKEND_LOG" 2>&1 &
+    BACKEND_PID=$!
+    
+    # Wait for backend to start
+    log_info "Waiting for backend to start..."
+    sleep 3
+    
+    # Check if backend is running
+    if curl -s http://localhost:8001/ > /dev/null 2>&1; then
+        log_success "Backend API server started! (PID: $BACKEND_PID)"
+        log_info "Backend API: http://localhost:8001"
+        echo $BACKEND_PID > "$LOG_DIR/backend.pid"
+    else
+        log_error "Backend failed to start. Check $BACKEND_LOG for details"
+        cat "$BACKEND_LOG" | tail -20
+        exit 1
+    fi
+    
+    cd "$PROJECT_DIR"
+}
+
+stop_backend() {
+    log_step "Stopping backend server..."
+    
+    if [ -f "$LOG_DIR/backend.pid" ]; then
+        BACKEND_PID=$(cat "$LOG_DIR/backend.pid")
+        if ps -p $BACKEND_PID > /dev/null 2>&1; then
+            kill $BACKEND_PID 2>/dev/null || true
+            log_success "Backend server stopped"
+        fi
+        rm "$LOG_DIR/backend.pid"
+    else
+        # Try to kill by port
+        BACKEND_PID=$(lsof -t -i:8001 2>/dev/null)
+        if [ -n "$BACKEND_PID" ]; then
+            kill $BACKEND_PID 2>/dev/null || true
+            log_success "Backend server stopped"
+        fi
+    fi
 }
 
 setup_docker_environment() {
@@ -271,7 +382,7 @@ setup_docker_environment() {
 #############################################
 
 start_dev_server() {
-    log_step "Starting development server..."
+    log_step "Starting development environment..."
     
     cd "$PROJECT_DIR"
     
@@ -280,9 +391,13 @@ start_dev_server() {
     
     log_info "Environment: $ENVIRONMENT"
     log_info "Project Directory: $PROJECT_DIR"
-    log_info "Starting Electron + Vite..."
     log_info "Development logs: $DEV_LOG"
     log_info "Launcher logs: $LOG_FILE"
+    
+    # Start Backend API (Phase 2)
+    start_backend
+    
+    log_step "Starting Electron + Vite..."
     
     # Set Electron flags based on environment
     if [ "$ENVIRONMENT" = "docker" ]; then
@@ -400,6 +515,7 @@ main() {
         # Check prerequisites
         check_node
         check_yarn
+        check_python  # Phase 2: Backend check
         check_electron_deps
         
         # Clean install if requested
@@ -419,6 +535,9 @@ main() {
                 fi
             fi
         fi
+        
+        # Install backend dependencies (Phase 2)
+        install_backend_deps
         
         # Check ports (only in local mode)
         if [ "$ENVIRONMENT" = "local" ]; then
@@ -444,12 +563,15 @@ cleanup() {
     echo ""
     log_warning "Shutting down..."
     
+    # Stop backend server (Phase 2)
+    stop_backend
+    
     # Kill background processes in Docker
     if [ "$ENVIRONMENT" = "docker" ]; then
         pkill -f Xvfb 2>/dev/null || true
     fi
     
-    log_info "Development server stopped"
+    log_info "Development environment stopped"
     exit 0
 }
 
