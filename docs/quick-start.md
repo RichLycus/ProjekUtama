@@ -3,7 +3,7 @@
 ## Start Development Server
 
 ```bash
-./launcher_app.sh
+./start_chimera.sh
 ```
 
 That's it! The launcher will:
@@ -25,9 +25,12 @@ That's it! The launcher will:
 
 ```
 logs/
-├── launcher_YYYYMMDD_HHMMSS.log  # Startup checks
-└── dev_YYYYMMDD_HHMMSS.log       # Dev server output
+├── launcher.log  # Startup checks (reset on each run)
+├── backend.log   # Backend server output (reset on each run)
+└── frontend.log  # Frontend dev server output (reset on each run)
 ```
+
+**Note**: All log files are reset (overwritten) on each run for clean output.
 
 ## Manual Start (Alternative)
 

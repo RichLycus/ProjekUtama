@@ -53,11 +53,20 @@ class ToolValidator:
         }
     
     def _check_metadata(self, content: str) -> Dict:
-        """Check if required metadata exists in comments"""
+        """Check if required metadata exists in comments or docstring"""
         errors = []
         found_metadata = {}
         
-        # Extract metadata from comments
+        # First, try to extract from docstring (triple quotes)
+        docstring_match = re.search(r'"""([\s\S]*?)"""', content)
+        if docstring_match:
+            docstring = docstring_match.group(1)
+            for meta in self.required_metadata + ["VERSION", "AUTHOR"]:
+                match = re.search(f"{meta}:\s*(.+)", docstring, re.IGNORECASE)
+                if match:
+                    found_metadata[meta] = match.group(1).strip()
+        
+        # Also check for metadata in comments (backward compatibility)
         for line in content.split('\n'):
             line = line.strip()
             if line.startswith('#'):

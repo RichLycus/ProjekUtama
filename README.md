@@ -9,11 +9,12 @@
 
 - **🏅 [Golden Rules](docs/golden-rules.md)** - MUST READ! Project conventions
 - **📖 [Full Documentation](docs/index.md)** - Complete documentation index
-- **🚀 [Development Guide](docs/DEVELOPMENT.md)** - Setup & development
+- **🚀 [Quick Start Guide](docs/quick-start.md)** - Get started in 1 minute!
+- **📘 [Development Guide](docs/DEVELOPMENT.md)** - Setup & development
 - **📅 [Phase 0 Complete](docs/phase/phase_0.md)** - Foundation status
 - **✨ [Phase 1.5 Complete](docs/PHASE-1.5-IMPROVEMENTS.md)** - Modern UI Layer
-- **🔧 [Phase 2 Backend Complete](docs/phase/phase_2_backend.md)** - Tools API
-- **⚡ [Quick Start Phase 2](docs/QUICK_START_PHASE2.md)** - Get started now!
+- **🔧 [Phase 2 Complete](docs/phase/phase_2.md)** - UI Fix + SQLite Migration
+- **⚡ [Phase 2 Backend](docs/QUICK_START_PHASE2.md)** - Backend API guide
 - **🧪 [Backend Testing Guide](docs/BACKEND_TESTING_GUIDE.md)** - Test backend API
 
 ## 🚀 Phase 0 - Foundation Complete
@@ -56,7 +57,7 @@ yarn install
 
 **🚀 Recommended (with auto-checks):**
 ```bash
-./launcher_app.sh
+./start_chimera.sh
 ```
 
 **Manual:**
@@ -218,7 +219,7 @@ python3 build_release.py --info      # Show release info
 ### Quick Start:
 ```bash
 # Start full stack (Backend + Frontend)
-./launcher_app.sh
+./start_chimera.sh
 
 # Or backend only
 cd backend && python3 server.py

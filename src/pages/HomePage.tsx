@@ -15,7 +15,7 @@ export default function HomePage() {
   }, [])
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center px-6">
+    <div className="min-h-[calc(100vh-88px)] flex flex-col items-center justify-center px-6 py-8">
       {/* Avatar Area */}
       <div className="relative mb-8">
         <AnimatedAvatar size={240} isActive={!!pingResult} />

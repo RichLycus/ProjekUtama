@@ -24,9 +24,11 @@ docs/
 
 ### 🏅 **MUST READ FIRST**
 - [**Golden Rules**](golden-rules.md) - Project conventions & rules (WAJIB!)
+- [**Portability Guide**](portability.md) - Universal/portable code best practices 🌐
 - [**Quick Reference**](quick-reference.md) - Developer cheat sheet 📋
 
 ### 📖 **Core Documentation**
+- [Quick Start Guide](quick-start.md) - Get started in 1 minute! 🚀
 - [Development Guide](DEVELOPMENT.md) - Complete dev guide, setup, patterns
 - [Scripts Guide](scripts.md) - Utility scripts for development & release
 - [Launcher Guide](launcher.md) - Development launcher documentation
@@ -38,8 +40,10 @@ docs/
 
 ### 📅 **Phase Documentation**
 - [Phase 0: Foundation](phase/phase_0.md) - ✅ COMPLETE
-- **Phase 1**: ✅ COMPLETE
-- Phase 2: Python Tools - 📋 Planned
+- [Phase 1: UI Enhancement](phase/phase_1.md) - ✅ COMPLETE
+- [Phase 2: SQLite + UI Fix](phase/phase_2.md) - ✅ COMPLETE
+- [Phase 2 Backend: Tools API](phase/phase_2_backend.md) - ✅ COMPLETE
+- [Phase 2 Frontend: Tools UI](phase/phase_2_frontend.md) - ✅ COMPLETE
 - Phase 3: AI Chat - 📋 Planned
 - Phase 4: Animations - 📋 Planned
 - Phase 5: Games & Polish - 📋 Planned

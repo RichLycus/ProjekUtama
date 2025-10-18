@@ -5,8 +5,8 @@
 ### Option 1: Full Stack (Backend + Frontend)
 
 ```bash
-cd /app
-./launcher_app.sh
+cd .
+./start_chimera.sh
 ```
 
 Ini akan:
@@ -20,7 +20,7 @@ Ini akan:
 ### Option 2: Backend Only
 
 ```bash
-cd /app/backend
+cd ./backend
 python3 server.py
 ```
 
@@ -39,7 +39,7 @@ curl http://localhost:8001/api/tools/categories
 
 # Upload test tool
 curl -X POST "http://localhost:8001/api/tools/upload" \
-  -F "file=@/app/backend/tools/devtools/example_json_formatter.py" \
+  -F "file=@backend/tools/devtools/example_json_formatter.py" \
   -F "name=JSON Formatter" \
   -F "description=Format JSON" \
   -F "category=DevTools"
@@ -50,13 +50,13 @@ curl -X POST "http://localhost:8001/api/tools/upload" \
 ## 📚 Documentation
 
 **Phase 2 Docs:**
-- [Backend API Documentation](/app/docs/phase/phase_2_backend.md)
-- [Testing Guide](/app/docs/BACKEND_TESTING_GUIDE.md)
-- [Roadmap](/app/docs/phase/phase_2_roadmap.md)
+- [Backend API Documentation](docs/phase/phase_2_backend.md)
+- [Testing Guide](docs/BACKEND_TESTING_GUIDE.md)
+- [Roadmap](docs/phase/phase_2_roadmap.md)
 
 **Tool Development:**
-- Tool format standard: See `/app/backend/tools/devtools/example_json_formatter.py`
-- Example tools in `/app/backend/tools/`
+- Tool format standard: See `backend/tools/devtools/example_json_formatter.py`
+- Example tools in `backend/tools/`
 
 ---
 
@@ -138,11 +138,11 @@ lsof -ti :8001 | xargs kill
 ## 📍 Important Paths
 
 ```
-/app/backend/              - Backend source
-/app/backend/server.py     - Main API server
-/app/backend/tools/        - Tools storage
-/app/logs/                 - All logs
-/app/docs/                 - Documentation
+backend/              - Backend source
+backend/server.py     - Main API server
+backend/tools/        - Tools storage
+logs/                 - All logs
+docs/                 - Documentation
 ```
 
 ---
@@ -150,8 +150,8 @@ lsof -ti :8001 | xargs kill
 ## 💡 Tips
 
 1. **Testing:** Gunakan testing guide di `docs/BACKEND_TESTING_GUIDE.md`
-2. **Logs:** Check logs di `/app/logs/backend_*.log`
-3. **Example Tools:** Lihat di `/app/backend/tools/` untuk reference
+2. **Logs:** Check logs di `logs/backend_*.log`
+3. **Example Tools:** Lihat di `backend/tools/` untuk reference
 4. **API Docs:** Full API docs di `docs/phase/phase_2_backend.md`
 
 ---

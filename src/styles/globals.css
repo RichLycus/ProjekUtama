@@ -3,44 +3,79 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  /* Removed global transition-colors for instant theme switching */
   
   body {
-    @apply bg-background text-text font-sans;
+    @apply font-sans bg-white text-gray-900;
     font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  /* Light theme (default) */
+  body {
+    --toast-bg: #ffffff;
+    --toast-text: #1f2937;
+    --toast-border: #e5e7eb;
+  }
+
+  /* Dark theme */
+  .dark body {
+    @apply bg-dark-background text-white;
+    --toast-bg: #2d2d3f;
+    --toast-text: #ffffff;
+    --toast-border: #3e3e52;
   }
 }
 
 @layer components {
-  /* Glassmorphism effect */
+  /* Glassmorphism effect - Light (default) */
   .glass {
-    @apply bg-surface/40 backdrop-blur-md border border-border;
+    @apply bg-white/90 backdrop-blur-md border border-gray-200 shadow-sm;
   }
   
   .glass-strong {
-    @apply bg-surface/60 backdrop-blur-xl border border-border-light;
+    @apply bg-white backdrop-blur-xl border border-gray-200 shadow-md;
   }
 
   .glass-ultra {
-    @apply bg-surface/80 backdrop-blur-2xl border border-border-light shadow-2xl shadow-primary/10;
+    @apply bg-white backdrop-blur-2xl border border-gray-200 shadow-xl;
+  }
+
+  /* Glassmorphism effect - Dark */
+  .dark .glass {
+    @apply bg-dark-surface/40 backdrop-blur-md border border-dark-border;
   }
   
-  /* Custom scrollbar */
+  .dark .glass-strong {
+    @apply bg-dark-surface/60 backdrop-blur-xl border border-dark-border-light;
+  }
+
+  .dark .glass-ultra {
+    @apply bg-dark-surface/80 backdrop-blur-2xl border border-dark-border-light shadow-2xl shadow-primary/10;
+  }
+  
+  /* Custom scrollbar - Light (default) */
   .custom-scrollbar::-webkit-scrollbar {
     @apply w-2;
   }
   
   .custom-scrollbar::-webkit-scrollbar-track {
-    @apply bg-surface/20;
+    @apply bg-transparent;
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-primary/50 rounded-full;
+    @apply bg-gray-400 rounded-full;
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500;
+  }
+
+  /* Custom scrollbar - Dark */
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-primary/50 rounded-full;
+  }
+  
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     @apply bg-primary/70;
   }
   
@@ -50,7 +85,11 @@
   }
   
   .btn-secondary {
-    @apply px-6 py-3 glass hover:glass-strong text-text rounded-lg font-medium transition-all duration-200;
+    @apply px-6 py-3 glass hover:glass-strong rounded-lg font-medium transition-all duration-200 text-gray-800 bg-white border-gray-200 hover:bg-gray-50;
+  }
+
+  .dark .btn-secondary {
+    @apply text-white;
   }
   
   /* Card styles */
@@ -60,6 +99,27 @@
   
   /* Input styles */
   .input {
-    @apply w-full px-4 py-3 glass rounded-lg text-text placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all;
+    @apply w-full px-4 py-3 glass rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-gray-900 placeholder-gray-400 bg-white border-gray-200;
+  }
+
+  .dark .input {
+    @apply text-white placeholder-gray-400;
+  }
+
+  /* Text colors */
+  .text-secondary {
+    @apply text-gray-600;
+  }
+
+  .dark .text-secondary {
+    @apply text-gray-400;
+  }
+
+  .text-muted {
+    @apply text-gray-400;
+  }
+
+  .dark .text-muted {
+    @apply text-gray-500;
   }
 }

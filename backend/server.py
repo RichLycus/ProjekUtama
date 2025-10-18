@@ -4,31 +4,44 @@ from fastapi.responses import JSONResponse, StreamingResponse
 import os
 import uuid
 import json
+from pathlib import Path
 from datetime import datetime
 from typing import Optional, List
-import mongomock
-import asyncio
 
+from database import SQLiteDB
 from modules.tool_validator import ToolValidator
 from modules.tool_executor import ToolExecutor
 from modules.dependency_manager import DependencyManager
 
 app = FastAPI(title="ChimeraAI Tools API")
 
-# CORS Configuration
+# CORS Configuration for Electron Desktop App
+# Allow localhost (development) and electron:// protocol
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
+    allow_origin_regex=r"http://localhost:\d+",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# MongoDB Connection (using mongomock for now)
-client = mongomock.MongoClient()
-db = client['chimera_tools']
-tools_collection = db['tools']
-logs_collection = db['tool_logs']
+# Get backend directory (portable path)
+BACKEND_DIR = Path(__file__).parent
+DATA_DIR = BACKEND_DIR / "data"
+TOOLS_DIR = BACKEND_DIR / "tools"
+
+# Ensure directories exist
+DATA_DIR.mkdir(exist_ok=True)
+TOOLS_DIR.mkdir(exist_ok=True)
+
+# SQLite Database Connection
+db = SQLiteDB(str(DATA_DIR / "chimera_tools.db"))
 
 # Initialize modules
 validator = ToolValidator()
@@ -49,7 +62,7 @@ def log_action(tool_id: str, action: str, status: str, message: str, trace: str 
         "trace": trace,
         "timestamp": datetime.utcnow().isoformat()
     }
-    logs_collection.insert_one(log)
+    db.insert_log(log)
     return log
 
 
@@ -86,16 +99,16 @@ async def upload_tool(
         content = await file.read()
         script_content = content.decode('utf-8')
         
-        # Save to category folder
-        category_folder = f"/app/backend/tools/{category.lower()}"
-        os.makedirs(category_folder, exist_ok=True)
-        script_path = f"{category_folder}/{tool_id}.py"
+        # Save to category folder (portable path)
+        category_folder = TOOLS_DIR / category.lower()
+        category_folder.mkdir(exist_ok=True)
+        script_path = category_folder / f"{tool_id}.py"
         
         with open(script_path, 'w') as f:
             f.write(script_content)
         
-        # Validate tool
-        validation_result = validator.validate(script_path, script_content)
+        # Validate tool (convert Path to string for validator)
+        validation_result = validator.validate(str(script_path), script_content)
         
         # Determine status
         status = "active" if validation_result["valid"] else "disabled"
@@ -108,7 +121,7 @@ async def upload_tool(
             "category": category,
             "version": version,
             "author": author,
-            "script_path": script_path,
+            "script_path": str(script_path),  # Store as string
             "dependencies": validation_result.get("dependencies", []),
             "status": status,
             "last_validated": datetime.utcnow().isoformat(),
@@ -116,7 +129,7 @@ async def upload_tool(
             "updated_at": datetime.utcnow().isoformat()
         }
         
-        tools_collection.insert_one(tool_doc)
+        db.insert_tool(tool_doc)
         
         # Log action
         log_action(
@@ -141,20 +154,20 @@ async def upload_tool(
 @app.get("/api/tools")
 async def list_tools(category: Optional[str] = None, status: Optional[str] = None):
     """List all tools with optional filters"""
-    query = {}
+    filters = {}
     if category:
-        query["category"] = category
+        filters["category"] = category
     if status:
-        query["status"] = status
+        filters["status"] = status
     
-    tools = list(tools_collection.find(query))
+    tools = db.list_tools(filters)
     return {"tools": tools, "count": len(tools)}
 
 
 @app.get("/api/tools/{tool_id}")
 async def get_tool(tool_id: str):
     """Get tool details"""
-    tool = tools_collection.find_one({"_id": tool_id})
+    tool = db.get_tool(tool_id)
     if not tool:
         raise HTTPException(404, "Tool not found")
     return {"tool": tool}
@@ -163,7 +176,7 @@ async def get_tool(tool_id: str):
 @app.post("/api/tools/{tool_id}/validate")
 async def validate_tool(tool_id: str):
     """Re-validate a tool"""
-    tool = tools_collection.find_one({"_id": tool_id})
+    tool = db.get_tool(tool_id)
     if not tool:
         raise HTTPException(404, "Tool not found")
     
@@ -176,14 +189,10 @@ async def validate_tool(tool_id: str):
     
     # Update status
     new_status = "active" if validation_result["valid"] else "disabled"
-    tools_collection.update_one(
-        {"_id": tool_id},
-        {"$set": {
-            "status": new_status,
-            "last_validated": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat()
-        }}
-    )
+    db.update_tool(tool_id, {
+        "status": new_status,
+        "last_validated": datetime.utcnow().isoformat()
+    })
     
     # Log
     log_action(
@@ -200,7 +209,7 @@ async def validate_tool(tool_id: str):
 @app.post("/api/tools/{tool_id}/execute")
 async def execute_tool(tool_id: str, params: dict = {}):
     """Execute a tool with parameters"""
-    tool = tools_collection.find_one({"_id": tool_id})
+    tool = db.get_tool(tool_id)
     if not tool:
         raise HTTPException(404, "Tool not found")
     
@@ -235,16 +244,13 @@ async def execute_tool(tool_id: str, params: dict = {}):
 @app.put("/api/tools/{tool_id}/toggle")
 async def toggle_tool(tool_id: str):
     """Toggle tool status (active/disabled)"""
-    tool = tools_collection.find_one({"_id": tool_id})
+    tool = db.get_tool(tool_id)
     if not tool:
         raise HTTPException(404, "Tool not found")
     
     new_status = "disabled" if tool["status"] == "active" else "active"
     
-    tools_collection.update_one(
-        {"_id": tool_id},
-        {"$set": {"status": new_status, "updated_at": datetime.utcnow().isoformat()}}
-    )
+    db.update_tool(tool_id, {"status": new_status})
     
     # Log
     log_action(
@@ -261,7 +267,7 @@ async def toggle_tool(tool_id: str):
 @app.delete("/api/tools/{tool_id}")
 async def delete_tool(tool_id: str):
     """Delete a tool"""
-    tool = tools_collection.find_one({"_id": tool_id})
+    tool = db.get_tool(tool_id)
     if not tool:
         raise HTTPException(404, "Tool not found")
     
@@ -270,7 +276,7 @@ async def delete_tool(tool_id: str):
         os.remove(tool["script_path"])
     
     # Delete from database
-    tools_collection.delete_one({"_id": tool_id})
+    db.delete_tool(tool_id)
     
     # Log
     log_action(
@@ -287,7 +293,7 @@ async def delete_tool(tool_id: str):
 @app.post("/api/tools/{tool_id}/install-deps")
 async def install_dependencies(tool_id: str):
     """Install missing dependencies for a tool"""
-    tool = tools_collection.find_one({"_id": tool_id})
+    tool = db.get_tool(tool_id)
     if not tool:
         raise HTTPException(404, "Tool not found")
     
@@ -302,14 +308,10 @@ async def install_dependencies(tool_id: str):
         
         # Update status
         new_status = "active" if validation_result["valid"] else "disabled"
-        tools_collection.update_one(
-            {"_id": tool_id},
-            {"$set": {
-                "status": new_status,
-                "last_validated": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat()
-            }}
-        )
+        db.update_tool(tool_id, {
+            "status": new_status,
+            "last_validated": datetime.utcnow().isoformat()
+        })
         
         # Log
         log_action(
@@ -328,7 +330,7 @@ async def install_dependencies(tool_id: str):
 @app.get("/api/tools/{tool_id}/logs")
 async def get_tool_logs(tool_id: str, limit: int = 50):
     """Get logs for a specific tool"""
-    logs = list(logs_collection.find({"tool_id": tool_id}).sort("timestamp", -1).limit(limit))
+    logs = db.get_logs(tool_id, limit)
     return {"logs": logs, "count": len(logs)}
 
 

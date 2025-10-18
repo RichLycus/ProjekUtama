@@ -96,7 +96,7 @@ python server.py
 **Option 2: With Launcher (Recommended)**
 ```bash
 # From project root
-./launcher_app.sh
+./start_chimera.sh
 ```
 
 ### Verify Server Running
@@ -518,7 +518,7 @@ curl -X PUT "http://localhost:8001/api/tools/TOOL_ID/toggle"
 ## 📊 Example Tools
 
 ### 1. JSON Formatter (DevTools)
-**Location:** `/app/backend/tools/devtools/example_json_formatter.py`
+**Location:** `backend/tools/devtools/example_json_formatter.py`
 
 **Usage:**
 ```json
@@ -529,7 +529,7 @@ curl -X PUT "http://localhost:8001/api/tools/TOOL_ID/toggle"
 ```
 
 ### 2. Text Counter (Utilities)
-**Location:** `/app/backend/tools/utilities/example_text_counter.py`
+**Location:** `backend/tools/utilities/example_text_counter.py`
 
 **Usage:**
 ```json
@@ -539,7 +539,7 @@ curl -X PUT "http://localhost:8001/api/tools/TOOL_ID/toggle"
 ```
 
 ### 3. CSV to JSON (Office)
-**Location:** `/app/backend/tools/office/example_csv_to_json.py`
+**Location:** `backend/tools/office/example_csv_to_json.py`
 
 **Usage:**
 ```json

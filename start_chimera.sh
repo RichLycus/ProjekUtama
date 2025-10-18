@@ -35,10 +35,42 @@ detect_project_dir() {
 
 PROJECT_DIR=$(detect_project_dir)
 LOG_DIR="$PROJECT_DIR/logs"
-LOG_FILE="$LOG_DIR/launcher_$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="$LOG_DIR/launcher.log"
 
 # Create logs directory
 mkdir -p "$LOG_DIR"
+
+# Clean/reset log files at start
+> "$LOG_FILE"  # Reset launcher log
+
+#############################################
+# Port Management Functions
+#############################################
+
+kill_port() {
+    local port=$1
+    local pid=$(lsof -t -i:$port 2>/dev/null)
+    
+    if [ -n "$pid" ]; then
+        log_warning "Port $port is in use (PID: $pid), killing process..."
+        kill -9 $pid 2>/dev/null || true
+        sleep 1
+        log_success "Port $port is now free"
+    fi
+}
+
+kill_all_ports() {
+    log_step "Cleaning up ports..."
+    
+    # Kill backend port
+    kill_port 8001
+    
+    # Kill frontend ports  
+    kill_port 5173
+    kill_port 3000
+    
+    log_success "All ports cleaned up"
+}
 
 #############################################
 # Logging Functions
@@ -217,34 +249,6 @@ install_dependencies() {
     fi
 }
 
-check_ports() {
-    log_step "Checking if ports are available..."
-    
-    local ports=(5173 3000 3001 8001)  # Vite, alternative ports, Backend API
-    
-    for port in "${ports[@]}"; do
-        if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
-            log_warning "Port $port is already in use"
-            
-            if [ "$ENVIRONMENT" = "local" ]; then
-                log_info "Would you like to kill process on port $port?"
-                read -p "$(echo -e ${YELLOW}Kill process on port $port? [y/N]:${NC} )" -n 1 -r
-                echo ""
-                if [[ $REPLY =~ ^[Yy]$ ]]; then
-                    kill -9 $(lsof -t -i:$port) 2>/dev/null || true
-                    sleep 1
-                    log_success "Port $port is now available"
-                else
-                    log_info "Will try alternative port"
-                fi
-            else
-                log_info "Docker environment - skipping port kill"
-            fi
-        else
-            log_success "Port $port is available"
-        fi
-    done
-}
 
 #############################################
 # Backend Functions (Phase 2)
@@ -302,14 +306,9 @@ start_backend() {
     
     cd "$PROJECT_DIR/backend"
     
-    # Create backend log file
-    BACKEND_LOG="$LOG_DIR/backend_$(date +%Y%m%d_%H%M%S).log"
-    
-    # Check if backend is already running
-    if lsof -Pi :8001 -sTCP:LISTEN -t >/dev/null 2>&1; then
-        log_warning "Backend already running on port 8001"
-        return 0
-    fi
+    # Create backend log file (fixed name, reset each run)
+    BACKEND_LOG="$LOG_DIR/backend.log"
+    > "$BACKEND_LOG"  # Reset backend log
     
     log_info "Starting FastAPI server on port 8001..."
     log_info "Backend logs: $BACKEND_LOG"
@@ -386,40 +385,53 @@ start_dev_server() {
     
     cd "$PROJECT_DIR"
     
-    # Create dev log file
-    DEV_LOG="$LOG_DIR/dev_$(date +%Y%m%d_%H%M%S).log"
+    # Create frontend log file (fixed name, reset each run)
+    FRONTEND_LOG="$LOG_DIR/frontend.log"
+    > "$FRONTEND_LOG"  # Reset frontend log
     
     log_info "Environment: $ENVIRONMENT"
     log_info "Project Directory: $PROJECT_DIR"
-    log_info "Development logs: $DEV_LOG"
-    log_info "Launcher logs: $LOG_FILE"
     
     # Start Backend API (Phase 2)
     start_backend
     
+    echo ""
     log_step "Starting Electron + Vite..."
+    
+    # Display service info
+    echo ""
+    echo -e "${GREEN}╔══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║              ChimeraAI Services Started                 ║${NC}"
+    echo -e "${GREEN}╠══════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${GREEN}║${NC} ${CYAN}Backend API:${NC}      http://localhost:8001                ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC} ${CYAN}Frontend (Vite):${NC} http://localhost:5173                ${GREEN}║${NC}"
+    echo -e "${GREEN}╠══════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${GREEN}║${NC} ${YELLOW}📋 Logs Location:${NC}                                      ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Launcher: $LOG_FILE                               ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Backend:  $LOG_DIR/backend.log                     ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Frontend: $FRONTEND_LOG                             ${GREEN}║${NC}"
+    echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    log_info "All logs are being written to fixed files (no timestamps)"
+    log_info "Logs are reset on each run for clean output"
+    echo ""
+    log_success "Development server starting... (logs are being written to files)"
+    echo ""
     
     # Set Electron flags based on environment
     if [ "$ENVIRONMENT" = "docker" ]; then
         export ELECTRON_DISABLE_SECURITY_WARNINGS=true
-        log_info "Running in Docker mode with Xvfb"
         
         # Start with Xvfb if available
         if command -v xvfb-run > /dev/null; then
-            log_info "Starting with xvfb-run..."
-            echo ""
-            xvfb-run -a --server-args="-screen 0 1024x768x24" yarn dev 2>&1 | tee -a "$DEV_LOG"
+            xvfb-run -a --server-args="-screen 0 1024x768x24" yarn dev > "$FRONTEND_LOG" 2>&1
         else
-            log_warning "xvfb-run not available, trying direct start..."
-            echo ""
-            yarn dev 2>&1 | tee -a "$DEV_LOG"
+            yarn dev > "$FRONTEND_LOG" 2>&1
         fi
     else
-        # Local development
-        echo ""
-        log_success "🎉 Starting ChimeraAI in Local Mode..."
-        echo ""
-        yarn dev 2>&1 | tee -a "$DEV_LOG"
+        # Local development - redirect to log file
+        yarn dev > "$FRONTEND_LOG" 2>&1
     fi
 }
 
@@ -510,6 +522,10 @@ main() {
     log_info "Log file: $LOG_FILE"
     echo ""
     
+    # CRITICAL: Kill all ports first to avoid conflicts
+    kill_all_ports
+    echo ""
+    
     # Skip checks if requested
     if [ $SKIP_CHECKS -eq 0 ]; then
         # Check prerequisites
@@ -538,11 +554,6 @@ main() {
         
         # Install backend dependencies (Phase 2)
         install_backend_deps
-        
-        # Check ports (only in local mode)
-        if [ "$ENVIRONMENT" = "local" ]; then
-            check_ports
-        fi
         
         # Setup Docker environment if needed
         setup_docker_environment

@@ -20,7 +20,7 @@
 
 ### Development
 ```bash
-./launcher_app.sh # 🚀 RECOMMENDED: Auto-check & start
+./start_chimera.sh # 🚀 RECOMMENDED: Auto-check & start
 yarn dev          # Manual: Run Electron + Vite
 yarn vite         # Web preview only
 yarn build        # Production build

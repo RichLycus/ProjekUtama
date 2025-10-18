@@ -6,6 +6,114 @@ Sebelum melakukan **APAPUN** di project ini, baca dan ikuti aturan berikut denga
 
 ---
 
+## 🖥️ **RULE #0: Project Context (CRITICAL)**
+
+### **ChimeraAI adalah Electron Desktop Application**
+
+**PENTING:**
+- ✅ Ini adalah **desktop app** berbasis Electron (bukan web app)
+- ✅ Frontend: React + TypeScript + Vite
+- ✅ Backend: FastAPI Python (optional local API server)
+- ✅ Main Process: Electron (Node.js)
+- ✅ Renderer Process: React (browser context)
+
+### **Universal & Portable Development**
+
+**WAJIB - Environment Agnostic:**
+
+```
+✅ HARUS support multiple environments:
+- 🐳 Docker containers (path: /app/)
+- 💻 Local development (path: ~/Projects/chimera-ai/)
+- 🖥️ Windows (path: C:\Users\...\chimera-ai\)
+- 🍎 macOS (path: /Users/.../chimera-ai/)
+- 🐧 Linux (path: /home/.../chimera-ai/)
+```
+
+### **❌ DILARANG - Hardcoded Absolute Paths**
+
+```bash
+❌ SALAH:
+/app/backend/tools/          # Docker-only path
+/home/user/chimera-ai/      # User-specific path
+C:\Projects\chimera-ai\     # Windows-specific path
+
+✅ BENAR:
+./backend/tools/             # Relative path
+backend/tools/               # Relative path
+process.cwd() + '/backend'   # Runtime path (Node.js)
+__dirname                    # Current directory (Node.js)
+import.meta.url              # ES module path
+```
+
+### **Cara Menulis Path yang Portable**
+
+**1. Python Code:**
+```python
+import os
+from pathlib import Path
+
+# ✅ BENAR - Relative to script
+BASE_DIR = Path(__file__).parent.parent
+TOOLS_DIR = BASE_DIR / "backend" / "tools"
+
+# ✅ BENAR - From CWD
+import os
+TOOLS_DIR = os.path.join(os.getcwd(), "backend", "tools")
+
+# ❌ SALAH - Hardcoded
+TOOLS_DIR = "/app/backend/tools"
+```
+
+**2. TypeScript/JavaScript Code:**
+```typescript
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+// ✅ BENAR - ES Modules
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const toolsDir = path.join(__dirname, '..', 'backend', 'tools')
+
+// ✅ BENAR - Node.js
+const toolsDir = path.join(process.cwd(), 'backend', 'tools')
+
+// ❌ SALAH - Hardcoded
+const toolsDir = '/app/backend/tools'
+```
+
+**3. Bash Scripts:**
+```bash
+# ✅ BENAR - Script relative
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLS_DIR="$SCRIPT_DIR/backend/tools"
+
+# ❌ SALAH - Hardcoded
+TOOLS_DIR="/app/backend/tools"
+```
+
+**4. Documentation:**
+```markdown
+✅ BENAR:
+See backend/tools/ directory
+Run: ./start_chimera.sh
+Location: logs/launcher_*.log
+
+❌ SALAH:
+See /app/backend/tools/ directory
+Run: /app/start_chimera.sh
+```
+
+### **Environment Variables (Optional)**
+
+```bash
+# .env example
+PROJECT_ROOT=${PROJECT_ROOT:-$(pwd)}
+BACKEND_DIR=${PROJECT_ROOT}/backend
+LOGS_DIR=${PROJECT_ROOT}/logs
+```
+
+---
+
 ## 🗂️ **RULE #1: File Organization (WAJIB)**
 
 ### 📁 Struktur Folder yang HARUS Diikuti:
@@ -50,15 +158,18 @@ chimera-ai/
 
 2. **Semua .md lainnya**
    - ✅ HARUS di folder `docs/`
-   - ✅ Gunakan naming yang jelas: `feature-name.md`
+   - ✅ Gunakan naming yang jelas: `feature-name.md` atau `feature_name.md`
    - ❌ JANGAN taruh di root
    - ❌ JANGAN taruh di folder fitur (tools/, games/, dll)
 
 3. **Phase Documentation**
    - ✅ HARUS di `docs/phase/phase_X.md`
-   - ✅ Format: `phase_0.md`, `phase_1.md`, dst
-   - ✅ Dokumentasi setiap fase development
-   - ❌ JANGAN gunakan nama lain (PHASE0_COMPLETE.md ❌)
+   - ✅ Format: `phase_0.md`, `phase_1.md`, `phase_2.md`, dst
+   - ✅ Dokumentasi setiap fase development (complete status)
+   - ❌ JANGAN gunakan nama lain seperti:
+     - ❌ `PHASE0_COMPLETE.md`
+     - ❌ `phase-2-complete.md`
+     - ❌ `Phase2Done.md`
 
 ### 📋 Contoh Dokumentasi:
 ```bash
@@ -240,11 +351,20 @@ games/
    - ❌ Hardcode URLs atau API keys
    - ❌ Commit sensitive data
    - ❌ Skip testing untuk feature baru
+   - ❌ **Hardcode absolute paths** (use relative paths!)
 
-4. **Documentation**
+4. **Paths (CRITICAL)**
+   - ❌ **Hardcode /app/ paths** (Docker-only, not portable!)
+   - ❌ **Hardcode user-specific paths** (/home/user/, C:\Users\...)
+   - ❌ **OS-specific path separators** (use path.join() atau pathlib)
+   - ✅ **Use relative paths** (./backend/, ../tools/)
+   - ✅ **Use runtime paths** (__dirname, process.cwd(), Path(__file__))
+
+5. **Documentation**
    - ❌ Dokumentasi tidak sinkron dengan kode
    - ❌ Missing docstrings di functions
    - ❌ Incomplete phase documentation
+   - ❌ **Hardcode paths in examples** (use relative paths in docs!)
 
 ---
 
@@ -257,6 +377,8 @@ games/
 □ All test_*.py files in tests/
 □ Phase docs in docs/phase/phase_X.md
 □ No hardcoded secrets
+□ No hardcoded absolute paths (/app/, /home/, C:\, etc)
+□ Paths are portable (relative or runtime-based)
 □ Tests passing
 □ Documentation updated
 □ golden-rules.md followed
@@ -274,25 +396,59 @@ find . -name "test_*.py" -not -path "./tests/*" -not -path "./node_modules/*"
 
 # Check phase docs
 ls docs/phase/
-# Should list: phase_0.md, phase_1.md, etc.
+# Should list: phase_0.md, phase_1.md, phase_2.md, etc.
+
+# Check for hardcoded paths (Python)
+grep -r "/app/" --include="*.py" backend/ src/ electron/ 2>/dev/null || echo "✅ No /app/ hardcoded paths"
+
+# Check for hardcoded paths (JavaScript/TypeScript)
+grep -r '"/app/' --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" src/ electron/ 2>/dev/null || echo "✅ No /app/ hardcoded paths"
+
+# Check for hardcoded paths in docs
+grep -r "/app/" --include="*.md" docs/ 2>/dev/null | grep -v "Example:" || echo "✅ No /app/ in docs"
 ```
 
 ---
 
 ## 🎯 **RULE #10: Quick Reference**
 
+### Project Type: Electron Desktop Application
+
+```
+ChimeraAI Architecture:
+┌─────────────────────────────────────────┐
+│  Electron Desktop App (Cross-platform)  │
+├─────────────────────────────────────────┤
+│ Main Process (Node.js)                  │
+│  - electron/main.ts                     │
+│  - IPC handlers                         │
+│  - Window management                    │
+├─────────────────────────────────────────┤
+│ Renderer Process (Browser)              │
+│  - React + TypeScript                   │
+│  - src/ directory                       │
+│  - UI Components                        │
+├─────────────────────────────────────────┤
+│ Backend API (Optional)                  │
+│  - FastAPI (Python)                     │
+│  - backend/server.py                    │
+│  - SQLite database                      │
+└─────────────────────────────────────────┘
+```
+
 ### File Location Quick Guide:
 
-| File Type | Location | Example |
-|-----------|----------|---------|
-| Project overview | `/README.md` | README.md |
-| Documentation | `/docs/` | docs/DEVELOPMENT.md |
-| Phase docs | `/docs/phase/` | docs/phase/phase_0.md |
-| Python tests | `/tests/` | tests/test_ipc.py |
-| Python tools | `/tools/[name]/` | tools/image-converter/main.py |
-| Web games | `/games/[name]/` | games/tetris/index.html |
-| React components | `/src/components/` | src/components/Header.tsx |
-| Electron main | `/electron/` | electron/main.ts |
+| File Type | Location | Example | Path Type |
+|-----------|----------|---------|-----------|
+| Project overview | `/README.md` | README.md | Root only |
+| Documentation | `/docs/` | docs/DEVELOPMENT.md | Relative |
+| Phase docs | `/docs/phase/` | docs/phase/phase_0.md | Relative |
+| Python tests | `/tests/` | tests/test_ipc.py | Relative |
+| Backend API | `/backend/` | backend/server.py | Relative |
+| React components | `/src/components/` | src/components/Header.tsx | Relative |
+| Electron main | `/electron/` | electron/main.ts | Relative |
+| Python tools (future) | `/backend/tools/` | backend/tools/formatter/ | Relative |
+| Web games (future) | `/games/` | games/tetris/index.html | Relative |
 
 ---
 
@@ -303,6 +459,9 @@ ls docs/phase/
 3. **Professionalism** - Project terlihat professional dan organized
 4. **Collaboration** - Tim bisa kolaborasi tanpa konflik
 5. **Automation** - CI/CD bisa otomatis karena struktur konsisten
+6. **Portability** - Code bisa running di Docker, Windows, macOS, Linux tanpa modifikasi
+7. **Universal Development** - Developer bisa work di environment apapun
+8. **Electron Best Practices** - Follow standard Electron app architecture
 
 ---
 
@@ -323,6 +482,15 @@ ls docs/phase/
   - Documentation structure
   - Phase management
 
+- **v2.0** (Phase 2) - Universal & Portable Development
+  - ✅ **RULE #0 added**: Project context (Electron app)
+  - ✅ **Path portability rules**: No hardcoded absolute paths
+  - ✅ Environment-agnostic development (Docker/Local/Multi-OS)
+  - ✅ Updated phase docs naming (phase_2.md format)
+  - ✅ Moved PHASE2_COMPLETE.md → docs/phase/phase_2.md
+  - ✅ Moved LAUNCHER_QUICKSTART.md → docs/quick-start.md
+  - ✅ Added path verification commands
+
 ---
 
 **⚠️ PENTING: Aturan ini WAJIB diikuti oleh SEMUA developer tanpa exception!**
@@ -331,6 +499,6 @@ ls docs/phase/
 
 ---
 
-**Last Updated**: Phase 0 Complete  
+**Last Updated**: Phase 2 Complete  
 **Maintained By**: ChimeraAI Team  
 **Status**: ✅ Active & Enforced

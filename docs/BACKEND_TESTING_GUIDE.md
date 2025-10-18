@@ -13,7 +13,7 @@ Panduan ini membantu kamu test backend API ChimeraAI secara manual untuk memasti
 **Option A: Menggunakan Launcher (Recommended)**
 ```bash
 cd /app
-./launcher_app.sh
+./start_chimera.sh
 ```
 Launcher akan otomatis:
 - Check Python
@@ -23,7 +23,7 @@ Launcher akan otomatis:
 
 **Option B: Start Backend Saja**
 ```bash
-cd /app/backend
+cd backend
 python3 server.py
 ```
 
@@ -80,7 +80,7 @@ curl -X GET "http://localhost:8001/api/tools/categories"
 **Request:**
 ```bash
 curl -X POST "http://localhost:8001/api/tools/upload" \
-  -F "file=@/app/backend/tools/devtools/example_json_formatter.py" \
+  -F "file=@backend/tools/devtools/example_json_formatter.py" \
   -F "name=JSON Formatter Test" \
   -F "description=Test upload tool" \
   -F "category=DevTools" \
@@ -100,7 +100,7 @@ curl -X POST "http://localhost:8001/api/tools/upload" \
     "category": "DevTools",
     "version": "1.0.0",
     "author": "Tester",
-    "script_path": "/app/backend/tools/devtools/uuid-here.py",
+    "script_path": "backend/tools/devtools/uuid-here.py",
     "dependencies": ["json"],
     "status": "active",
     "last_validated": "timestamp",
@@ -476,7 +476,7 @@ echo ""
 # Test 3: Upload Tool
 echo "Test 3: Upload Tool"
 UPLOAD_RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/tools/upload" \
-  -F "file=@/app/backend/tools/devtools/example_json_formatter.py" \
+  -F "file=@backend/tools/devtools/example_json_formatter.py" \
   -F "name=Test JSON Formatter" \
   -F "description=Testing" \
   -F "category=DevTools")
@@ -536,7 +536,7 @@ chmod +x test_backend.sh
 lsof -i :8001
 
 # Check backend logs
-tail -f /app/logs/backend_*.log
+tail -f logs/backend_*.log
 ```
 
 **Solution:**
@@ -545,7 +545,7 @@ tail -f /app/logs/backend_*.log
 pkill -f "python.*server.py"
 
 # Restart
-cd /app/backend && python3 server.py
+cd backend && python3 server.py
 ```
 
 ---
@@ -616,9 +616,9 @@ Setelah testing, pastikan:
 
 Jika ada masalah:
 
-1. Check logs di `/app/logs/`
-2. Lihat dokumentasi lengkap: `/app/docs/phase/phase_2_backend.md`
-3. Test dengan contoh tools di `/app/backend/tools/`
+1. Check logs di `logs/`
+2. Lihat dokumentasi lengkap: `docs/phase/phase_2_backend.md`
+3. Test dengan contoh tools di `backend/tools/`
 
 ---
 

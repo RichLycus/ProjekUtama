@@ -2,7 +2,7 @@
 
 ## Overview
 
-`launcher_app.sh` is an intelligent development launcher that automates the entire startup process for ChimeraAI development.
+`start_chimera.sh` is an intelligent development launcher that automates the entire startup process for ChimeraAI development.
 
 ## Features
 
@@ -22,7 +22,7 @@
 
 ```bash
 # From project root
-./launcher_app.sh
+./start_chimera.sh
 ```
 
 ### 2. What It Does
@@ -47,7 +47,7 @@
 ### First Time Setup
 
 ```bash
-./launcher_app.sh
+./start_chimera.sh
 
 # Output:
 # ✅ Node.js installed: v18.x.x
@@ -62,7 +62,7 @@
 ### Regular Development
 
 ```bash
-./launcher_app.sh
+./start_chimera.sh
 
 # Output:
 # ✅ Node.js installed: v18.x.x
@@ -76,7 +76,7 @@
 ### When Port is Busy
 
 ```bash
-./launcher_app.sh
+./start_chimera.sh
 
 # Output:
 # ⚠️  Port 5173 is already in use
@@ -89,7 +89,7 @@
 
 ## Log Files
 
-All logs are saved in `/app/logs/` directory:
+All logs are saved in `logs/` directory (project root):
 
 ### Log Types
 
@@ -131,7 +131,7 @@ If you want to force reinstall:
 rm -rf node_modules
 
 # Run launcher (will auto-install)
-./launcher_app.sh
+./start_chimera.sh
 ```
 
 ### Clean Start
@@ -141,14 +141,14 @@ rm -rf node_modules
 rm -rf node_modules logs dist dist-electron
 
 # Fresh start
-./launcher_app.sh
+./start_chimera.sh
 ```
 
 ### Background Mode (Not Recommended)
 
 ```bash
 # Run in background
-nohup ./launcher_app.sh > /dev/null 2>&1 &
+nohup ./start_chimera.sh > /dev/null 2>&1 &
 
 # Check logs
 tail -f logs/dev_*.log
@@ -175,7 +175,7 @@ corepack enable
 kill -9 $(lsof -t -i:5173)
 
 # Then run launcher
-./launcher_app.sh
+./start_chimera.sh
 ```
 
 ### Issue: "Dependencies failed to install"
@@ -189,7 +189,7 @@ yarn cache clean
 rm -rf node_modules
 
 # Try again
-./launcher_app.sh
+./start_chimera.sh
 ```
 
 ### Issue: "Electron won't start"
@@ -259,7 +259,7 @@ RUNNING (Ctrl+C to stop)
 
 ### Edit Log Directory
 
-Open `launcher_app.sh` and modify:
+Open `start_chimera.sh` and modify:
 
 ```bash
 # Line 17
@@ -281,7 +281,7 @@ if lsof -Pi :5173 -sTCP:LISTEN -t >/dev/null 2>&1; then
 To disable colored output:
 
 ```bash
-# Add this at the top of launcher_app.sh
+# Add this at the top of start_chimera.sh
 export NO_COLOR=1
 ```
 
@@ -292,7 +292,7 @@ export NO_COLOR=1
 ### Option 1: Direct Execution
 
 ```bash
-./launcher_app.sh
+./start_chimera.sh
 ```
 
 ### Option 2: Add to package.json
@@ -300,7 +300,7 @@ export NO_COLOR=1
 ```json
 {
   "scripts": {
-    "launch": "./launcher_app.sh"
+    "launch": "./start_chimera.sh"
   }
 }
 ```
@@ -315,7 +315,7 @@ yarn launch
 Add to `~/.bashrc` or `~/.zshrc`:
 
 ```bash
-alias chimera='cd /app && ./launcher_app.sh'
+alias chimera='cd /app && ./start_chimera.sh'
 ```
 
 Then run from anywhere:
@@ -351,7 +351,7 @@ chimera
 
 ## Differences from Manual Start
 
-| Aspect | Manual (`yarn dev`) | Launcher (`./launcher_app.sh`) |
+| Aspect | Manual (`yarn dev`) | Launcher (`./start_chimera.sh`) |
 |--------|---------------------|--------------------------------|
 | Dependency check | ❌ No | ✅ Yes |
 | Port management | ❌ Manual | ✅ Automatic |
@@ -384,7 +384,7 @@ chimera
 
 ### Update Launcher
 
-1. Edit `launcher_app.sh`
+1. Edit `start_chimera.sh`
 2. Update version in banner (line 48)
 3. Test thoroughly
 
@@ -441,13 +441,13 @@ A: Use Git Bash or WSL. Native Windows batch script coming soon.
 A: Currently yarn-only. Fork and modify for npm support.
 
 **Q: Can I customize the banner?**  
-A: Yes! Edit lines 35-48 in `launcher_app.sh`
+A: Yes! Edit lines 35-48 in `start_chimera.sh`
 
 **Q: How do I stop the server?**  
 A: Press `Ctrl+C`. Launcher will cleanup gracefully.
 
 **Q: Where are the logs stored?**  
-A: In `/app/logs/` directory. Auto-created on first run.
+A: In `logs/` directory at project root. Auto-created on first run.
 
 ---
 
@@ -467,4 +467,4 @@ Part of ChimeraAI project. See main LICENSE file.
 
 **Last Updated**: Phase 0  
 **Maintained By**: ChimeraAI Team  
-**Location**: `/app/docs/launcher.md`
+**Location**: `docs/launcher.md`

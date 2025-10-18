@@ -1,8 +1,12 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import Store from 'electron-store'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Initialize electron-store
+const store = new Store()
 
 // Disable GPU acceleration for better compatibility
 app.disableHardwareAcceleration()
@@ -26,10 +30,10 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     frame: false, // Frameless window - custom title bar
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#1e1e2f',
     icon: path.join(process.env.VITE_PUBLIC || '', 'icon.png'),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(MAIN_DIST, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -53,8 +57,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  createWindow()
+  // Setup IPC handlers BEFORE creating window
   setupIPC()
+  createWindow()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -69,33 +74,67 @@ app.on('window-all-closed', () => {
   }
 })
 
+// Cleanup on quit - Kill backend if running
+app.on('will-quit', () => {
+  console.log('App is quitting, cleaning up...')
+  // Additional cleanup can be added here if needed
+})
+
 // IPC Handlers for Window Controls
 function setupIPC() {
+  console.log('[Main] Setting up IPC handlers...')
+  
   // Window control handlers
   ipcMain.on('window:minimize', () => {
-    const window = BrowserWindow.getFocusedWindow()
-    if (window) window.minimize()
+    console.log('[Main] window:minimize called')
+    const window = BrowserWindow.getFocusedWindow() || mainWindow
+    if (window) {
+      window.minimize()
+      console.log('[Main] Window minimized')
+    } else {
+      console.error('[Main] No window found to minimize')
+    }
   })
 
   ipcMain.on('window:maximize', () => {
-    const window = BrowserWindow.getFocusedWindow()
+    console.log('[Main] window:maximize called')
+    const window = BrowserWindow.getFocusedWindow() || mainWindow
     if (window) {
       if (window.isMaximized()) {
         window.unmaximize()
+        console.log('[Main] Window unmaximized')
       } else {
         window.maximize()
+        console.log('[Main] Window maximized')
       }
+    } else {
+      console.error('[Main] No window found to maximize')
     }
   })
 
   ipcMain.on('window:close', () => {
-    const window = BrowserWindow.getFocusedWindow()
-    if (window) window.close()
+    console.log('[Main] window:close called')
+    const window = BrowserWindow.getFocusedWindow() || mainWindow
+    if (window) {
+      window.close()
+      console.log('[Main] Window closed')
+    } else {
+      console.error('[Main] No window found to close')
+    }
   })
 
   ipcMain.handle('window:isMaximized', () => {
     const window = BrowserWindow.getFocusedWindow()
     return window ? window.isMaximized() : false
+  })
+
+  // Theme handlers
+  ipcMain.on('theme:save', (_event, theme) => {
+    store.set('theme', theme)
+  })
+
+  ipcMain.handle('theme:get', () => {
+    return store.get('theme', 'system')
   })
 
   // Python Tools API handlers
@@ -107,16 +146,32 @@ function setupIPC() {
       const FormData = (await import('form-data')).default
       
       const form = new FormData()
-      Object.keys(formData).forEach(key => {
-        form.append(key, formData[key])
-      })
+      
+      // Handle file content - convert string to Buffer
+      if (formData.file) {
+        const fileBuffer = Buffer.from(formData.file, 'utf-8')
+        form.append('file', fileBuffer, {
+          filename: `${formData.name || 'tool'}.py`,
+          contentType: 'text/x-python'
+        })
+      }
+      
+      // Append other fields
+      if (formData.name) form.append('name', formData.name)
+      if (formData.description) form.append('description', formData.description)
+      if (formData.category) form.append('category', formData.category)
+      if (formData.version) form.append('version', formData.version)
+      if (formData.author) form.append('author', formData.author)
       
       const response = await fetch(`${BACKEND_URL}/api/tools/upload`, {
         method: 'POST',
-        body: form
+        body: form,
+        headers: form.getHeaders()
       })
+      
       return await response.json()
     } catch (error: any) {
+      console.error('[IPC] tool:upload error:', error)
       return { success: false, error: error.message }
     }
   })
