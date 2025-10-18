@@ -6,6 +6,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Basic ping test
   ping: () => ipcRenderer.invoke('ping'),
   
+  // Window Controls
+  minimizeWindow: () => ipcRenderer.send('window:minimize'),
+  maximizeWindow: () => ipcRenderer.send('window:maximize'),
+  closeWindow: () => ipcRenderer.send('window:close'),
+  isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+  
   // Python Tool execution (Phase 2)
   // runPythonTool: (toolId: string, params: any) => ipcRenderer.invoke('python-tool:run', toolId, params),
   // onToolStatus: (callback: Function) => ipcRenderer.on('python-tool:status', (_event, data) => callback(data)),
@@ -18,6 +24,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 // Type definitions for TypeScript
 export interface ElectronAPI {
   ping: () => Promise<string>
+  minimizeWindow: () => void
+  maximizeWindow: () => void
+  closeWindow: () => void
+  isMaximized: () => Promise<boolean>
   // runPythonTool: (toolId: string, params: any) => Promise<any>
   // onToolStatus: (callback: (data: any) => void) => void
   // sendChatMessage: (message: string, context?: any) => Promise<void>

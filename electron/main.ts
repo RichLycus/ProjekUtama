@@ -25,7 +25,7 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    frame: true,
+    frame: false, // Frameless window - custom title bar
     backgroundColor: '#1e1e1e',
     icon: path.join(process.env.VITE_PUBLIC || '', 'icon.png'),
     webPreferences: {
@@ -54,6 +54,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow()
+  setupIPC()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -67,6 +68,36 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
+// IPC Handlers for Window Controls
+function setupIPC() {
+  // Window control handlers
+  ipcMain.on('window:minimize', () => {
+    const window = BrowserWindow.getFocusedWindow()
+    if (window) window.minimize()
+  })
+
+  ipcMain.on('window:maximize', () => {
+    const window = BrowserWindow.getFocusedWindow()
+    if (window) {
+      if (window.isMaximized()) {
+        window.unmaximize()
+      } else {
+        window.maximize()
+      }
+    }
+  })
+
+  ipcMain.on('window:close', () => {
+    const window = BrowserWindow.getFocusedWindow()
+    if (window) window.close()
+  })
+
+  ipcMain.handle('window:isMaximized', () => {
+    const window = BrowserWindow.getFocusedWindow()
+    return window ? window.isMaximized() : false
+  })
+}
 
 // IPC Handlers will be added here in future phases
 // python-tool:run

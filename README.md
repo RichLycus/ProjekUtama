@@ -11,6 +11,7 @@
 - **📖 [Full Documentation](docs/index.md)** - Complete documentation index
 - **🚀 [Development Guide](docs/DEVELOPMENT.md)** - Setup & development
 - **📅 [Phase 0 Complete](docs/phase/phase_0.md)** - Foundation status
+- **✨ [Phase 1.5 Complete](docs/PHASE-1.5-IMPROVEMENTS.md)** - Modern UI Layer
 
 ## 🚀 Phase 0 - Foundation Complete
 
@@ -131,10 +132,12 @@ chimera-ai/
 - `.btn-primary` - Primary action button
 - `.input` - Styled form input
 
-## 🔮 Upcoming Phases
+## 🔮 Development Phases
 
-- **Phase 1**: ✅ **COMPLETE** - Animated avatar (Jarvis/Gemini style), glassmorphism, page transitions
-- **Phase 2**: Python Tools - Tool execution framework  
+- **Phase 0**: ✅ **COMPLETE** - Foundation & Architecture
+- **Phase 1**: ✅ **COMPLETE** - Animated avatar, glassmorphism, page transitions
+- **Phase 1.5**: ✅ **COMPLETE** - Modern UI Layer (Frameless window, custom controls)
+- **Phase 2**: 🚧 **NEXT** - Python Tools - Tool execution framework  
 - **Phase 3**: AI Chat - Ollama integration
 - **Phase 4**: Animations - Advanced avatar states
 - **Phase 5**: Games & Polish - Final features
@@ -196,5 +199,13 @@ python3 build_release.py --info      # Show release info
 
 ---
 
-**Current Status**: Phase 1 Complete ✅  
+**Current Status**: Phase 1.5 Complete ✅  
 **Next**: Phase 2 - Python Tools Integration
+
+### Phase 1.5 Highlights 🎉
+- ✅ Frameless modern window design
+- ✅ Custom window controls (minimize, maximize, close)
+- ✅ Draggable header region
+- ✅ Fixed all preload script errors
+- ✅ Implemented Content Security Policy
+- ✅ Production build successful (109 MB AppImage)
