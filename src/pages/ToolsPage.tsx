@@ -1,15 +1,17 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Upload, Grid3x3, List, Settings } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
 import ToolsSidePanel from '@/components/ToolsSidePanel'
 import ToolCard from '@/components/ToolCard'
 import ToolListItem from '@/components/ToolListItem'
+import FrontendToolExecutor from '@/components/FrontendToolExecutor'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import toast from 'react-hot-toast'
 
 export default function ToolsPage() {
   const navigate = useNavigate()
+  const [executingFrontendTool, setExecutingFrontendTool] = useState<any>(null)
   const {
     tools,
     loading,
@@ -27,10 +29,17 @@ export default function ToolsPage() {
 
   const filteredTools = getFilteredTools()
 
-  const handleExecute = async (toolId: string) => {
+  const handleExecute = async (tool: any) => {
+    // Check if it's a frontend tool
+    if (tool.tool_type === 'frontend') {
+      setExecutingFrontendTool(tool)
+      return
+    }
+
+    // Backend tool execution
     const toastId = toast.loading('Executing tool...')
     try {
-      const result = await executeToolHandling(toolId)
+      const result = await executeToolHandling(tool._id)
       if (result.success) {
         toast.success('✅ Tool executed successfully!', { id: toastId })
       } else {
@@ -141,12 +150,12 @@ export default function ToolsPage() {
 
           {/* Grid View */}
           {!loading && viewMode === 'grid' && filteredTools.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {filteredTools.map((tool) => (
                 <ToolCard
                   key={tool._id}
                   tool={tool}
-                  onExecute={() => handleExecute(tool._id)}
+                  onExecute={() => handleExecute(tool)}
                 />
               ))}
             </div>
@@ -159,13 +168,22 @@ export default function ToolsPage() {
                 <ToolListItem
                   key={tool._id}
                   tool={tool}
-                  onExecute={() => handleExecute(tool._id)}
+                  onExecute={() => handleExecute(tool)}
                 />
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {/* Frontend Tool Executor Modal */}
+      {executingFrontendTool && (
+        <FrontendToolExecutor
+          tool={executingFrontendTool}
+          isOpen={!!executingFrontendTool}
+          onClose={() => setExecutingFrontendTool(null)}
+        />
+      )}
     </div>
   )
 }

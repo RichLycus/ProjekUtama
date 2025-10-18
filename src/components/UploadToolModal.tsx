@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { X, Upload, FileCode, AlertCircle, CheckCircle, Loader } from 'lucide-react'
+import { X, Upload, FileCode, AlertCircle, CheckCircle, Loader, Code2, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface UploadToolModalProps {
@@ -14,7 +14,10 @@ interface ExtractedMetadata {
   description: string
 }
 
+type ToolType = 'backend' | 'frontend'
+
 export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadToolModalProps) {
+  const [toolType, setToolType] = useState<ToolType>('backend')
   const [file, setFile] = useState<File | null>(null)
   const [extractedMeta, setExtractedMeta] = useState<ExtractedMetadata | null>(null)
   const [name, setName] = useState('')
@@ -54,9 +57,19 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
-      if (!selectedFile.name.endsWith('.py')) {
-        toast.error('Please select a Python (.py) file')
+      // Validate based on tool type
+      if (toolType === 'backend' && !selectedFile.name.endsWith('.py')) {
+        toast.error('Please select a Python (.py) file for backend tools')
         return
+      }
+      
+      if (toolType === 'frontend') {
+        const validExts = ['.jsx', '.tsx', '.html', '.js']
+        const hasValidExt = validExts.some(ext => selectedFile.name.endsWith(ext))
+        if (!hasValidExt) {
+          toast.error('Please select a .jsx, .tsx, .html, or .js file for frontend tools')
+          return
+        }
       }
       
       setFile(selectedFile)
@@ -99,7 +112,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
     }
 
     setUploading(true)
-    const toastId = toast.loading('Uploading tool...')
+    const toastId = toast.loading(`Uploading ${toolType} tool...`)
 
     try {
       // Read file content
@@ -108,24 +121,26 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
         const content = e.target?.result as string
         
         // Prepare form data
-        // Jika deskripsi kosong, gunakan nama tool
         const formData = {
           file: content,
           name: name.trim(),
-          description: description.trim() || name.trim(), // Gunakan nama tool jika deskripsi kosong
+          description: description.trim() || name.trim(),
           category: category.trim(),
           version: version.trim(),
-          author: author.trim()
+          author: author.trim(),
+          tool_type: toolType
         }
 
         if (window.electronAPI) {
-          const result = await window.electronAPI.uploadTool(formData)
+          // Use different API based on tool type
+          const apiMethod = toolType === 'backend' ? 'uploadTool' : 'uploadFrontendTool'
+          const result = await window.electronAPI[apiMethod](formData)
           
           if (result.success) {
             setValidationResult(result.validation)
             
             if (result.validation.valid) {
-              toast.success('✅ Tool uploaded and validated successfully!', { id: toastId })
+              toast.success(`✅ ${toolType === 'backend' ? 'Backend' : 'Frontend'} tool uploaded successfully!`, { id: toastId })
               setTimeout(() => {
                 onSuccess()
                 handleClose()
@@ -172,8 +187,8 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
               <Upload className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-xl font-display font-bold">Upload Python Tool</h2>
-              <p className="text-sm text-secondary">Add a new automation tool to your library</p>
+              <h2 className="text-xl font-display font-bold">Upload Tool</h2>
+              <p className="text-sm text-secondary">Add a new tool to your library</p>
             </div>
           </div>
           <button
@@ -185,15 +200,68 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
           </button>
         </div>
 
+        {/* Tool Type Tabs */}
+        <div className="flex border-b border-gray-200 dark:border-dark-border">
+          <button
+            onClick={() => {
+              setToolType('backend')
+              setFile(null)
+              setValidationResult(null)
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 font-medium transition-all ${
+              toolType === 'backend'
+                ? 'text-primary border-b-2 border-primary bg-primary/5'
+                : 'text-secondary hover:bg-gray-100 dark:hover:bg-dark-surface-hover'
+            }`}
+            data-testid="backend-tab"
+          >
+            <Code2 className="w-4 h-4" />
+            Backend Tool (Python)
+          </button>
+          <button
+            onClick={() => {
+              setToolType('frontend')
+              setFile(null)
+              setValidationResult(null)
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 font-medium transition-all ${
+              toolType === 'frontend'
+                ? 'text-primary border-b-2 border-primary bg-primary/5'
+                : 'text-secondary hover:bg-gray-100 dark:hover:bg-dark-surface-hover'
+            }`}
+            data-testid="frontend-tab"
+          >
+            <FileText className="w-4 h-4" />
+            Frontend Tool (React/HTML)
+          </button>
+        </div>
+
         {/* Content */}
         <div className="p-6 space-y-6">
+          {/* Description based on tool type */}
+          <div className="flex items-start gap-3 p-3 bg-primary/10 border border-primary/30 rounded-lg">
+            <AlertCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium text-primary">
+                {toolType === 'backend' ? 'Backend Tools' : 'Frontend Tools'}
+              </p>
+              <p className="text-secondary">
+                {toolType === 'backend' 
+                  ? 'Upload Python (.py) scripts that will be executed on the backend server.' 
+                  : 'Upload React components (.jsx, .tsx), JavaScript (.js), or HTML (.html) mini-apps that will run in the UI.'}
+              </p>
+            </div>
+          </div>
+
           {/* File Upload */}
           <div>
-            <label className="block text-sm font-medium mb-2">Python Script File *</label>
+            <label className="block text-sm font-medium mb-2">
+              {toolType === 'backend' ? 'Python Script File *' : 'Frontend File *'}
+            </label>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".py"
+              accept={toolType === 'backend' ? '.py' : '.jsx,.tsx,.html,.js'}
               onChange={handleFileSelect}
               className="hidden"
               data-testid="file-input"
@@ -205,8 +273,14 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
             >
               <FileCode className="w-6 h-6 text-primary" />
               <div className="text-left">
-                <p className="font-medium">{file ? file.name : 'Click to select Python file'}</p>
-                <p className="text-xs text-secondary">{file ? `${(file.size / 1024).toFixed(2)} KB` : 'Only .py files are allowed'}</p>
+                <p className="font-medium">{file ? file.name : `Click to select ${toolType} file`}</p>
+                <p className="text-xs text-secondary">
+                  {file 
+                    ? `${(file.size / 1024).toFixed(2)} KB` 
+                    : toolType === 'backend' 
+                      ? 'Only .py files are allowed' 
+                      : 'Allowed: .jsx, .tsx, .html, .js'}
+                </p>
               </div>
             </button>
           </div>

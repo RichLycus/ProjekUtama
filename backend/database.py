@@ -46,6 +46,7 @@ class SQLiteDB:
                     name TEXT NOT NULL,
                     description TEXT,
                     category TEXT NOT NULL,
+                    tool_type TEXT DEFAULT 'backend',
                     version TEXT DEFAULT '1.0.0',
                     author TEXT DEFAULT 'Anonymous',
                     script_path TEXT NOT NULL,
@@ -74,6 +75,7 @@ class SQLiteDB:
             # Create indexes
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_tools_category ON tools(category)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_tools_status ON tools(status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_tools_type ON tools(tool_type)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_logs_tool_id ON tool_logs(tool_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON tool_logs(timestamp)")
     
@@ -87,15 +89,16 @@ class SQLiteDB:
             
             cursor.execute("""
                 INSERT INTO tools (
-                    id, name, description, category, version, author,
+                    id, name, description, category, tool_type, version, author,
                     script_path, dependencies, status, last_validated,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 tool_data['_id'],
                 tool_data['name'],
                 tool_data['description'],
                 tool_data['category'],
+                tool_data.get('tool_type', 'backend'),
                 tool_data['version'],
                 tool_data['author'],
                 tool_data['script_path'],

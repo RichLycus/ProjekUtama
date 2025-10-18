@@ -10,6 +10,7 @@ from typing import Optional, List
 
 from database import SQLiteDB
 from modules.tool_validator import ToolValidator
+from modules.frontend_tool_validator import FrontendToolValidator
 from modules.tool_executor import ToolExecutor
 from modules.dependency_manager import DependencyManager
 
@@ -35,16 +36,19 @@ app.add_middleware(
 BACKEND_DIR = Path(__file__).parent
 DATA_DIR = BACKEND_DIR / "data"
 TOOLS_DIR = BACKEND_DIR / "tools"
+FRONTEND_TOOLS_DIR = BACKEND_DIR / "frontend_tools"
 
 # Ensure directories exist
 DATA_DIR.mkdir(exist_ok=True)
 TOOLS_DIR.mkdir(exist_ok=True)
+FRONTEND_TOOLS_DIR.mkdir(exist_ok=True)
 
 # SQLite Database Connection
 db = SQLiteDB(str(DATA_DIR / "chimera_tools.db"))
 
 # Initialize modules
 validator = ToolValidator()
+frontend_validator = FrontendToolValidator()
 executor = ToolExecutor()
 dep_manager = DependencyManager()
 
@@ -149,6 +153,88 @@ async def upload_tool(
         
     except Exception as e:
         raise HTTPException(500, f"Upload failed: {str(e)}")
+
+
+@app.post("/api/tools/upload-frontend")
+async def upload_frontend_tool(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    description: str = Form(...),
+    category: str = Form(...),
+    version: str = Form("1.0.0"),
+    author: str = Form("Anonymous")
+):
+    """Upload and validate a new frontend tool (React component or HTML app)"""
+    try:
+        # Validate category
+        if category not in CATEGORIES:
+            raise HTTPException(400, f"Invalid category. Must be one of: {CATEGORIES}")
+        
+        # Check file extension
+        file_ext = Path(file.filename).suffix.lower()
+        allowed_extensions = ['.jsx', '.tsx', '.html', '.js']
+        
+        if file_ext not in allowed_extensions:
+            raise HTTPException(400, f"Invalid file type. Must be one of: {', '.join(allowed_extensions)}")
+        
+        # Generate tool ID
+        tool_id = str(uuid.uuid4())
+        
+        # Read file content
+        content = await file.read()
+        file_content = content.decode('utf-8')
+        
+        # Save to category folder (portable path)
+        category_folder = FRONTEND_TOOLS_DIR / category.lower()
+        category_folder.mkdir(exist_ok=True)
+        file_path = category_folder / f"{tool_id}{file_ext}"
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(file_content)
+        
+        # Validate frontend tool
+        validation_result = frontend_validator.validate(str(file_path), file_content, file_ext)
+        
+        # Determine status (frontend tools are always active if no errors)
+        status = "active" if validation_result["valid"] else "disabled"
+        
+        # Create tool document
+        tool_doc = {
+            "_id": tool_id,
+            "name": name,
+            "description": description,
+            "category": category,
+            "tool_type": "frontend",
+            "version": version,
+            "author": author,
+            "script_path": str(file_path),  # Store as string
+            "dependencies": validation_result.get("dependencies", []),
+            "status": status,
+            "last_validated": datetime.utcnow().isoformat(),
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        db.insert_tool(tool_doc)
+        
+        # Log action
+        log_action(
+            tool_id,
+            "upload",
+            "success" if validation_result["valid"] else "error",
+            f"Frontend tool uploaded and {'validated' if validation_result['valid'] else 'failed validation'}",
+            json.dumps(validation_result.get("errors", []))
+        )
+        
+        return {
+            "success": True,
+            "tool_id": tool_id,
+            "tool": tool_doc,
+            "validation": validation_result
+        }
+        
+    except Exception as e:
+        raise HTTPException(500, f"Frontend upload failed: {str(e)}")
 
 
 @app.get("/api/tools")
@@ -332,6 +418,39 @@ async def get_tool_logs(tool_id: str, limit: int = 50):
     """Get logs for a specific tool"""
     logs = db.get_logs(tool_id, limit)
     return {"logs": logs, "count": len(logs)}
+
+
+@app.get("/api/tools/file/{tool_id}")
+async def get_tool_file(tool_id: str):
+    """Get the source file content of a tool (for frontend tools execution)"""
+    tool = db.get_tool(tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    
+    script_path = Path(tool["script_path"])
+    if not script_path.exists():
+        raise HTTPException(404, "Tool file not found")
+    
+    try:
+        with open(script_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Determine content type
+        file_ext = script_path.suffix.lower()
+        content_type = "text/plain"
+        if file_ext == ".html":
+            content_type = "text/html"
+        elif file_ext in [".jsx", ".tsx", ".js"]:
+            content_type = "application/javascript"
+        elif file_ext == ".py":
+            content_type = "text/x-python"
+        
+        return JSONResponse(
+            content={"content": content, "filename": script_path.name},
+            media_type="application/json"
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Failed to read tool file: {str(e)}")
 
 
 if __name__ == "__main__":

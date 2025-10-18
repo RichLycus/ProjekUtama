@@ -5,6 +5,7 @@ export interface Tool {
   name: string
   description: string
   category: string
+  tool_type?: 'backend' | 'frontend'
   version: string
   author: string
   script_path: string

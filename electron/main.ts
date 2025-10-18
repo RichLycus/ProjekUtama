@@ -176,6 +176,58 @@ function setupIPC() {
     }
   })
 
+  ipcMain.handle('tool:upload-frontend', async (_event, formData) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const FormData = (await import('form-data')).default
+      
+      const form = new FormData()
+      
+      // Determine file extension based on content
+      let fileExt = '.jsx' // default
+      if (formData.file) {
+        const content = formData.file
+        if (content.includes('<!DOCTYPE') || content.includes('<html')) {
+          fileExt = '.html'
+        } else if (content.includes('interface ') || content.includes(': React.FC')) {
+          fileExt = '.tsx'
+        } else if (!content.includes('import React')) {
+          fileExt = '.js'
+        }
+      }
+      
+      // Handle file content - convert string to Buffer
+      if (formData.file) {
+        const fileBuffer = Buffer.from(formData.file, 'utf-8')
+        const contentType = fileExt === '.html' ? 'text/html' : 
+                           fileExt === '.tsx' ? 'text/typescript' :
+                           'text/javascript'
+        form.append('file', fileBuffer, {
+          filename: `${formData.name || 'tool'}${fileExt}`,
+          contentType: contentType
+        })
+      }
+      
+      // Append other fields
+      if (formData.name) form.append('name', formData.name)
+      if (formData.description) form.append('description', formData.description)
+      if (formData.category) form.append('category', formData.category)
+      if (formData.version) form.append('version', formData.version)
+      if (formData.author) form.append('author', formData.author)
+      
+      const response = await fetch(`${BACKEND_URL}/api/tools/upload-frontend`, {
+        method: 'POST',
+        body: form,
+        headers: form.getHeaders()
+      })
+      
+      return await response.json()
+    } catch (error: any) {
+      console.error('[IPC] tool:upload-frontend error:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle('tool:list', async (_event, filters = {}) => {
     try {
       const fetch = (await import('node-fetch')).default
