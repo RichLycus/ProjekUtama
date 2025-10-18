@@ -26,6 +26,8 @@ export interface ToolLog {
   timestamp: string
 }
 
+export type SidePanelMode = 'full' | 'minimized' | 'hidden'
+
 interface ToolsStore {
   tools: Tool[]
   loading: boolean
@@ -35,12 +37,14 @@ interface ToolsStore {
   selectedStatus: string
   sortBy: 'name' | 'date' | 'category'
   viewMode: 'grid' | 'list'
+  sidePanelMode: SidePanelMode
   
   setSearchQuery: (query: string) => void
   setSelectedCategory: (category: string) => void
   setSelectedStatus: (status: string) => void
   setSortBy: (sort: 'name' | 'date' | 'category') => void
   setViewMode: (mode: 'grid' | 'list') => void
+  setSidePanelMode: (mode: SidePanelMode) => void
   fetchTools: () => Promise<void>
   uploadTool: (formData: any) => Promise<any>
   executeToolHandling: (toolId: string, params?: any) => Promise<any>
@@ -60,19 +64,30 @@ export const useToolsStore = create<ToolsStore>((set, get) => ({
   selectedStatus: 'all',
   sortBy: 'name',
   viewMode: 'grid',
+  sidePanelMode: (localStorage.getItem('sidePanelMode') as SidePanelMode) || 'full',
   
   setSearchQuery: (query) => set({ searchQuery: query }),
   setSelectedCategory: (category) => set({ selectedCategory: category }),
   setSelectedStatus: (status) => set({ selectedStatus: status }),
   setSortBy: (sort) => set({ sortBy: sort }),
   setViewMode: (mode) => set({ viewMode: mode }),
+  setSidePanelMode: (mode) => {
+    set({ sidePanelMode: mode })
+    localStorage.setItem('sidePanelMode', mode)
+  },
   
   fetchTools: async () => {
     set({ loading: true, error: null })
     try {
+      // Try electronAPI first, fallback to direct HTTP
       if (window.electronAPI) {
         const response = await window.electronAPI.listTools()
         set({ tools: response.tools || [], loading: false })
+      } else {
+        // Web mode fallback - direct HTTP call
+        const response = await fetch('http://localhost:8001/api/tools')
+        const data = await response.json()
+        set({ tools: data.tools || [], loading: false })
       }
     } catch (error: any) {
       set({ error: error.message, loading: false })

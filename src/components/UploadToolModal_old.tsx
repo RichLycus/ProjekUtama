@@ -14,9 +14,11 @@ interface ExtractedMetadata {
   description: string
 }
 
+type ToolType = 'backend' | 'frontend'
+
 export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadToolModalProps) {
-  const [backendFile, setBackendFile] = useState<File | null>(null)
-  const [frontendFile, setFrontendFile] = useState<File | null>(null)
+  const [toolType, setToolType] = useState<ToolType>('backend')
+  const [file, setFile] = useState<File | null>(null)
   const [extractedMeta, setExtractedMeta] = useState<ExtractedMetadata | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -25,8 +27,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
   const [author, setAuthor] = useState('Anonymous')
   const [uploading, setUploading] = useState(false)
   const [validationResult, setValidationResult] = useState<any>(null)
-  const backendFileInputRef = useRef<HTMLInputElement>(null)
-  const frontendFileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const categories = ['Office', 'DevTools', 'Multimedia', 'Utilities', 'Security', 'Network', 'Data']
 
@@ -53,17 +54,27 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
     }
   }
 
-  const handleBackendFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
-      if (!selectedFile.name.endsWith('.py')) {
-        toast.error('Backend file must be a Python (.py) file')
+      // Validate based on tool type
+      if (toolType === 'backend' && !selectedFile.name.endsWith('.py')) {
+        toast.error('Please select a Python (.py) file for backend tools')
         return
       }
       
-      setBackendFile(selectedFile)
+      if (toolType === 'frontend') {
+        const validExts = ['.jsx', '.tsx', '.html', '.js']
+        const hasValidExt = validExts.some(ext => selectedFile.name.endsWith(ext))
+        if (!hasValidExt) {
+          toast.error('Please select a .jsx, .tsx, .html, or .js file for frontend tools')
+          return
+        }
+      }
       
-      // Read and extract metadata from backend file
+      setFile(selectedFile)
+      
+      // Read and extract metadata
       const reader = new FileReader()
       reader.onload = async (event) => {
         const content = event.target?.result as string
@@ -73,126 +84,110 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
     }
   }
 
-  const handleFrontendFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0]
-    if (selectedFile) {
-      const validExts = ['.jsx', '.tsx', '.html', '.js']
-      const hasValidExt = validExts.some(ext => selectedFile.name.endsWith(ext))
-      if (!hasValidExt) {
-        toast.error('Frontend file must be .jsx, .tsx, .html, or .js')
-        return
-      }
-      
-      setFrontendFile(selectedFile)
-    }
-  }
-
   const handleUpload = async () => {
-    // Validate both files are selected
-    if (!backendFile) {
-      toast.error('⚠️ Please select a backend file (.py)')
-      return
-    }
-
-    if (!frontendFile) {
-      toast.error('⚠️ Please select a frontend file (.jsx, .tsx, .html, .js)')
+    if (!file) {
+      toast.error('Please select a file')
       return
     }
 
     if (!name.trim()) {
-      toast.error('⚠️ Please enter a tool name')
+      toast.error('Please enter a tool name')
       return
     }
 
+    // Validasi field wajib lainnya untuk mencegah error 402
     if (!category.trim()) {
       toast.error('⚠️ Please select a category')
       return
     }
 
     if (!version.trim()) {
-      toast.error('⚠️ Version cannot be empty')
+      toast.error('⚠️ Version cannot be empty. Please enter a version (e.g., 1.0.0)')
       return
     }
 
     if (!author.trim()) {
-      toast.error('⚠️ Author cannot be empty')
+      toast.error('⚠️ Author cannot be empty. Please enter author name')
       return
     }
 
     setUploading(true)
-    const toastId = toast.loading('Uploading dual tool (backend + frontend)...')
+    const toastId = toast.loading(`Uploading ${toolType} tool...`)
 
     try {
-      if (window.electronAPI) {
-        // Electron mode - read files and send content
-        const backendContent = await backendFile.text()
-        const frontendContent = await frontendFile.text()
+      // Read file content
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const content = e.target?.result as string
         
+        // Prepare form data
         const formData = {
-          backend_file: backendContent,
-          backend_filename: backendFile.name,
-          frontend_file: frontendContent,
-          frontend_filename: frontendFile.name,
+          file: content,
           name: name.trim(),
           description: description.trim() || name.trim(),
           category: category.trim(),
           version: version.trim(),
-          author: author.trim()
+          author: author.trim(),
+          tool_type: toolType
         }
 
-        const result = await window.electronAPI.uploadDualTool(formData)
-        
-        if (result.success) {
-          setValidationResult(result.validation)
+        if (window.electronAPI) {
+          // Use universal API endpoint for both backend and frontend tools
+          const result = await window.electronAPI.uploadTool(formData)
           
-          if (result.validation.valid) {
-            toast.success('✅ Dual tool uploaded successfully!', { id: toastId })
-            setTimeout(() => {
-              onSuccess()
-              handleClose()
-            }, 1500)
+          if (result.success) {
+            setValidationResult(result.validation)
+            
+            if (result.validation.valid) {
+              toast.success(`✅ ${toolType === 'backend' ? 'Backend' : 'Frontend'} tool uploaded successfully!`, { id: toastId })
+              setTimeout(() => {
+                onSuccess()
+                handleClose()
+              }, 1500)
+            } else {
+              toast.error('⚠️ Tool uploaded but validation failed', { id: toastId })
+            }
           } else {
-            toast.error('⚠️ Tool uploaded but validation failed', { id: toastId })
+            toast.error('❌ Upload failed: ' + result.error, { id: toastId })
           }
         } else {
-          toast.error('❌ Upload failed: ' + result.error, { id: toastId })
-        }
-      } else {
-        // Web mode - direct HTTP call
-        const httpFormData = new FormData()
-        httpFormData.append('backend_file', backendFile)
-        httpFormData.append('frontend_file', frontendFile)
-        httpFormData.append('name', name.trim())
-        httpFormData.append('description', description.trim() || name.trim())
-        httpFormData.append('category', category.trim())
-        httpFormData.append('version', version.trim())
-        httpFormData.append('author', author.trim())
-        
-        const response = await fetch('http://localhost:8001/api/tools/upload', {
-          method: 'POST',
-          body: httpFormData
-        })
-        
-        const result = await response.json()
-        
-        if (result.success) {
-          setValidationResult(result.validation)
+          // Web mode fallback - direct HTTP call to universal API
+          const httpFormData = new FormData()
+          httpFormData.append('file', file)
+          httpFormData.append('name', formData.name)
+          httpFormData.append('description', formData.description)
+          httpFormData.append('category', formData.category)
+          httpFormData.append('version', formData.version)
+          httpFormData.append('author', formData.author)
           
-          if (result.validation.valid) {
-            toast.success('✅ Dual tool uploaded successfully!', { id: toastId })
-            setTimeout(() => {
-              onSuccess()
-              handleClose()
-            }, 1500)
+          const response = await fetch('http://localhost:8001/api/tools/upload', {
+            method: 'POST',
+            body: httpFormData
+          })
+          
+          const result = await response.json()
+          
+          if (result.success) {
+            setValidationResult(result.validation)
+            
+            if (result.validation.valid) {
+              toast.success(`✅ ${toolType === 'backend' ? 'Backend' : 'Frontend'} tool uploaded successfully!`, { id: toastId })
+              setTimeout(() => {
+                onSuccess()
+                handleClose()
+              }, 1500)
+            } else {
+              toast.error('⚠️ Tool uploaded but validation failed', { id: toastId })
+            }
           } else {
-            toast.error('⚠️ Tool uploaded but validation failed', { id: toastId })
+            toast.error('❌ Upload failed', { id: toastId })
           }
-        } else {
-          toast.error('❌ Upload failed', { id: toastId })
         }
+        
+        setUploading(false)
       }
       
-      setUploading(false)
+      reader.readAsText(file)
     } catch (error: any) {
       toast.error('❌ Upload failed: ' + error.message, { id: toastId })
       setUploading(false)
@@ -200,8 +195,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
   }
 
   const handleClose = () => {
-    setBackendFile(null)
-    setFrontendFile(null)
+    setFile(null)
     setExtractedMeta(null)
     setName('')
     setDescription('')
@@ -216,7 +210,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="glass-strong rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto custom-scrollbar m-4">
+      <div className="glass-strong rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar m-4">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-dark-border">
           <div className="flex items-center gap-3">
@@ -224,8 +218,8 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
               <Upload className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-xl font-display font-bold">Upload Dual Tool</h2>
-              <p className="text-sm text-secondary">Upload backend (.py) + frontend (.jsx/.tsx/.html/.js)</p>
+              <h2 className="text-xl font-display font-bold">Upload Tool</h2>
+              <p className="text-sm text-secondary">Add a new tool to your library</p>
             </div>
           </div>
           <button
@@ -237,87 +231,89 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
           </button>
         </div>
 
+        {/* Tool Type Tabs */}
+        <div className="flex border-b border-gray-200 dark:border-dark-border">
+          <button
+            onClick={() => {
+              setToolType('backend')
+              setFile(null)
+              setValidationResult(null)
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 font-medium transition-all ${
+              toolType === 'backend'
+                ? 'text-primary border-b-2 border-primary bg-primary/5'
+                : 'text-secondary hover:bg-gray-100 dark:hover:bg-dark-surface-hover'
+            }`}
+            data-testid="backend-tab"
+          >
+            <Code2 className="w-4 h-4" />
+            Backend Tool (Python)
+          </button>
+          <button
+            onClick={() => {
+              setToolType('frontend')
+              setFile(null)
+              setValidationResult(null)
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 font-medium transition-all ${
+              toolType === 'frontend'
+                ? 'text-primary border-b-2 border-primary bg-primary/5'
+                : 'text-secondary hover:bg-gray-100 dark:hover:bg-dark-surface-hover'
+            }`}
+            data-testid="frontend-tab"
+          >
+            <FileText className="w-4 h-4" />
+            Frontend Tool (React/HTML)
+          </button>
+        </div>
+
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Important Notice */}
-          <div className="flex items-start gap-3 p-4 bg-primary/10 border-2 border-primary/30 rounded-lg">
-            <AlertCircle className="w-6 h-6 text-primary flex-shrink-0 mt-0.5" />
+          {/* Description based on tool type */}
+          <div className="flex items-start gap-3 p-3 bg-primary/10 border border-primary/30 rounded-lg">
+            <AlertCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="font-bold text-primary text-base mb-2">⚠️ Mandatory: Upload 2 Files</p>
-              <ul className="list-disc list-inside space-y-1 text-secondary">
-                <li><strong>Backend File:</strong> Python script (.py) with backend logic</li>
-                <li><strong>Frontend File:</strong> UI file (.jsx, .tsx, .html, .js) for user interface</li>
-              </ul>
+              <p className="font-medium text-primary">
+                {toolType === 'backend' ? 'Backend Tools' : 'Frontend Tools'}
+              </p>
+              <p className="text-secondary">
+                {toolType === 'backend' 
+                  ? 'Upload Python (.py) scripts that will be executed on the backend server.' 
+                  : 'Upload React components (.jsx, .tsx), JavaScript (.js), or HTML (.html) mini-apps that will run in the UI.'}
+              </p>
             </div>
           </div>
 
-          {/* Dual File Upload */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Backend File */}
-            <div>
-              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                <Code2 className="w-4 h-4 text-primary" />
-                Backend File (.py) *
-              </label>
-              <input
-                ref={backendFileInputRef}
-                type="file"
-                accept=".py"
-                onChange={handleBackendFileSelect}
-                className="hidden"
-                data-testid="backend-file-input"
-              />
-              <button
-                onClick={() => backendFileInputRef.current?.click()}
-                className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-200 dark:border-dark-border rounded-xl hover:border-primary hover:bg-primary/5 transition-all"
-                data-testid="select-backend-file-button"
-              >
-                <FileCode className="w-8 h-8 text-primary" />
-                <div className="text-center">
-                  <p className="font-medium text-sm">
-                    {backendFile ? `✅ ${backendFile.name}` : 'Click to select Python file'}
-                  </p>
-                  {backendFile && (
-                    <p className="text-xs text-secondary mt-1">
-                      {(backendFile.size / 1024).toFixed(2)} KB
-                    </p>
-                  )}
-                </div>
-              </button>
-            </div>
-
-            {/* Frontend File */}
-            <div>
-              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" />
-                Frontend File (.jsx/.tsx/.html/.js) *
-              </label>
-              <input
-                ref={frontendFileInputRef}
-                type="file"
-                accept=".jsx,.tsx,.html,.js"
-                onChange={handleFrontendFileSelect}
-                className="hidden"
-                data-testid="frontend-file-input"
-              />
-              <button
-                onClick={() => frontendFileInputRef.current?.click()}
-                className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-200 dark:border-dark-border rounded-xl hover:border-primary hover:bg-primary/5 transition-all"
-                data-testid="select-frontend-file-button"
-              >
-                <FileCode className="w-8 h-8 text-primary" />
-                <div className="text-center">
-                  <p className="font-medium text-sm">
-                    {frontendFile ? `✅ ${frontendFile.name}` : 'Click to select UI file'}
-                  </p>
-                  {frontendFile && (
-                    <p className="text-xs text-secondary mt-1">
-                      {(frontendFile.size / 1024).toFixed(2)} KB
-                    </p>
-                  )}
-                </div>
-              </button>
-            </div>
+          {/* File Upload */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              {toolType === 'backend' ? 'Python Script File *' : 'Frontend File *'}
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={toolType === 'backend' ? '.py' : '.jsx,.tsx,.html,.js'}
+              onChange={handleFileSelect}
+              className="hidden"
+              data-testid="file-input"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-3 p-6 border-2 border-dashed border-gray-200 dark:border-dark-border rounded-xl hover:border-primary hover:bg-primary/5 transition-all"
+              data-testid="select-file-button"
+            >
+              <FileCode className="w-6 h-6 text-primary" />
+              <div className="text-left">
+                <p className="font-medium">{file ? file.name : `Click to select ${toolType} file`}</p>
+                <p className="text-xs text-secondary">
+                  {file 
+                    ? `${(file.size / 1024).toFixed(2)} KB` 
+                    : toolType === 'backend' 
+                      ? 'Only .py files are allowed' 
+                      : 'Allowed: .jsx, .tsx, .html, .js'}
+                </p>
+              </div>
+            </button>
           </div>
 
           {/* Auto-extracted Metadata Notice */}
@@ -325,7 +321,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
             <div className="flex items-start gap-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
               <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
               <div className="text-sm">
-                <p className="font-medium text-green-500">Metadata extracted from backend file</p>
+                <p className="font-medium text-green-500">Metadata extracted from script</p>
                 <p className="text-secondary">Fields have been auto-filled. You can edit them below.</p>
               </div>
             </div>
@@ -389,11 +385,12 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what this tool does..."
+              placeholder="Describe what this tool does... (Optional - will use tool name if empty)"
               rows={3}
               className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary resize-none"
               data-testid="tool-description-input"
             />
+            <p className="text-xs text-secondary mt-1">💡 Tip: If left empty, tool name will be used as description</p>
           </div>
 
           {/* Validation Result */}
@@ -403,29 +400,20 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-medium text-red-500">Validation Failed</p>
-                  {validationResult.backend && !validationResult.backend.valid && (
+                  <ul className="list-disc list-inside mt-2 text-secondary space-y-1">
+                    {validationResult.errors.map((err: string, idx: number) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                  </ul>
+                  {validationResult.dependencies?.length > 0 && (
                     <div className="mt-2">
-                      <p className="font-semibold text-red-500">Backend Errors:</p>
-                      <ul className="list-disc list-inside text-secondary">
-                        {validationResult.backend.errors.map((err: string, idx: number) => (
-                          <li key={idx}>{err}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {validationResult.frontend && !validationResult.frontend.valid && (
-                    <div className="mt-2">
-                      <p className="font-semibold text-red-500">Frontend Errors:</p>
-                      <ul className="list-disc list-inside text-secondary">
-                        {validationResult.frontend.errors.map((err: string, idx: number) => (
-                          <li key={idx}>{err}</li>
-                        ))}
-                      </ul>
+                      <p className="text-secondary">Dependencies found:</p>
+                      <p className="text-primary text-xs">{validationResult.dependencies.join(', ')}</p>
                     </div>
                   )}
                 </div>
               </div>
-              <p className="text-xs text-secondary">Tool will be uploaded with 'disabled' status. You can fix issues later.</p>
+              <p className="text-xs text-secondary">Tool will be uploaded with 'disabled' status. You can install dependencies later.</p>
             </div>
           )}
         </div>
@@ -442,7 +430,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
           </button>
           <button
             onClick={handleUpload}
-            disabled={!backendFile || !frontendFile || uploading}
+            disabled={!file || uploading}
             className="px-6 py-2 bg-primary hover:bg-secondary text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             data-testid="upload-button"
           >

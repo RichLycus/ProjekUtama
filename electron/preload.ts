@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Python Tool execution (Phase 2)
   uploadTool: (formData: any) => ipcRenderer.invoke('tool:upload', formData),
+  uploadDualTool: (formData: any) => ipcRenderer.invoke('tool:upload-dual', formData),
   uploadFrontendTool: (formData: any) => ipcRenderer.invoke('tool:upload-frontend', formData),
   listTools: (filters?: any) => ipcRenderer.invoke('tool:list', filters),
   getTool: (toolId: string) => ipcRenderer.invoke('tool:get', toolId),
@@ -49,6 +50,7 @@ export interface ElectronAPI {
   getTheme: () => Promise<string>
   // Python Tools (Phase 2)
   uploadTool: (formData: any) => Promise<any>
+  uploadDualTool: (formData: any) => Promise<any>
   uploadFrontendTool: (formData: any) => Promise<any>
   listTools: (filters?: any) => Promise<any>
   getTool: (toolId: string) => Promise<any>

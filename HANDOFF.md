@@ -3,7 +3,40 @@
 **Project**: ChimeraAI - Intelligent Desktop Assistant  
 **Type**: Electron Desktop Application (React + TypeScript + FastAPI)  
 **Date**: October 18, 2025  
-**Current Status**: Phase 2 Complete + Theme System Fixed → Ready for Phase 3
+**Current Status**: Phase 2 - Dual Upload Implementation NEEDS FIX
+
+---
+
+## ⚠️ IMPORTANT: DUAL UPLOAD KONSEP SALAH - PERLU PERBAIKAN
+
+**Status**: Implementasi dual upload yang sudah dilakukan **TIDAK BENAR**
+
+**Masalah**:
+- Backend hanya fungsi `run()` - tidak ada FastAPI router
+- Frontend tidak bisa fetch ke backend (tidak ada endpoint)
+- Sample tools tidak terhubung frontend-backend
+
+**Solusi**:
+Baca dokumentasi lengkap di:
+- 📖 **Konsep yang Benar**: `/app/docs/DUAL_UPLOAD_CORRECT_CONCEPT.md`
+- 📖 **Update Instructions**: `/app/HANDOFF_UPDATE.md`
+
+**Backend harus**:
+```python
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.post("/endpoint")
+def handler(req):
+    return {"result": "..."}
+```
+
+**Frontend harus**:
+```javascript
+fetch(`http://localhost:8001/tools/${TOOL_ID}/endpoint`, {...})
+```
+
+---
 
 ---
 

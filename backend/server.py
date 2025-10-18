@@ -83,39 +83,74 @@ async def get_categories():
 
 @app.post("/api/tools/upload")
 async def upload_tool(
-    file: UploadFile = File(...),
+    backend_file: UploadFile = File(...),
+    frontend_file: UploadFile = File(...),
     name: str = Form(...),
     description: str = Form(...),
     category: str = Form(...),
     version: str = Form("1.0.0"),
     author: str = Form("Anonymous")
 ):
-    """Upload and validate a new Python tool"""
+    """Dual file upload endpoint - MANDATORY: 1 backend (.py) + 1 frontend (.jsx, .tsx, .html, .js) file"""
     try:
         # Validate category
         if category not in CATEGORIES:
             raise HTTPException(400, f"Invalid category. Must be one of: {CATEGORIES}")
         
+        # Validate backend file
+        backend_ext = Path(backend_file.filename).suffix.lower()
+        if backend_ext != '.py':
+            raise HTTPException(400, f"Backend file must be a Python (.py) file. Got: {backend_ext}")
+        
+        # Validate frontend file
+        frontend_ext = Path(frontend_file.filename).suffix.lower()
+        frontend_valid_exts = ['.jsx', '.tsx', '.html', '.js']
+        if frontend_ext not in frontend_valid_exts:
+            raise HTTPException(
+                400, 
+                f"Frontend file must be one of: {frontend_valid_exts}. Got: {frontend_ext}"
+            )
+        
         # Generate tool ID
         tool_id = str(uuid.uuid4())
         
-        # Read file content
-        content = await file.read()
-        script_content = content.decode('utf-8')
+        # Read both files
+        backend_content = (await backend_file.read()).decode('utf-8')
+        frontend_content = (await frontend_file.read()).decode('utf-8')
         
-        # Save to category folder (portable path)
-        category_folder = TOOLS_DIR / category.lower()
-        category_folder.mkdir(exist_ok=True)
-        script_path = category_folder / f"{tool_id}.py"
+        # Create category folders
+        backend_category_folder = TOOLS_DIR / category.lower()
+        frontend_category_folder = FRONTEND_TOOLS_DIR / category.lower()
+        backend_category_folder.mkdir(exist_ok=True)
+        frontend_category_folder.mkdir(exist_ok=True)
         
-        with open(script_path, 'w') as f:
-            f.write(script_content)
+        # Save backend file
+        backend_path = backend_category_folder / f"{tool_id}.py"
+        with open(backend_path, 'w', encoding='utf-8') as f:
+            f.write(backend_content)
         
-        # Validate tool (convert Path to string for validator)
-        validation_result = validator.validate(str(script_path), script_content)
+        # Save frontend file
+        frontend_path = frontend_category_folder / f"{tool_id}{frontend_ext}"
+        with open(frontend_path, 'w', encoding='utf-8') as f:
+            f.write(frontend_content)
+        
+        # Validate backend file
+        backend_validation = validator.validate(str(backend_path), backend_content)
+        
+        # Validate frontend file
+        frontend_validation = frontend_validator.validate(
+            str(frontend_path), 
+            frontend_content, 
+            frontend_ext
+        )
+        
+        # Combine validations
+        all_valid = backend_validation["valid"] and frontend_validation["valid"]
+        combined_errors = backend_validation.get("errors", []) + frontend_validation.get("errors", [])
+        combined_deps = backend_validation.get("dependencies", []) + frontend_validation.get("dependencies", [])
         
         # Determine status
-        status = "active" if validation_result["valid"] else "disabled"
+        status = "active" if all_valid else "disabled"
         
         # Create tool document
         tool_doc = {
@@ -123,10 +158,12 @@ async def upload_tool(
             "name": name,
             "description": description,
             "category": category,
+            "tool_type": "dual",
             "version": version,
             "author": author,
-            "script_path": str(script_path),  # Store as string
-            "dependencies": validation_result.get("dependencies", []),
+            "backend_path": str(backend_path),
+            "frontend_path": str(frontend_path),
+            "dependencies": list(set(combined_deps)),  # Remove duplicates
             "status": status,
             "last_validated": datetime.utcnow().isoformat(),
             "created_at": datetime.utcnow().isoformat(),
@@ -139,102 +176,31 @@ async def upload_tool(
         log_action(
             tool_id,
             "upload",
-            "success" if validation_result["valid"] else "error",
-            f"Tool uploaded and {'validated' if validation_result['valid'] else 'failed validation'}",
-            json.dumps(validation_result.get("errors", []))
+            "success" if all_valid else "warning",
+            f"Dual tool uploaded: backend {'✓' if backend_validation['valid'] else '✗'}, frontend {'✓' if frontend_validation['valid'] else '✗'}",
+            json.dumps({
+                "backend_errors": backend_validation.get("errors", []),
+                "frontend_errors": frontend_validation.get("errors", [])
+            })
         )
         
         return {
             "success": True,
             "tool_id": tool_id,
             "tool": tool_doc,
-            "validation": validation_result
+            "validation": {
+                "valid": all_valid,
+                "backend": backend_validation,
+                "frontend": frontend_validation,
+                "errors": combined_errors,
+                "dependencies": list(set(combined_deps))
+            }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"Upload failed: {str(e)}")
-
-
-@app.post("/api/tools/upload-frontend")
-async def upload_frontend_tool(
-    file: UploadFile = File(...),
-    name: str = Form(...),
-    description: str = Form(...),
-    category: str = Form(...),
-    version: str = Form("1.0.0"),
-    author: str = Form("Anonymous")
-):
-    """Upload and validate a new frontend tool (React component or HTML app)"""
-    try:
-        # Validate category
-        if category not in CATEGORIES:
-            raise HTTPException(400, f"Invalid category. Must be one of: {CATEGORIES}")
-        
-        # Check file extension
-        file_ext = Path(file.filename).suffix.lower()
-        allowed_extensions = ['.jsx', '.tsx', '.html', '.js']
-        
-        if file_ext not in allowed_extensions:
-            raise HTTPException(400, f"Invalid file type. Must be one of: {', '.join(allowed_extensions)}")
-        
-        # Generate tool ID
-        tool_id = str(uuid.uuid4())
-        
-        # Read file content
-        content = await file.read()
-        file_content = content.decode('utf-8')
-        
-        # Save to category folder (portable path)
-        category_folder = FRONTEND_TOOLS_DIR / category.lower()
-        category_folder.mkdir(exist_ok=True)
-        file_path = category_folder / f"{tool_id}{file_ext}"
-        
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(file_content)
-        
-        # Validate frontend tool
-        validation_result = frontend_validator.validate(str(file_path), file_content, file_ext)
-        
-        # Determine status (frontend tools are always active if no errors)
-        status = "active" if validation_result["valid"] else "disabled"
-        
-        # Create tool document
-        tool_doc = {
-            "_id": tool_id,
-            "name": name,
-            "description": description,
-            "category": category,
-            "tool_type": "frontend",
-            "version": version,
-            "author": author,
-            "script_path": str(file_path),  # Store as string
-            "dependencies": validation_result.get("dependencies", []),
-            "status": status,
-            "last_validated": datetime.utcnow().isoformat(),
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat()
-        }
-        
-        db.insert_tool(tool_doc)
-        
-        # Log action
-        log_action(
-            tool_id,
-            "upload",
-            "success" if validation_result["valid"] else "error",
-            f"Frontend tool uploaded and {'validated' if validation_result['valid'] else 'failed validation'}",
-            json.dumps(validation_result.get("errors", []))
-        )
-        
-        return {
-            "success": True,
-            "tool_id": tool_id,
-            "tool": tool_doc,
-            "validation": validation_result
-        }
-        
-    except Exception as e:
-        raise HTTPException(500, f"Frontend upload failed: {str(e)}")
 
 
 @app.get("/api/tools")
@@ -266,15 +232,29 @@ async def validate_tool(tool_id: str):
     if not tool:
         raise HTTPException(404, "Tool not found")
     
-    # Read script
-    with open(tool["script_path"], 'r') as f:
-        script_content = f.read()
+    # Read both scripts
+    with open(tool["backend_path"], 'r', encoding='utf-8') as f:
+        backend_content = f.read()
     
-    # Validate
-    validation_result = validator.validate(tool["script_path"], script_content)
+    with open(tool["frontend_path"], 'r', encoding='utf-8') as f:
+        frontend_content = f.read()
+    
+    # Get frontend extension
+    frontend_ext = Path(tool["frontend_path"]).suffix.lower()
+    
+    # Validate both
+    backend_validation = validator.validate(tool["backend_path"], backend_content)
+    frontend_validation = frontend_validator.validate(
+        tool["frontend_path"], 
+        frontend_content, 
+        frontend_ext
+    )
+    
+    # Combine results
+    all_valid = backend_validation["valid"] and frontend_validation["valid"]
     
     # Update status
-    new_status = "active" if validation_result["valid"] else "disabled"
+    new_status = "active" if all_valid else "disabled"
     db.update_tool(tool_id, {
         "status": new_status,
         "last_validated": datetime.utcnow().isoformat()
@@ -284,17 +264,27 @@ async def validate_tool(tool_id: str):
     log_action(
         tool_id,
         "validate",
-        "success" if validation_result["valid"] else "error",
-        f"Tool {'validated successfully' if validation_result['valid'] else 'validation failed'}",
-        json.dumps(validation_result.get("errors", []))
+        "success" if all_valid else "error",
+        f"Tool {'validated successfully' if all_valid else 'validation failed'}",
+        json.dumps({
+            "backend_errors": backend_validation.get("errors", []),
+            "frontend_errors": frontend_validation.get("errors", [])
+        })
     )
     
-    return {"success": True, "validation": validation_result}
+    return {
+        "success": True, 
+        "validation": {
+            "valid": all_valid,
+            "backend": backend_validation,
+            "frontend": frontend_validation
+        }
+    }
 
 
 @app.post("/api/tools/{tool_id}/execute")
 async def execute_tool(tool_id: str, params: dict = {}):
-    """Execute a tool with parameters"""
+    """Execute a tool with parameters (backend only)"""
     tool = db.get_tool(tool_id)
     if not tool:
         raise HTTPException(404, "Tool not found")
@@ -303,14 +293,15 @@ async def execute_tool(tool_id: str, params: dict = {}):
         raise HTTPException(400, "Tool is not active")
     
     try:
-        result = await executor.execute(tool["script_path"], params)
+        # Execute backend script
+        result = await executor.execute(tool["backend_path"], params)
         
         # Log
         log_action(
             tool_id,
             "execute",
             "success",
-            "Tool executed successfully",
+            "Backend tool executed successfully",
             ""
         )
         
@@ -357,9 +348,12 @@ async def delete_tool(tool_id: str):
     if not tool:
         raise HTTPException(404, "Tool not found")
     
-    # Delete file
-    if os.path.exists(tool["script_path"]):
-        os.remove(tool["script_path"])
+    # Delete both files
+    if os.path.exists(tool["backend_path"]):
+        os.remove(tool["backend_path"])
+    
+    if os.path.exists(tool["frontend_path"]):
+        os.remove(tool["frontend_path"])
     
     # Delete from database
     db.delete_tool(tool_id)
@@ -369,7 +363,7 @@ async def delete_tool(tool_id: str):
         tool_id,
         "delete",
         "success",
-        "Tool deleted",
+        "Tool deleted (backend + frontend)",
         ""
     )
     
@@ -387,13 +381,25 @@ async def install_dependencies(tool_id: str):
         result = await dep_manager.install_dependencies(tool["dependencies"])
         
         # Re-validate after installation
-        with open(tool["script_path"], 'r') as f:
-            script_content = f.read()
+        with open(tool["backend_path"], 'r', encoding='utf-8') as f:
+            backend_content = f.read()
         
-        validation_result = validator.validate(tool["script_path"], script_content)
+        with open(tool["frontend_path"], 'r', encoding='utf-8') as f:
+            frontend_content = f.read()
+        
+        frontend_ext = Path(tool["frontend_path"]).suffix.lower()
+        
+        backend_validation = validator.validate(tool["backend_path"], backend_content)
+        frontend_validation = frontend_validator.validate(
+            tool["frontend_path"],
+            frontend_content,
+            frontend_ext
+        )
+        
+        all_valid = backend_validation["valid"] and frontend_validation["valid"]
         
         # Update status
-        new_status = "active" if validation_result["valid"] else "disabled"
+        new_status = "active" if all_valid else "disabled"
         db.update_tool(tool_id, {
             "status": new_status,
             "last_validated": datetime.utcnow().isoformat()
@@ -408,7 +414,15 @@ async def install_dependencies(tool_id: str):
             result.get("output", "")
         )
         
-        return {"success": result["success"], "result": result, "validation": validation_result}
+        return {
+            "success": result["success"], 
+            "result": result, 
+            "validation": {
+                "valid": all_valid,
+                "backend": backend_validation,
+                "frontend": frontend_validation
+            }
+        }
     except Exception as e:
         raise HTTPException(500, f"Dependency installation failed: {str(e)}")
 
@@ -421,15 +435,22 @@ async def get_tool_logs(tool_id: str, limit: int = 50):
 
 
 @app.get("/api/tools/file/{tool_id}")
-async def get_tool_file(tool_id: str):
-    """Get the source file content of a tool (for frontend tools execution)"""
+async def get_tool_file(tool_id: str, file_type: str = "frontend"):
+    """Get the source file content of a tool (frontend or backend)"""
     tool = db.get_tool(tool_id)
     if not tool:
         raise HTTPException(404, "Tool not found")
     
-    script_path = Path(tool["script_path"])
+    # Determine which file to return
+    if file_type == "frontend":
+        script_path = Path(tool["frontend_path"])
+    elif file_type == "backend":
+        script_path = Path(tool["backend_path"])
+    else:
+        raise HTTPException(400, "file_type must be 'frontend' or 'backend'")
+    
     if not script_path.exists():
-        raise HTTPException(404, "Tool file not found")
+        raise HTTPException(404, f"{file_type.title()} file not found")
     
     try:
         with open(script_path, 'r', encoding='utf-8') as f:

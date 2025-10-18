@@ -46,10 +46,11 @@ class SQLiteDB:
                     name TEXT NOT NULL,
                     description TEXT,
                     category TEXT NOT NULL,
-                    tool_type TEXT DEFAULT 'backend',
+                    tool_type TEXT DEFAULT 'dual',
                     version TEXT DEFAULT '1.0.0',
                     author TEXT DEFAULT 'Anonymous',
-                    script_path TEXT NOT NULL,
+                    backend_path TEXT NOT NULL,
+                    frontend_path TEXT NOT NULL,
                     dependencies TEXT,
                     status TEXT DEFAULT 'disabled',
                     last_validated TEXT,
@@ -79,6 +80,16 @@ class SQLiteDB:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_logs_tool_id ON tool_logs(tool_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON tool_logs(timestamp)")
     
+    def reset_tools_table(self):
+        """Drop and recreate tools table - USE WITH CAUTION"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DROP TABLE IF EXISTS tools")
+            cursor.execute("DROP TABLE IF EXISTS tool_logs")
+            conn.commit()
+        # Recreate tables
+        self._init_db()
+    
     def insert_tool(self, tool_data: Dict[str, Any]) -> str:
         """Insert a new tool"""
         with self.get_connection() as conn:
@@ -90,18 +101,19 @@ class SQLiteDB:
             cursor.execute("""
                 INSERT INTO tools (
                     id, name, description, category, tool_type, version, author,
-                    script_path, dependencies, status, last_validated,
+                    backend_path, frontend_path, dependencies, status, last_validated,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 tool_data['_id'],
                 tool_data['name'],
                 tool_data['description'],
                 tool_data['category'],
-                tool_data.get('tool_type', 'backend'),
+                tool_data.get('tool_type', 'dual'),
                 tool_data['version'],
                 tool_data['author'],
-                tool_data['script_path'],
+                tool_data['backend_path'],
+                tool_data['frontend_path'],
                 deps,
                 tool_data['status'],
                 tool_data['last_validated'],

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon } from 'lucide-react'
+import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
 import { useThemeStore } from '@/store/themeStore'
 import ToolsTable from '@/components/ToolsTable'
 import UploadToolModal from '@/components/UploadToolModal'
+import HelpModal from '@/components/HelpModal'
 import ThemeCard from '@/components/ThemeCard'
 import toast from 'react-hot-toast'
 
@@ -12,6 +13,7 @@ type TabType = 'tools' | 'appearance' | 'about'
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('tools')
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
@@ -194,6 +196,16 @@ export default function SettingsPage() {
                   <Plus className="w-4 h-4" />
                   Upload Tool
                 </button>
+                
+                {/* Help Button */}
+                <button
+                  onClick={() => setIsHelpModalOpen(true)}
+                  className="flex items-center gap-2 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-all whitespace-nowrap"
+                  data-testid="open-help-modal"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  Help
+                </button>
               </div>
 
               {/* Tools Table */}
@@ -362,6 +374,12 @@ export default function SettingsPage() {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onSuccess={() => fetchTools()}
+      />
+      
+      {/* Help Modal */}
+      <HelpModal
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
       />
     </div>
   )

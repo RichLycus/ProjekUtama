@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Upload, Grid3x3, List, Settings } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
+import { cn } from '@/lib/utils'
 import ToolsSidePanel from '@/components/ToolsSidePanel'
 import ToolCard from '@/components/ToolCard'
 import ToolListItem from '@/components/ToolListItem'
@@ -17,6 +18,7 @@ export default function ToolsPage() {
     loading,
     error,
     viewMode,
+    sidePanelMode,
     setViewMode,
     fetchTools,
     executeToolHandling,
@@ -148,9 +150,17 @@ export default function ToolsPage() {
             </div>
           )}
 
-          {/* Grid View */}
+          {/* Grid View - Responsive based on side panel mode */}
           {!loading && viewMode === 'grid' && filteredTools.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <div className={cn(
+              "grid gap-5 transition-all duration-300",
+              // Full panel mode (280px sidebar)
+              sidePanelMode === 'full' && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+              // Minimized mode (80px sidebar)
+              sidePanelMode === 'minimized' && "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
+              // Hidden mode (no sidebar)
+              sidePanelMode === 'hidden' && "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+            )}>
               {filteredTools.map((tool) => (
                 <ToolCard
                   key={tool._id}

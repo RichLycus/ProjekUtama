@@ -175,6 +175,57 @@ function setupIPC() {
       return { success: false, error: error.message }
     }
   })
+  
+  // NEW: Dual file upload handler (backend + frontend)
+  ipcMain.handle('tool:upload-dual', async (_event, formData) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const FormData = (await import('form-data')).default
+      
+      const form = new FormData()
+      
+      // Backend file
+      if (formData.backend_file) {
+        const backendBuffer = Buffer.from(formData.backend_file, 'utf-8')
+        form.append('backend_file', backendBuffer, {
+          filename: formData.backend_filename || `${formData.name || 'tool'}.py`,
+          contentType: 'text/x-python'
+        })
+      }
+      
+      // Frontend file
+      if (formData.frontend_file) {
+        const frontendBuffer = Buffer.from(formData.frontend_file, 'utf-8')
+        const frontendFilename = formData.frontend_filename || `${formData.name || 'tool'}.jsx`
+        const ext = frontendFilename.substring(frontendFilename.lastIndexOf('.'))
+        const contentType = ext === '.html' ? 'text/html' : 
+                           ext === '.tsx' ? 'text/typescript' :
+                           'text/javascript'
+        form.append('frontend_file', frontendBuffer, {
+          filename: frontendFilename,
+          contentType: contentType
+        })
+      }
+      
+      // Append other fields
+      if (formData.name) form.append('name', formData.name)
+      if (formData.description) form.append('description', formData.description)
+      if (formData.category) form.append('category', formData.category)
+      if (formData.version) form.append('version', formData.version)
+      if (formData.author) form.append('author', formData.author)
+      
+      const response = await fetch(`${BACKEND_URL}/api/tools/upload`, {
+        method: 'POST',
+        body: form,
+        headers: form.getHeaders()
+      })
+      
+      return await response.json()
+    } catch (error: any) {
+      console.error('[IPC] tool:upload-dual error:', error)
+      return { success: false, error: error.message }
+    }
+  })
 
   ipcMain.handle('tool:upload-frontend', async (_event, formData) => {
     try {

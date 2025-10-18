@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Maximize2, Minimize2, RefreshCw, AlertTriangle } from 'lucide-react'
 import { Tool } from '@/store/toolsStore'
 
@@ -12,7 +12,7 @@ export default function FrontendToolExecutor({ tool, isOpen, onClose }: Frontend
   const [isMaximized, setIsMaximized] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [iframeContent, setIframeContent] = useState<string>('')
 
   useEffect(() => {
     if (isOpen && tool) {
@@ -25,7 +25,7 @@ export default function FrontendToolExecutor({ tool, isOpen, onClose }: Frontend
     setError(null)
 
     try {
-      // Get backend URL - use window.electronAPI if available, fallback to localhost
+      // Get backend URL
       const backendUrl = 'http://localhost:8001'
       
       // Fetch tool content from backend API
@@ -46,26 +46,18 @@ export default function FrontendToolExecutor({ tool, isOpen, onClose }: Frontend
       const fileExt = filename.split('.').pop()?.toLowerCase()
 
       // Create iframe content based on file type
-      let iframeContent = ''
+      let htmlContent = ''
 
       if (fileExt === 'html') {
         // For HTML files, use content as-is
-        iframeContent = toolContent
+        htmlContent = toolContent
       } else if (fileExt === 'jsx' || fileExt === 'tsx' || fileExt === 'js') {
         // For React/JS files, create a minimal HTML wrapper
-        iframeContent = createReactWrapper(toolContent, tool.name)
+        htmlContent = createReactWrapper(toolContent, tool.name)
       }
 
-      // Load content into iframe
-      if (iframeRef.current) {
-        const iframeDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document
-        if (iframeDoc) {
-          iframeDoc.open()
-          iframeDoc.write(iframeContent)
-          iframeDoc.close()
-        }
-      }
-
+      // Set content to be loaded via srcdoc
+      setIframeContent(htmlContent)
       setLoading(false)
     } catch (err: any) {
       console.error('Failed to load tool:', err)
@@ -76,12 +68,14 @@ export default function FrontendToolExecutor({ tool, isOpen, onClose }: Frontend
 
   const createReactWrapper = (componentCode: string, toolName: string) => {
     // Create a simple HTML wrapper with React CDN for standalone execution
+    // Using relaxed CSP for iframe content only
     return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://unpkg.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline';">
   <title>${toolName}</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -232,9 +226,9 @@ export default function FrontendToolExecutor({ tool, isOpen, onClose }: Frontend
 
           {!loading && !error && (
             <iframe
-              ref={iframeRef}
+              srcDoc={iframeContent}
               className="w-full h-full border-0"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+              sandbox="allow-scripts"
               title={`${tool.name} - Frontend Tool`}
             />
           )}
