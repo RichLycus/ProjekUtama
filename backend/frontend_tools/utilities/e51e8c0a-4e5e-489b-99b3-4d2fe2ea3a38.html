@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Advanced Calculator</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f9f9fb;
+    }
+    h1 { text-align: center; color: #333; }
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    button {
+      background: #4f46e5;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { background: #4338ca; }
+    #result {
+      margin-top: 20px;
+      padding: 16px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: none;
+    }
+    .error { color: #ef4444; }
+    .success { color: #10b981; }
+  </style>
+</head>
+<body>
+  <h1>🧮 Advanced Calculator</h1>
+  <input type="text" id="expression" placeholder="e.g., sqrt(16) + sin(pi/2)" />
+  <input type="number" id="precision" value="10" min="0" max="15" placeholder="Precision (0-15)" />
+  <button onclick="calculate()">Calculate</button>
+  <div id="result"></div>
+
+  <script type="module">
+    async function calculate() {
+      const expr = (document.getElementById('expression') as HTMLInputElement).value;
+      const prec = parseInt((document.getElementById('precision') as HTMLInputElement).value) || 10;
+      const resultDiv = document.getElementById('result')!;
+
+      try {
+        const res = await fetch('http://localhost:8000/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expression: expr, precision: prec })
+        });
+
+        const data = await res.json();
+
+        resultDiv.style.display = 'block';
+        if (data.status === 'success') {
+          resultDiv.className = 'success';
+          resultDiv.innerHTML = `
+            <strong>Result:</strong> ${data.result}<br>
+            <small>Expression: ${data.expression} | Precision: ${data.precision}</small>
+          `;
+        } else {
+          resultDiv.className = 'error';
+          resultDiv.textContent = `Error: ${data.detail || data.message}`;
+        }
+      } catch (err) {
+        resultDiv.style.display = 'block';
+        resultDiv.className = 'error';
+        resultDiv.textContent = `Network or parsing error: ${err}`;
+      }
+    }
+
+    // Allow Enter key to trigger calculation
+    document.getElementById('expression')!.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') calculate();
+    });
+  </script>
+</body>
+</html>

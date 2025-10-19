@@ -169,6 +169,85 @@ class SQLiteDB:
                     INSERT INTO ai_models (id, model_name, display_name, description, is_default, created_at)
                     VALUES (?, ?, ?, ?, ?, ?)
                 """, default_models)
+            
+            # Personas table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS personas (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    ai_name TEXT NOT NULL,
+                    ai_nickname TEXT,
+                    user_greeting TEXT NOT NULL,
+                    personality_traits TEXT,
+                    response_style TEXT DEFAULT 'balanced',
+                    tone TEXT DEFAULT 'friendly',
+                    sample_greeting TEXT,
+                    avatar_color TEXT DEFAULT 'purple',
+                    is_default INTEGER DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            
+            # Create index for default persona lookup
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_personas_default ON personas(is_default)")
+            
+            # Seed default personas if table is empty
+            cursor.execute("SELECT COUNT(*) FROM personas")
+            persona_count = cursor.fetchone()[0]
+            if persona_count == 0:
+                now = datetime.now().isoformat()
+                default_personas = [
+                    (
+                        'persona-lycus',
+                        'Lycus',
+                        'Lycus',
+                        'Ly',
+                        'Kawan',
+                        json.dumps({
+                            'technical': 90,
+                            'friendly': 70,
+                            'direct': 85,
+                            'creative': 60,
+                            'professional': 75
+                        }),
+                        'technical',
+                        'direct',
+                        'Halo kawan! Saya Lycus, siap membantu dengan masalah teknis Anda. Apa yang bisa saya bantu hari ini?',
+                        'purple',
+                        1,
+                        now,
+                        now
+                    ),
+                    (
+                        'persona-sarah',
+                        'Sarah',
+                        'Sarah',
+                        'Sar',
+                        'Teman',
+                        json.dumps({
+                            'technical': 60,
+                            'friendly': 95,
+                            'direct': 50,
+                            'creative': 80,
+                            'professional': 70
+                        }),
+                        'balanced',
+                        'warm',
+                        'Hai teman! Aku Sarah, senang bisa membantu kamu hari ini. Ada yang bisa aku bantu? 😊',
+                        'pink',
+                        0,
+                        now,
+                        now
+                    ),
+                ]
+                cursor.executemany("""
+                    INSERT INTO personas (
+                        id, name, ai_name, ai_nickname, user_greeting, personality_traits,
+                        response_style, tone, sample_greeting, avatar_color, is_default,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, default_personas)
     
     def reset_tools_table(self):
         """Drop and recreate tools table - USE WITH CAUTION"""
@@ -562,3 +641,160 @@ class SQLiteDB:
             row = cursor.fetchone()
             return dict(row) if row else None
 
+
+    # ============================================
+    # PERSONAS METHODS
+    # ============================================
+    
+    def insert_persona(self, persona_data: Dict[str, Any]) -> str:
+        """Insert a new persona"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Convert personality_traits to JSON if it's a dict
+            traits = persona_data.get('personality_traits')
+            if isinstance(traits, dict):
+                traits = json.dumps(traits)
+            
+            cursor.execute("""
+                INSERT INTO personas (
+                    id, name, ai_name, ai_nickname, user_greeting, personality_traits,
+                    response_style, tone, sample_greeting, avatar_color, is_default,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                persona_data['id'],
+                persona_data['name'],
+                persona_data['ai_name'],
+                persona_data.get('ai_nickname', ''),
+                persona_data['user_greeting'],
+                traits,
+                persona_data.get('response_style', 'balanced'),
+                persona_data.get('tone', 'friendly'),
+                persona_data.get('sample_greeting', ''),
+                persona_data.get('avatar_color', 'purple'),
+                persona_data.get('is_default', 0),
+                persona_data['created_at'],
+                persona_data['updated_at']
+            ))
+            return persona_data['id']
+    
+    def get_personas(self) -> List[Dict[str, Any]]:
+        """Get all personas"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM personas ORDER BY is_default DESC, name ASC")
+            rows = cursor.fetchall()
+            personas = []
+            for row in rows:
+                persona = dict(row)
+                # Parse personality_traits JSON
+                if persona.get('personality_traits'):
+                    try:
+                        persona['personality_traits'] = json.loads(persona['personality_traits'])
+                    except:
+                        persona['personality_traits'] = {}
+                personas.append(persona)
+            return personas
+    
+    def get_persona(self, persona_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific persona by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM personas WHERE id = ?", (persona_id,))
+            row = cursor.fetchone()
+            if row:
+                persona = dict(row)
+                # Parse personality_traits JSON
+                if persona.get('personality_traits'):
+                    try:
+                        persona['personality_traits'] = json.loads(persona['personality_traits'])
+                    except:
+                        persona['personality_traits'] = {}
+                return persona
+            return None
+    
+    def get_persona_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get a specific persona by name"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM personas WHERE name = ?", (name,))
+            row = cursor.fetchone()
+            if row:
+                persona = dict(row)
+                # Parse personality_traits JSON
+                if persona.get('personality_traits'):
+                    try:
+                        persona['personality_traits'] = json.loads(persona['personality_traits'])
+                    except:
+                        persona['personality_traits'] = {}
+                return persona
+            return None
+    
+    def update_persona(self, persona_id: str, updates: Dict[str, Any]) -> bool:
+        """Update a persona"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Convert personality_traits to JSON if present
+            if 'personality_traits' in updates and isinstance(updates['personality_traits'], dict):
+                updates['personality_traits'] = json.dumps(updates['personality_traits'])
+            
+            # Add updated_at
+            updates['updated_at'] = datetime.now().isoformat()
+            
+            # Build UPDATE query dynamically
+            set_clause = ", ".join([f"{k} = ?" for k in updates.keys()])
+            values = list(updates.values()) + [persona_id]
+            
+            cursor.execute(f"""
+                UPDATE personas 
+                SET {set_clause}
+                WHERE id = ?
+            """, values)
+            
+            return cursor.rowcount > 0
+    
+    def delete_persona(self, persona_id: str) -> bool:
+        """Delete a persona (only if not default)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Check if it's the default persona
+            cursor.execute("SELECT is_default FROM personas WHERE id = ?", (persona_id,))
+            row = cursor.fetchone()
+            if row and row['is_default'] == 1:
+                raise ValueError("Cannot delete default persona. Set another persona as default first.")
+            
+            cursor.execute("DELETE FROM personas WHERE id = ?", (persona_id,))
+            return cursor.rowcount > 0
+    
+    def set_default_persona(self, persona_id: str) -> bool:
+        """Set a persona as default (unsets all others)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # First, unset all default flags
+            cursor.execute("UPDATE personas SET is_default = 0")
+            
+            # Then set the new default
+            cursor.execute("UPDATE personas SET is_default = 1 WHERE id = ?", (persona_id,))
+            
+            return cursor.rowcount > 0
+    
+    def get_default_persona(self) -> Optional[Dict[str, Any]]:
+        """Get the default persona"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM personas WHERE is_default = 1 LIMIT 1")
+            row = cursor.fetchone()
+            if row:
+                persona = dict(row)
+                # Parse personality_traits JSON
+                if persona.get('personality_traits'):
+                    try:
+                        persona['personality_traits'] = json.loads(persona['personality_traits'])
+                    except:
+                        persona['personality_traits'] = {}
+                return persona
+            return None

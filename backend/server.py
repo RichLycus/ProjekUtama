@@ -17,6 +17,7 @@ from modules.frontend_tool_validator import FrontendToolValidator
 from modules.tool_executor import ToolExecutor
 from modules.dependency_manager import DependencyManager
 from routes.chat_routes import router as chat_router
+from routes.personas import router as personas_router
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -37,8 +38,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="ChimeraAI Tools API", lifespan=lifespan)
 
-# Include chat router
+# Include routers
 app.include_router(chat_router)
+app.include_router(personas_router)
 
 # CORS Configuration for Electron Desktop App
 # Allow localhost (development) and electron:// protocol

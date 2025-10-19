@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useChatStore } from '../store/chatStore'
+import { usePersonaStore } from '../store/personaStore'
 import ChatMessage from '../components/chat/ChatMessage'
 import ChatInput from '../components/chat/ChatInput'
 import AvatarDisplay from '../components/chat/AvatarDisplay'
@@ -17,9 +18,16 @@ export default function ChatPage() {
     setError 
   } = useChatStore()
   
+  const { currentPersona, fetchDefaultPersona } = usePersonaStore()
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
+  
+  // Load default persona on mount
+  useEffect(() => {
+    fetchDefaultPersona()
+  }, [])
   
   // Detect screen size
   useEffect(() => {
@@ -71,7 +79,7 @@ export default function ChatPage() {
               AI Chat
             </h1>
             <p className="text-xs text-text-secondary dark:text-gray-400 truncate">
-              Powered by Ollama • Lycus Persona
+              Powered by Ollama • {currentPersona?.ai_name || 'Lycus'} Persona
             </p>
           </div>
         </div>
@@ -129,7 +137,7 @@ export default function ChatPage() {
                   Mulai Percakapan Baru
                 </h2>
                 <p className="text-sm sm:text-base text-text-secondary dark:text-gray-400 max-w-md mx-auto px-4">
-                  Halo! Saya Lycus, asisten AI Anda. Tanyakan apa saja tentang coding, tools, atau hal lainnya.
+                  {currentPersona?.sample_greeting || 'Halo! Saya Lycus, asisten AI Anda. Tanyakan apa saja tentang coding, tools, atau hal lainnya.'}
                 </p>
               </motion.div>
             )}

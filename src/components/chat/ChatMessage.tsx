@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { User, Bot, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import TypewriterText from '@/components/TypewriterText'
 
 interface ExecutionLog {
   router?: string
@@ -27,6 +28,7 @@ export default function ChatMessage({
   execution_log 
 }: ChatMessageProps) {
   const [showLog, setShowLog] = useState(false)
+  const [typingComplete, setTypingComplete] = useState(false)
   const isUser = role === 'user'
   
   // Format timestamp
@@ -93,10 +95,20 @@ export default function ChatMessage({
             ? 'bg-primary/10 dark:bg-primary/20 text-text dark:text-white'
             : 'glass-strong text-text dark:text-white'
         )}>
-          <div className="text-sm sm:text-base whitespace-pre-wrap">{content}</div>
+          {isUser ? (
+            <div className="text-sm sm:text-base whitespace-pre-wrap">{content}</div>
+          ) : (
+            <div className="text-sm sm:text-base whitespace-pre-wrap">
+              <TypewriterText 
+                text={content} 
+                speed={50}
+                onComplete={() => setTypingComplete(true)}
+              />
+            </div>
+          )}
           
           {/* Execution Log */}
-          {!isUser && hasExecutionLog && (
+          {!isUser && hasExecutionLog && typingComplete && (
             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-dark-border">
               <button
                 onClick={() => setShowLog(!showLog)}

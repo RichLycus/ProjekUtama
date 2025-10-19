@@ -1,0 +1,10 @@
+{
+  "ollama_url": "http://localhost:11434",
+  "model": "qwen2.5-coder-id:latest",
+  "default_persona": "lycus",
+  "context_window_size": 4000,
+  "temperature": 0.7,
+  "execution_enabled": true,
+  "execution_policy": "ask",
+  "vector_db_path": "data/vector_db"
+}

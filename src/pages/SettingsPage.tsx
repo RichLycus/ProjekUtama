@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare, Edit2, Trash2, Star, TestTube } from 'lucide-react'
+import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare, Edit2, Trash2, Star, TestTube, Users } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
 import { useThemeStore } from '@/store/themeStore'
 import { useAIConfigStore } from '@/store/aiConfigStore'
@@ -8,9 +8,10 @@ import ToolsTable from '@/components/ToolsTable'
 import UploadToolModal from '@/components/UploadToolModal'
 import HelpModal from '@/components/HelpModal'
 import ThemeCard from '@/components/ThemeCard'
+import PersonaManager from '@/components/PersonaManager'
 import toast from 'react-hot-toast'
 
-type TabType = 'tools' | 'appearance' | 'ai-chat' | 'about'
+type TabType = 'tools' | 'appearance' | 'ai-chat' | 'personas' | 'about'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('tools')
@@ -224,6 +225,7 @@ export default function SettingsPage() {
     { id: 'tools' as TabType, label: 'Tools Management', icon: Wrench },
     { id: 'appearance' as TabType, label: 'Appearance', icon: Palette },
     { id: 'ai-chat' as TabType, label: 'AI Chat', icon: MessageSquare },
+    { id: 'personas' as TabType, label: 'Personas', icon: Users },
     { id: 'about' as TabType, label: 'About', icon: Info },
   ]
 
@@ -772,6 +774,11 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Personas Tab */}
+          {activeTab === 'personas' && (
+            <PersonaManager />
           )}
 
           {/* About Tab */}
