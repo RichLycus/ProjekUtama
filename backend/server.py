@@ -19,6 +19,7 @@ from modules.dependency_manager import DependencyManager
 from routes.chat_routes import router as chat_router
 from routes.personas import router as personas_router
 from routes.agent_routes import router as agent_router
+from routes.embedding_routes import router as embedding_router
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -43,6 +44,7 @@ app = FastAPI(title="ChimeraAI Tools API", lifespan=lifespan)
 app.include_router(chat_router)
 app.include_router(personas_router)
 app.include_router(agent_router)
+app.include_router(embedding_router)
 
 # CORS Configuration for Electron Desktop App
 # Allow localhost (development) and electron:// protocol

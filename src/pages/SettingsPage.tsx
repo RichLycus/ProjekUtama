@@ -10,6 +10,7 @@ import HelpModal from '@/components/HelpModal'
 import ThemeCard from '@/components/ThemeCard'
 import PersonaManager from '@/components/PersonaManager'
 import EditAgentModal from '@/components/EditAgentModal'
+import EditRAGAgentModal from '@/components/EditRAGAgentModal'
 import toast from 'react-hot-toast'
 
 type TabType = 'tools' | 'appearance' | 'ai-chat' | 'personas' | 'about'
@@ -38,6 +39,7 @@ export default function SettingsPage() {
   const [agentConfigs, setAgentConfigs] = useState<any[]>([])
   const [editingAgent, setEditingAgent] = useState<any | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isRAGModalOpen, setIsRAGModalOpen] = useState(false)
   
   // Load AI config and models on mount
   useEffect(() => {
@@ -199,7 +201,12 @@ export default function SettingsPage() {
   // Edit agent config
   const handleEditAgent = (agent: any) => {
     setEditingAgent(agent)
-    setIsEditModalOpen(true)
+    // Check if RAG agent - use special modal
+    if (agent.agent_type === 'rag') {
+      setIsRAGModalOpen(true)
+    } else {
+      setIsEditModalOpen(true)
+    }
   }
   
   // Save agent config updates
@@ -1100,6 +1107,17 @@ export default function SettingsPage() {
         isOpen={isEditModalOpen}
         onClose={() => {
           setIsEditModalOpen(false)
+          setEditingAgent(null)
+        }}
+        agent={editingAgent}
+        onSave={handleSaveAgent}
+      />
+      
+      {/* Edit RAG Agent Modal */}
+      <EditRAGAgentModal
+        isOpen={isRAGModalOpen}
+        onClose={() => {
+          setIsRAGModalOpen(false)
           setEditingAgent(null)
         }}
         agent={editingAgent}
