@@ -18,7 +18,36 @@ class SQLiteDB:
             db_path = str(data_dir / "chimera_tools.db")
         
         self.db_path = db_path
+        self.backend_dir = Path(__file__).parent
         self._init_db()
+    
+    def get_relative_path(self, absolute_path: str) -> str:
+        """
+        Convert absolute path to relative path from backend directory.
+        Example: /app/backend/tools/devtools/abc.py -> tools/devtools/abc.py
+        """
+        try:
+            abs_path = Path(absolute_path)
+            rel_path = abs_path.relative_to(self.backend_dir)
+            return str(rel_path)
+        except ValueError:
+            # If path is not under backend_dir, return as-is
+            # (might already be relative)
+            return str(absolute_path)
+    
+    def get_absolute_path(self, relative_path: str) -> str:
+        """
+        Convert relative path to absolute path.
+        Example: tools/devtools/abc.py -> /full/path/to/backend/tools/devtools/abc.py
+        """
+        # If already absolute, return as-is
+        path_obj = Path(relative_path)
+        if path_obj.is_absolute():
+            return str(path_obj)
+        
+        # Construct absolute path from backend_dir
+        abs_path = self.backend_dir / relative_path
+        return str(abs_path)
     
     @contextmanager
     def get_connection(self):
@@ -131,7 +160,13 @@ class SQLiteDB:
             row = cursor.fetchone()
             
             if row:
-                return self._row_to_dict(row)
+                tool_data = self._row_to_dict(row)
+                # Convert relative paths to absolute paths at runtime
+                if 'backend_path' in tool_data:
+                    tool_data['backend_path'] = self.get_absolute_path(tool_data['backend_path'])
+                if 'frontend_path' in tool_data:
+                    tool_data['frontend_path'] = self.get_absolute_path(tool_data['frontend_path'])
+                return tool_data
             return None
     
     def list_tools(self, filters: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
@@ -155,7 +190,17 @@ class SQLiteDB:
             cursor.execute(query, params)
             rows = cursor.fetchall()
             
-            return [self._row_to_dict(row) for row in rows]
+            tools = []
+            for row in rows:
+                tool_data = self._row_to_dict(row)
+                # Convert relative paths to absolute paths at runtime
+                if 'backend_path' in tool_data:
+                    tool_data['backend_path'] = self.get_absolute_path(tool_data['backend_path'])
+                if 'frontend_path' in tool_data:
+                    tool_data['frontend_path'] = self.get_absolute_path(tool_data['frontend_path'])
+                tools.append(tool_data)
+            
+            return tools
     
     def update_tool(self, tool_id: str, updates: Dict[str, Any]) -> bool:
         """Update a tool"""

@@ -5,10 +5,12 @@ export interface Tool {
   name: string
   description: string
   category: string
-  tool_type?: 'backend' | 'frontend'
+  tool_type?: 'backend' | 'frontend' | 'dual'  // ✅ Added 'dual' type
   version: string
   author: string
-  script_path: string
+  script_path?: string  // Optional for backward compatibility
+  backend_path?: string  // For dual tools
+  frontend_path?: string  // For dual tools
   dependencies: string[]
   status: 'active' | 'disabled'
   last_validated: string

@@ -5,6 +5,7 @@ import PageTransition from './components/PageTransition'
 import HomePage from './pages/HomePage'
 import PortfolioPage from './pages/PortfolioPage'
 import ToolsPage from './pages/ToolsPage'
+import ToolExecutionPage from './pages/ToolExecutionPage'
 import ChatPage from './pages/ChatPage'
 import GamesPage from './pages/GamesPage'
 import SettingsPage from './pages/SettingsPage'
@@ -18,6 +19,7 @@ function AnimatedRoutes() {
         <Route path="/" element={<PageTransition><HomePage /></PageTransition>} />
         <Route path="/portfolio" element={<PageTransition><PortfolioPage /></PageTransition>} />
         <Route path="/tools" element={<PageTransition><ToolsPage /></PageTransition>} />
+        <Route path="/tools/:toolId" element={<ToolExecutionPage />} />
         <Route path="/chat" element={<PageTransition><ChatPage /></PageTransition>} />
         <Route path="/games" element={<PageTransition><GamesPage /></PageTransition>} />
         <Route path="/settings" element={<PageTransition><SettingsPage /></PageTransition>} />

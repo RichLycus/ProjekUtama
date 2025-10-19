@@ -28,8 +28,8 @@ export default function FrontendToolExecutor({ tool, isOpen, onClose }: Frontend
       // Get backend URL
       const backendUrl = 'http://localhost:8001'
       
-      // Fetch tool content from backend API
-      const response = await fetch(`${backendUrl}/api/tools/file/${tool._id}`, {
+      // Fetch FRONTEND file from backend API (for dual tools)
+      const response = await fetch(`${backendUrl}/api/tools/file/${tool._id}?file_type=frontend`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -49,8 +49,22 @@ export default function FrontendToolExecutor({ tool, isOpen, onClose }: Frontend
       let htmlContent = ''
 
       if (fileExt === 'html') {
-        // For HTML files, use content as-is
-        htmlContent = toolContent
+        // For HTML files, inject window.TOOL_ID before the content
+        const toolIdInjection = `
+<script>
+  // Inject TOOL_ID for backend communication
+  window.TOOL_ID = "${tool._id}";
+  window.BACKEND_URL = "${backendUrl}";
+</script>
+`
+        // Insert injection right after <head> tag or at the beginning
+        if (toolContent.includes('<head>')) {
+          htmlContent = toolContent.replace('<head>', '<head>' + toolIdInjection)
+        } else if (toolContent.includes('<html>')) {
+          htmlContent = toolContent.replace('<html>', '<html>' + toolIdInjection)
+        } else {
+          htmlContent = toolIdInjection + toolContent
+        }
       } else if (fileExt === 'jsx' || fileExt === 'tsx' || fileExt === 'js') {
         // For React/JS files, create a minimal HTML wrapper
         htmlContent = createReactWrapper(toolContent, tool.name)

@@ -100,24 +100,58 @@ class ToolValidator:
             }
     
     def _check_structure(self, content: str) -> Dict:
-        """Check if tool has required run() function"""
+        """Check if tool has required FastAPI structure"""
         try:
             tree = ast.parse(content)
             
-            # Look for run function
-            has_run = False
-            for node in ast.walk(tree):
-                if isinstance(node, ast.FunctionDef) and node.name == "run":
-                    has_run = True
-                    break
+            # Look for FastAPI app instance: app = FastAPI()
+            has_fastapi_app = False
+            has_endpoint = False
+            endpoints = []
             
-            if not has_run:
+            for node in ast.walk(tree):
+                # Check: app = FastAPI() or app = FastAPI(...)
+                if isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name) and target.id == 'app':
+                            # Check if right side is FastAPI() call
+                            if isinstance(node.value, ast.Call):
+                                if hasattr(node.value.func, 'id') and node.value.func.id == 'FastAPI':
+                                    has_fastapi_app = True
+                                elif hasattr(node.value.func, 'attr') and node.value.func.attr == 'FastAPI':
+                                    has_fastapi_app = True
+                
+                # Check: @app.get, @app.post, @app.put, @app.delete, @app.patch decorators
+                if isinstance(node, ast.FunctionDef):
+                    for decorator in node.decorator_list:
+                        if isinstance(decorator, ast.Call):
+                            # Check if decorator is app.method(...)
+                            if hasattr(decorator.func, 'attr') and hasattr(decorator.func, 'value'):
+                                if hasattr(decorator.func.value, 'id') and decorator.func.value.id == 'app':
+                                    method = decorator.func.attr
+                                    if method in ['get', 'post', 'put', 'delete', 'patch', 'options', 'head']:
+                                        has_endpoint = True
+                                        # Extract endpoint path if available
+                                        if decorator.args and isinstance(decorator.args[0], ast.Constant):
+                                            endpoint_path = decorator.args[0].value
+                                            endpoints.append(f"{method.upper()} {endpoint_path}")
+            
+            if not has_fastapi_app:
                 return {
                     "valid": False,
-                    "error": "Tool must have a 'run()' function"
+                    "error": "Tool must have 'app = FastAPI()' instance"
                 }
             
-            return {"valid": True}
+            if not has_endpoint:
+                return {
+                    "valid": False,
+                    "error": "Tool must have at least one endpoint (@app.get, @app.post, etc.)"
+                }
+            
+            return {
+                "valid": True,
+                "endpoints": endpoints
+            }
         except Exception as e:
             return {
                 "valid": False,
@@ -176,7 +210,7 @@ class ToolValidator:
             return False
     
     def _test_execution(self, script_path: str) -> Dict:
-        """Safe test execution of the tool"""
+        """Safe test execution of the tool - check if FastAPI app can be imported"""
         try:
             # Import the module
             spec = importlib.util.spec_from_file_location("tool_module", script_path)
@@ -184,19 +218,22 @@ class ToolValidator:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 
-                # Check if run function exists
-                if hasattr(module, 'run'):
-                    # Try calling with empty params
-                    try:
-                        module.run({})
+                # Check if app instance exists
+                if hasattr(module, 'app'):
+                    # Check if it's a FastAPI instance
+                    app_obj = getattr(module, 'app')
+                    # Basic check - has FastAPI app attributes
+                    if hasattr(app_obj, 'routes') or hasattr(app_obj, 'router'):
                         return {"valid": True}
-                    except Exception as e:
-                        # It's okay if it fails with params, just check if function exists
-                        return {"valid": True}
+                    else:
+                        return {
+                            "valid": False,
+                            "error": "'app' object is not a valid FastAPI instance"
+                        }
                 else:
                     return {
                         "valid": False,
-                        "error": "Tool does not have a 'run' function"
+                        "error": "Tool does not have an 'app' object"
                     }
             else:
                 return {

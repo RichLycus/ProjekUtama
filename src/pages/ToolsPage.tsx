@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Upload, Grid3x3, List, Settings } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
@@ -6,13 +6,10 @@ import { cn } from '@/lib/utils'
 import ToolsSidePanel from '@/components/ToolsSidePanel'
 import ToolCard from '@/components/ToolCard'
 import ToolListItem from '@/components/ToolListItem'
-import FrontendToolExecutor from '@/components/FrontendToolExecutor'
 import LoadingSpinner from '@/components/LoadingSpinner'
-import toast from 'react-hot-toast'
 
 export default function ToolsPage() {
   const navigate = useNavigate()
-  const [executingFrontendTool, setExecutingFrontendTool] = useState<any>(null)
   const {
     tools,
     loading,
@@ -21,7 +18,6 @@ export default function ToolsPage() {
     sidePanelMode,
     setViewMode,
     fetchTools,
-    executeToolHandling,
     getFilteredTools,
   } = useToolsStore()
 
@@ -32,24 +28,8 @@ export default function ToolsPage() {
   const filteredTools = getFilteredTools()
 
   const handleExecute = async (tool: any) => {
-    // Check if it's a frontend tool
-    if (tool.tool_type === 'frontend') {
-      setExecutingFrontendTool(tool)
-      return
-    }
-
-    // Backend tool execution
-    const toastId = toast.loading('Executing tool...')
-    try {
-      const result = await executeToolHandling(tool._id)
-      if (result.success) {
-        toast.success('✅ Tool executed successfully!', { id: toastId })
-      } else {
-        toast.error('⚠️ Execution failed: ' + result.error, { id: toastId })
-      }
-    } catch (error: any) {
-      toast.error('❌ Execution error: ' + error.message, { id: toastId })
-    }
+    // Navigate to dedicated tool execution page
+    navigate(`/tools/${tool._id}`)
   }
 
   return (
@@ -185,15 +165,6 @@ export default function ToolsPage() {
           )}
         </div>
       </div>
-
-      {/* Frontend Tool Executor Modal */}
-      {executingFrontendTool && (
-        <FrontendToolExecutor
-          tool={executingFrontendTool}
-          isOpen={!!executingFrontendTool}
-          onClose={() => setExecutingFrontendTool(null)}
-        />
-      )}
     </div>
   )
 }
