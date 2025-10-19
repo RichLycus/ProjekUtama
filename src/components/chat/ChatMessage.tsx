@@ -12,7 +12,7 @@ interface ExecutionLog {
 }
 
 interface ChatMessageProps {
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
   timestamp?: string
   agent_tag?: string

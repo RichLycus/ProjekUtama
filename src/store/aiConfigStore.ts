@@ -26,7 +26,7 @@ interface AIConfigStore {
   listModels: () => Promise<string[]>
 }
 
-export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
+export const useAIConfigStore = create<AIConfigStore>((set, _get) => ({
   config: null,
   loading: false,
   
