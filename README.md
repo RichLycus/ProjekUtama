@@ -7,17 +7,23 @@
 
 ## 📚 Documentation
 
+### Core Documentation
 - **🏅 [Golden Rules](docs/golden-rules.md)** - MUST READ! Project conventions
 - **📖 [Full Documentation](docs/index.md)** - Complete documentation index
 - **🚀 [Quick Start Guide](docs/quick-start.md)** - Get started in 1 minute!
 - **📘 [Development Guide](docs/DEVELOPMENT.md)** - Setup & development
-- **📅 [Phase 0 Complete](docs/phase/phase_0.md)** - Foundation status
-- **✨ [Phase 1.5 Complete](docs/PHASE-1.5-IMPROVEMENTS.md)** - Modern UI Layer
-- **🔧 [Phase 2 Complete](docs/phase/phase_2.md)** - UI Fix + SQLite Migration
-- **⚡ [Phase 2 Backend](docs/QUICK_START_PHASE2.md)** - Backend API guide
+
+### Phase Documentation
+- **✅ [Phase 0 Complete](docs/phase/phase_0.md)** - Foundation & Architecture
+- **✅ [Phase 1 Complete](docs/phase/phase_1.md)** - UI Enhancement & Animations
+- **✅ [Phase 2 Complete](docs/phase/phase_2.md)** - Tools System & SQLite
+- **✅ [Phase 3 Complete](docs/phase/phase_3.md)** - AI Chat with RAG System
+- **📋 [Phase 4 Planned](docs/phase/phase_4_planned.md)** - Advanced Chat Features
+
+### Technical Guides
 - **🧪 [Backend Testing Guide](docs/BACKEND_TESTING_GUIDE.md)** - Test backend API
-- **🤖 [Phase 3 Progress](docs/phase/phase_3_progress.md)** - AI Chat System (85% Complete)
-- **⚙️ [Model Management](docs/MODEL_MANAGEMENT_QUICKSTART.md)** - NEW! Test AI models quickly
+- **⚙️ [Model Management](docs/MODEL_MANAGEMENT_QUICKSTART.md)** - AI models configuration
+- **🎨 [Phase 3 Wireframes](docs/phase/phase-3-wireframes.md)** - Visual reference
 
 ## 🚀 Phase 0 - Foundation Complete
 
@@ -141,13 +147,11 @@ chimera-ai/
 ## 🔮 Development Phases
 
 - **Phase 0**: ✅ **COMPLETE** - Foundation & Architecture
-- **Phase 1**: ✅ **COMPLETE** - Animated avatar, glassmorphism, page transitions
-- **Phase 1.5**: ✅ **COMPLETE** - Modern UI Layer (Frameless window, custom controls)
-- **Phase 2 Backend**: ✅ **COMPLETE** - Python Tools API & Management System
-- **Phase 2 Frontend**: 🚧 **IN PROGRESS** - Tools UI Components
-- **Phase 3**: AI Chat - Ollama integration
-- **Phase 4**: Animations - Advanced avatar states
-- **Phase 5**: Games & Polish - Final features
+- **Phase 1**: ✅ **COMPLETE** - UI Enhancement & Animations  
+- **Phase 2**: ✅ **COMPLETE** - Tools System & SQLite Database
+- **Phase 3**: ✅ **COMPLETE** - AI Chat System with RAG
+- **Phase 4**: 📋 **PLANNED** - Advanced Chat Features (File upload, OCR, STT/TTS)
+- **Phase 5**: 🔜 **UPCOMING** - Games & Final Polish
 
 📖 **See [docs/index.md](docs/index.md) for complete documentation**
 
@@ -202,29 +206,53 @@ python3 build_release.py --info      # Show release info
 - [Complete Documentation](docs/index.md)
 - [Development Guide](docs/DEVELOPMENT.md)
 - [Golden Rules](docs/golden-rules.md)
-- [Phase 0 Status](docs/phase/phase_0.md)
+- [Phase Documentation](docs/phase/)
 
 ---
 
-**Current Status**: Phase 2 Backend Complete ✅  
-**Next**: Phase 2 Frontend - Tools UI Components
+**Current Status**: Phase 3 Complete ✅  
+**Next**: Phase 4 - Advanced Chat Features (Planned)
 
-### Phase 2 Backend Highlights 🎉
-- ✅ FastAPI backend with 10+ REST endpoints
-- ✅ Auto-validation system (syntax, imports, structure)
-- ✅ Safe tool execution (subprocess isolation)
-- ✅ Category-based organization (7 categories)
-- ✅ Dependency auto-installer
-- ✅ Comprehensive logging system
-- ✅ Example tools included (JSON Formatter, Text Counter, CSV Converter)
+### Phase 3 Highlights 🎉
+- ✅ Responsive chat interface (mobile, tablet, desktop)
+- ✅ Collapsible sidebar seperti ChatGPT
+- ✅ RAG system dengan ChromaDB
+- ✅ Vector embeddings (all-MiniLM-L6-v2)
+- ✅ Multi-agent architecture (Router, RAG, Execution, Reasoning, Persona)
+- ✅ Chat history & conversations management
+- ✅ Model management system
+- ✅ Real-time agent status indicators
+
+### What's New in Phase 3:
+```bash
+# RAG System
+- ChromaDB vector database
+- Automatic golden rules indexing
+- Context-aware responses
+- Relevance scoring
+
+# Responsive UI
+- Mobile-first design
+- Smooth sidebar animations  
+- Expandable execution logs
+- 60fps performance
+
+# Backend APIs
+- 7 Chat endpoints
+- 4 RAG endpoints
+- 6 Model management endpoints
+```
 
 ### Quick Start:
 ```bash
 # Start full stack (Backend + Frontend)
-./start_chimera.sh
+sudo supervisorctl restart all
 
-# Or backend only
-cd backend && python3 server.py
+# Check status
+curl http://localhost:8001/api/chat/status
+curl http://localhost:8001/api/chat/rag/status
 ```
 
-📖 **[See Backend Testing Guide](docs/BACKEND_TESTING_GUIDE.md)** for manual testing!
+📖 **[See Phase 3 Documentation](docs/phase/phase_3.md)** for complete details!
+📋 **[See Phase 4 Planning](docs/phase/phase_4_planned.md)** for upcoming features!
+

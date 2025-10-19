@@ -58,12 +58,12 @@ export default function AgentStatusPanel({ loading = false }: AgentStatusPanelPr
   }
   
   return (
-    <div className="glass-strong rounded-2xl p-4">
-      <h3 className="text-sm font-bold text-text dark:text-white mb-4">
+    <div className="glass-strong rounded-2xl p-3 sm:p-4">
+      <h3 className="text-xs sm:text-sm font-bold text-text dark:text-white mb-3 sm:mb-4">
         Agent Status
       </h3>
       
-      <div className="space-y-3">
+      <div className="space-y-2 sm:space-y-3">
         {agents.map((agent, index) => {
           const Icon = agent.icon
           const isActive = agent.status === 'active'
@@ -74,7 +74,7 @@ export default function AgentStatusPanel({ loading = false }: AgentStatusPanelPr
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="flex items-center gap-3"
+              className="flex items-center gap-2 sm:gap-3"
             >
               {/* Status indicator */}
               <motion.div
@@ -90,7 +90,7 @@ export default function AgentStatusPanel({ loading = false }: AgentStatusPanelPr
               
               {/* Icon */}
               <div className={`${agent.color}`}>
-                <Icon className="w-4 h-4" />
+                <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
               </div>
               
               {/* Name */}
@@ -108,7 +108,7 @@ export default function AgentStatusPanel({ loading = false }: AgentStatusPanelPr
       </div>
       
       {/* Overall status */}
-      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-dark-border">
+      <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-200 dark:border-dark-border">
         <div className="flex items-center justify-between text-xs">
           <span className="text-text-secondary dark:text-gray-400">
             System Status

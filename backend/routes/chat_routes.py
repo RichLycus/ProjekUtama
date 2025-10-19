@@ -18,10 +18,19 @@ from database import SQLiteDB
 # Import AI modules
 from ai.agent_orchestrator import AgentOrchestrator
 from ai.config_manager import AIConfigManager
+from ai.rag import get_rag_system
 
 db = SQLiteDB()
 config_manager = AIConfigManager()
 logger = logging.getLogger(__name__)
+
+# Initialize RAG system
+try:
+    rag_system = get_rag_system()
+    logger.info("✅ RAG system initialized successfully")
+except Exception as e:
+    logger.error(f"⚠️ Failed to initialize RAG system: {str(e)}")
+    rag_system = None
 
 # Initialize Agent Orchestrator with config manager
 try:
@@ -565,3 +574,106 @@ async def test_specific_model(model_name: str):
             "available": False,
             "message": f"❌ Test failed: {str(e)}"
         }
+
+
+# ============================================
+# RAG ENDPOINTS
+# ============================================
+
+class RAGQueryRequest(BaseModel):
+    query: str
+    n_results: int = 5
+
+@router.post("/rag/query")
+async def query_rag(request: RAGQueryRequest):
+    """
+    Query RAG system for relevant context
+    Returns: List of relevant documents with scores
+    """
+    try:
+        if not rag_system:
+            raise HTTPException(status_code=503, detail="RAG system not initialized")
+        
+        results = rag_system.query(request.query, request.n_results)
+        
+        return {
+            "success": True,
+            "query": request.query,
+            "results": results,
+            "count": len(results)
+        }
+    except Exception as e:
+        logger.error(f"❌ RAG query error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"RAG query failed: {str(e)}")
+
+@router.get("/rag/status")
+async def get_rag_status():
+    """Get RAG system status and statistics"""
+    try:
+        if not rag_system:
+            return {
+                "success": False,
+                "status": "not_initialized",
+                "message": "RAG system not initialized"
+            }
+        
+        status = rag_system.get_status()
+        return {
+            "success": True,
+            **status
+        }
+    except Exception as e:
+        logger.error(f"❌ RAG status error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get RAG status: {str(e)}")
+
+@router.post("/rag/index-tools")
+async def index_all_tools():
+    """Index all tools from database into RAG"""
+    try:
+        if not rag_system:
+            raise HTTPException(status_code=503, detail="RAG system not initialized")
+        
+        # Get all tools
+        tools = db.list_tools()
+        indexed_count = 0
+        
+        for tool in tools:
+            success = rag_system.index_tool(tool['_id'], tool)
+            if success:
+                indexed_count += 1
+        
+        return {
+            "success": True,
+            "message": f"Indexed {indexed_count}/{len(tools)} tools",
+            "indexed": indexed_count,
+            "total": len(tools)
+        }
+    except Exception as e:
+        logger.error(f"❌ Tool indexing error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to index tools: {str(e)}")
+
+@router.post("/rag/clear/{collection_name}")
+async def clear_rag_collection(collection_name: str):
+    """Clear a specific RAG collection (tools, docs, conversations)"""
+    try:
+        if not rag_system:
+            raise HTTPException(status_code=503, detail="RAG system not initialized")
+        
+        if collection_name not in ['tools', 'docs', 'conversations']:
+            raise HTTPException(status_code=400, detail="Invalid collection name. Must be: tools, docs, or conversations")
+        
+        success = rag_system.clear_collection(collection_name)
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Collection '{collection_name}' cleared successfully"
+            }
+        else:
+            raise HTTPException(status_code=400, detail=f"Failed to clear collection '{collection_name}'")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Clear collection error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear collection: {str(e)}")
+
