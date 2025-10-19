@@ -1,9 +1,10 @@
 """Agent Orchestrator - Coordinates the 5-Core Agent Pipeline"""
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from .ollama_client import OllamaClient
 from .agents import RouterAgent, RAGAgent, ExecutionAgent, ReasoningAgent, PersonaAgent
+from .config_manager import AIConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -15,22 +16,53 @@ class AgentOrchestrator:
     
     def __init__(
         self, 
-        ollama_url: str = "http://localhost:11434",
-        model: str = "llama3:8b",
-        db_manager=None
+        db_manager=None,
+        config_manager: Optional[AIConfigManager] = None
     ):
+        # Use provided config manager or create new one
+        self.config_manager = config_manager or AIConfigManager()
+        
+        # Get configuration
+        ollama_url = self.config_manager.get_ollama_url()
+        self.model = self.config_manager.get_model()
+        
         # Initialize Ollama client
         self.ollama = OllamaClient(ollama_url)
-        self.model = model
         
         # Initialize all 5 agents
-        self.router = RouterAgent(self.ollama, model)
+        self.router = RouterAgent(self.ollama, self.model)
         self.rag = RAGAgent(db_manager)
-        self.execution = ExecutionAgent(self.ollama, model)
-        self.reasoning = ReasoningAgent(self.ollama, model)
-        self.persona = PersonaAgent(self.ollama, model)
+        self.execution = ExecutionAgent(self.ollama, self.model)
+        self.reasoning = ReasoningAgent(self.ollama, self.model)
+        self.persona = PersonaAgent(self.ollama, self.model)
         
-        logger.info(f"✅ Agent Orchestrator initialized with model: {model}")
+        logger.info(f"✅ Agent Orchestrator initialized")
+        logger.info(f"   Ollama URL: {ollama_url}")
+        logger.info(f"   Model: {self.model}")
+    
+    def reload_config(self):
+        """Reload configuration and reinitialize agents"""
+        logger.info("🔄 Reloading AI configuration...")
+        
+        # Reload config
+        self.config_manager.config = self.config_manager.load_config()
+        
+        # Get new configuration
+        ollama_url = self.config_manager.get_ollama_url()
+        self.model = self.config_manager.get_model()
+        
+        # Reinitialize Ollama client
+        self.ollama = OllamaClient(ollama_url)
+        
+        # Reinitialize all agents with new model
+        self.router = RouterAgent(self.ollama, self.model)
+        self.execution = ExecutionAgent(self.ollama, self.model)
+        self.reasoning = ReasoningAgent(self.ollama, self.model)
+        self.persona = PersonaAgent(self.ollama, self.model)
+        
+        logger.info(f"✅ Configuration reloaded")
+        logger.info(f"   Ollama URL: {ollama_url}")
+        logger.info(f"   Model: {self.model}")
     
     def test_ollama_connection(self) -> bool:
         """Test if Ollama is available"""

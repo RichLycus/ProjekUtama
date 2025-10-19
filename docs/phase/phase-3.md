@@ -553,7 +553,7 @@ services:
 ### Ollama Model Selection:
 - **llama3:8b** - Best all-around (code + creative)
 - **mistral:7b** - Fast, good for technical
-- **codellama:7b** - Specialized for coding
+- **qwen2.5-coder-id:latest** - Specialized for coding
 - **phi-2:2.7b** - Lightweight for low-end devices
 
 ### RAG Strategy:

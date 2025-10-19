@@ -15,23 +15,22 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 # Import database
 from database import SQLiteDB
 
-# Import AI orchestrator
+# Import AI modules
 from ai.agent_orchestrator import AgentOrchestrator
+from ai.config_manager import AIConfigManager
 
 db = SQLiteDB()
+config_manager = AIConfigManager()
+logger = logging.getLogger(__name__)
 
-# Initialize Agent Orchestrator
-# It will try to connect to Ollama, but will work with mock if unavailable
+# Initialize Agent Orchestrator with config manager
 try:
     orchestrator = AgentOrchestrator(
-        ollama_url="http://localhost:11434",
-        model="llama3:8b",
-        db_manager=db
+        db_manager=db,
+        config_manager=config_manager
     )
-    logger = logging.getLogger(__name__)
     logger.info("✅ Agent Orchestrator initialized successfully")
 except Exception as e:
-    logger = logging.getLogger(__name__)
     logger.error(f"⚠️ Failed to initialize Agent Orchestrator: {str(e)}")
     orchestrator = None
 
@@ -254,5 +253,132 @@ async def get_chat_status():
         logger.error(f"❌ Status check error: {str(e)}")
         return {
             "status": "error",
+            "message": str(e)
+        }
+
+# ============================================
+# AI CONFIGURATION ENDPOINTS
+# ============================================
+
+class AIConfigRequest(BaseModel):
+    ollama_url: Optional[str] = None
+    model: Optional[str] = None
+    default_persona: Optional[str] = None
+    context_window_size: Optional[int] = None
+    temperature: Optional[float] = None
+    execution_enabled: Optional[bool] = None
+    execution_policy: Optional[str] = None
+
+@router.get("/ai/config")
+async def get_ai_config():
+    """Get current AI configuration"""
+    try:
+        config = config_manager.get_config()
+        return {
+            "success": True,
+            "config": config
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get config: {str(e)}")
+
+@router.post("/ai/config")
+async def update_ai_config(request: AIConfigRequest):
+    """Update AI configuration"""
+    try:
+        # Build updates dict (only include provided fields)
+        updates = {}
+        if request.ollama_url is not None:
+            updates["ollama_url"] = request.ollama_url
+        if request.model is not None:
+            updates["model"] = request.model
+        if request.default_persona is not None:
+            updates["default_persona"] = request.default_persona
+        if request.context_window_size is not None:
+            updates["context_window_size"] = request.context_window_size
+        if request.temperature is not None:
+            updates["temperature"] = request.temperature
+        if request.execution_enabled is not None:
+            updates["execution_enabled"] = request.execution_enabled
+        if request.execution_policy is not None:
+            updates["execution_policy"] = request.execution_policy
+        
+        # Save configuration
+        success = config_manager.save_config(updates)
+        
+        if success and orchestrator:
+            # Reload orchestrator with new config
+            orchestrator.reload_config()
+        
+        return {
+            "success": success,
+            "message": "Configuration saved successfully" if success else "Failed to save configuration",
+            "config": config_manager.get_config()
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to update config: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update config: {str(e)}")
+
+@router.post("/ai/test-connection")
+async def test_ollama_connection():
+    """Test connection to Ollama server"""
+    try:
+        if not orchestrator:
+            return {
+                "success": False,
+                "connected": False,
+                "message": "Agent Orchestrator not initialized"
+            }
+        
+        # Test connection
+        connected = orchestrator.test_ollama_connection()
+        
+        if connected:
+            # Try to list models
+            models = orchestrator.ollama.list_models()
+            return {
+                "success": True,
+                "connected": True,
+                "message": f"✅ Connected to Ollama successfully!",
+                "ollama_url": config_manager.get_ollama_url(),
+                "available_models": models,
+                "current_model": config_manager.get_model()
+            }
+        else:
+            return {
+                "success": False,
+                "connected": False,
+                "message": "❌ Cannot connect to Ollama server. Make sure Ollama is running.",
+                "ollama_url": config_manager.get_ollama_url()
+            }
+    except Exception as e:
+        logger.error(f"❌ Connection test error: {str(e)}")
+        return {
+            "success": False,
+            "connected": False,
+            "message": f"❌ Connection test failed: {str(e)}"
+        }
+
+@router.get("/ai/models")
+async def list_ollama_models():
+    """List available Ollama models"""
+    try:
+        if not orchestrator:
+            return {
+                "success": False,
+                "models": [],
+                "message": "Agent Orchestrator not initialized"
+            }
+        
+        models = orchestrator.ollama.list_models()
+        return {
+            "success": True,
+            "models": models,
+            "current_model": config_manager.get_model()
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to list models: {str(e)}")
+        return {
+            "success": False,
+            "models": [],
             "message": str(e)
         }

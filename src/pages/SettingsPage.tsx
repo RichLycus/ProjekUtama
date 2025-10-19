@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
 import { useThemeStore } from '@/store/themeStore'
+import { useAIConfigStore } from '@/store/aiConfigStore'
 import ToolsTable from '@/components/ToolsTable'
 import UploadToolModal from '@/components/UploadToolModal'
 import HelpModal from '@/components/HelpModal'
@@ -12,6 +13,54 @@ type TabType = 'tools' | 'appearance' | 'ai-chat' | 'about'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('tools')
+  
+  // AI Config state
+  const { config, loadConfig, saveConfig, testConnection } = useAIConfigStore()
+  const [ollamaUrl, setOllamaUrl] = useState('')
+  const [selectedModel, setSelectedModel] = useState('')
+  const [defaultPersona, setDefaultPersona] = useState('')
+  const [contextSize, setContextSize] = useState(4000)
+  const [executionEnabled, setExecutionEnabled] = useState(true)
+  const [executionPolicy, setExecutionPolicy] = useState('ask')
+  
+  // Load AI config on mount
+  useEffect(() => {
+    loadConfig()
+  }, [])
+  
+  // Update local state when config loads
+  useEffect(() => {
+    if (config) {
+      setOllamaUrl(config.ollama_url)
+      setSelectedModel(config.model)
+      setDefaultPersona(config.default_persona)
+      setContextSize(config.context_window_size)
+      setExecutionEnabled(config.execution_enabled)
+      setExecutionPolicy(config.execution_policy)
+    }
+  }, [config])
+  
+  // Save AI config handler
+  const handleSaveAIConfig = async () => {
+    const success = await saveConfig({
+      ollama_url: ollamaUrl,
+      model: selectedModel,
+      default_persona: defaultPersona,
+      context_window_size: contextSize,
+      execution_enabled: executionEnabled,
+      execution_policy: executionPolicy
+    })
+    
+    if (success) {
+      // Reload config to get updated values
+      loadConfig()
+    }
+  }
+  
+  // Test connection handler
+  const handleTestConnection = async () => {
+    await testConnection()
+  }
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -357,7 +406,8 @@ export default function SettingsPage() {
                     <label className="block text-sm font-medium mb-2">Ollama Server URL</label>
                     <input
                       type="text"
-                      defaultValue="http://localhost:11434"
+                      value={ollamaUrl}
+                      onChange={(e) => setOllamaUrl(e.target.value)}
                       className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
                       placeholder="http://localhost:11434"
                     />
@@ -367,7 +417,11 @@ export default function SettingsPage() {
                   {/* Model Selection */}
                   <div>
                     <label className="block text-sm font-medium mb-2">AI Model</label>
-                    <select className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary">
+                    <select 
+                      value={selectedModel}
+                      onChange={(e) => setSelectedModel(e.target.value)}
+                      className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
+                    >
                       <option value="llama3:8b">Llama 3 - 8B (Recommended)</option>
                       <option value="mistral:7b">Mistral - 7B (Fast)</option>
                       <option value="qwen2.5-coder-id:latest">Code Qwen - 7B (Coding)</option>
@@ -379,13 +433,13 @@ export default function SettingsPage() {
                   {/* Test Connection Button */}
                   <div className="flex gap-3">
                     <button
-                      onClick={() => toast.loading('Testing connection...', { duration: 2000 })}
+                      onClick={handleTestConnection}
                       className="px-6 py-2 bg-primary hover:bg-secondary text-white rounded-lg font-medium transition-all"
                     >
                       Test Connection
                     </button>
                     <button
-                      onClick={() => toast.success('Settings saved!', { duration: 2000 })}
+                      onClick={handleSaveAIConfig}
                       className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-all"
                     >
                       Save Settings
@@ -419,10 +473,11 @@ export default function SettingsPage() {
                         min="1000"
                         max="8000"
                         step="1000"
-                        defaultValue="4000"
+                        value={contextSize}
+                        onChange={(e) => setContextSize(parseInt(e.target.value))}
                         className="flex-1"
                       />
-                      <span className="text-sm font-medium w-20 text-right">4000 tokens</span>
+                      <span className="text-sm font-medium w-20 text-right">{contextSize} tokens</span>
                     </div>
                     <p className="text-xs text-secondary mt-1">Higher values use more memory but provide better context</p>
                   </div>
@@ -432,11 +487,11 @@ export default function SettingsPage() {
                     <label className="block text-sm font-medium mb-2">Vector Database Path</label>
                     <input
                       type="text"
-                      defaultValue="/app/backend/data/vector_db"
-                      className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
+                      value={config?.vector_db_path || 'data/vector_db'}
+                      className="w-full px-4 py-2 bg-gray-100 dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none"
                       disabled
                     />
-                    <p className="text-xs text-secondary mt-1">Storage location for embeddings</p>
+                    <p className="text-xs text-secondary mt-1">Storage location for embeddings (relative to backend folder)</p>
                   </div>
                 </div>
               </div>
@@ -448,7 +503,11 @@ export default function SettingsPage() {
                   {/* Default Persona */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Default Persona</label>
-                    <select className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary">
+                    <select 
+                      value={defaultPersona}
+                      onChange={(e) => setDefaultPersona(e.target.value)}
+                      className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
+                    >
                       <option value="lycus">Lycus (Technical & Direct)</option>
                       <option value="polar">Polar Nexus (Creative & Inspiring)</option>
                       <option value="sarah">Sarah (Friendly & Helpful)</option>
@@ -463,7 +522,12 @@ export default function SettingsPage() {
                       <p className="text-sm text-secondary">Allow AI to run Python tools automatically</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked />
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={executionEnabled}
+                        onChange={(e) => setExecutionEnabled(e.target.checked)}
+                      />
                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                     </label>
                   </div>
@@ -471,7 +535,11 @@ export default function SettingsPage() {
                   {/* Execution Policy */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Execution Policy</label>
-                    <select className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary">
+                    <select 
+                      value={executionPolicy}
+                      onChange={(e) => setExecutionPolicy(e.target.value)}
+                      className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
+                    >
                       <option value="ask">Ask Before Running (Recommended)</option>
                       <option value="auto">Auto-execute (Trusted only)</option>
                       <option value="never">Never Execute</option>
