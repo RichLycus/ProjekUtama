@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare, Edit2, Trash2, Star, TestTube, Users, Power, RefreshCw } from 'lucide-react'
+import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare, Edit2, Trash2, Star, TestTube, Users, Power, RefreshCw, Info as InfoIcon } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
 import { useThemeStore } from '@/store/themeStore'
 import { useAIConfigStore } from '@/store/aiConfigStore'
@@ -9,6 +9,7 @@ import UploadToolModal from '@/components/UploadToolModal'
 import HelpModal from '@/components/HelpModal'
 import ThemeCard from '@/components/ThemeCard'
 import PersonaManager from '@/components/PersonaManager'
+import EditAgentModal from '@/components/EditAgentModal'
 import toast from 'react-hot-toast'
 
 type TabType = 'tools' | 'appearance' | 'ai-chat' | 'personas' | 'about'
@@ -35,6 +36,8 @@ export default function SettingsPage() {
   
   // Agent configs state
   const [agentConfigs, setAgentConfigs] = useState<any[]>([])
+  const [editingAgent, setEditingAgent] = useState<any | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   
   // Load AI config and models on mount
   useEffect(() => {
@@ -193,13 +196,38 @@ export default function SettingsPage() {
     }
   }
   
-  // Edit agent config (placeholder - will implement full edit modal if needed)
+  // Edit agent config
   const handleEditAgent = (agent: any) => {
-    toast('🔧 Edit functionality coming soon for ' + agent.display_name, {
-      icon: '⚙️',
-      duration: 3000
-    })
-    // TODO: Open edit modal with agent data
+    setEditingAgent(agent)
+    setIsEditModalOpen(true)
+  }
+  
+  // Save agent config updates
+  const handleSaveAgent = async (agentId: string, updates: any) => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'
+      const response = await fetch(`${backendUrl}/api/agents/configs/${agentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updates)
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        toast.success('✅ Agent configuration updated!')
+        loadAgentConfigs()
+        return true
+      } else {
+        toast.error('❌ Failed to update agent')
+        return false
+      }
+    } catch (error) {
+      console.error('Failed to update agent:', error)
+      toast.error('❌ Failed to update agent')
+      return false
+    }
   }
   
   // Load agent configs when AI Chat tab is active
@@ -798,8 +826,8 @@ export default function SettingsPage() {
               <div className="glass rounded-xl p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h3 className="text-lg font-bold">Agent Model Configurations</h3>
-                    <p className="text-sm text-secondary">Configure models for each specialized agent</p>
+                    <h3 className="text-lg font-bold">Specialized Agent Configurations</h3>
+                    <p className="text-sm text-secondary">Each agent uses a different model for optimal performance</p>
                   </div>
                   <button
                     onClick={() => loadAgentConfigs()}
@@ -810,72 +838,186 @@ export default function SettingsPage() {
                   </button>
                 </div>
                 
-                <div className="space-y-3">
-                  {agentConfigs.map((agent) => (
-                    <div
-                      key={agent.id}
-                      className="p-4 rounded-lg border border-gray-200 dark:border-dark-border hover:border-primary/50 transition-all"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h4 className="font-semibold">{agent.display_name}</h4>
-                            <span className="px-2 py-0.5 text-xs rounded bg-primary/20 text-primary">
-                              {agent.agent_type}
-                            </span>
-                            {agent.is_enabled === 1 ? (
-                              <span className="px-2 py-0.5 text-xs rounded bg-green-500/20 text-green-600 dark:text-green-400">
-                                Enabled
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 text-xs rounded bg-gray-500/20 text-gray-600 dark:text-gray-400">
-                                Disabled
-                              </span>
-                            )}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {agentConfigs.map((agent) => {
+                    // Agent type styling
+                    const agentStyles: Record<string, { icon: string; color: string; bgColor: string; specialty: string }> = {
+                      router: { 
+                        icon: '🧭', 
+                        color: 'text-blue-600 dark:text-blue-400', 
+                        bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+                        specialty: 'Intent classification & routing'
+                      },
+                      rag: { 
+                        icon: '📚', 
+                        color: 'text-green-600 dark:text-green-400', 
+                        bgColor: 'bg-green-100 dark:bg-green-900/30',
+                        specialty: 'Context retrieval & embeddings'
+                      },
+                      chat: { 
+                        icon: '💬', 
+                        color: 'text-purple-600 dark:text-purple-400', 
+                        bgColor: 'bg-purple-100 dark:bg-purple-900/30',
+                        specialty: 'Casual conversation & Q&A'
+                      },
+                      code: { 
+                        icon: '💻', 
+                        color: 'text-cyan-600 dark:text-cyan-400', 
+                        bgColor: 'bg-cyan-100 dark:bg-cyan-900/30',
+                        specialty: 'Programming & debugging'
+                      },
+                      analysis: { 
+                        icon: '📊', 
+                        color: 'text-orange-600 dark:text-orange-400', 
+                        bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+                        specialty: 'Data analysis & reasoning'
+                      },
+                      creative: { 
+                        icon: '🎨', 
+                        color: 'text-pink-600 dark:text-pink-400', 
+                        bgColor: 'bg-pink-100 dark:bg-pink-900/30',
+                        specialty: 'Writing & creative tasks'
+                      },
+                      tool: { 
+                        icon: '🔧', 
+                        color: 'text-yellow-600 dark:text-yellow-400', 
+                        bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
+                        specialty: 'Tool detection & coordination'
+                      },
+                      execution: { 
+                        icon: '⚡', 
+                        color: 'text-red-600 dark:text-red-400', 
+                        bgColor: 'bg-red-100 dark:bg-red-900/30',
+                        specialty: 'Tool execution tasks'
+                      },
+                      reasoning: { 
+                        icon: '🧠', 
+                        color: 'text-indigo-600 dark:text-indigo-400', 
+                        bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
+                        specialty: 'Complex reasoning & logic'
+                      },
+                      persona: { 
+                        icon: '🎭', 
+                        color: 'text-teal-600 dark:text-teal-400', 
+                        bgColor: 'bg-teal-100 dark:bg-teal-900/30',
+                        specialty: 'Response formatting & style'
+                      }
+                    }
+                    
+                    const style = agentStyles[agent.agent_type] || { 
+                      icon: '🤖', 
+                      color: 'text-gray-600', 
+                      bgColor: 'bg-gray-100',
+                      specialty: 'General purpose'
+                    }
+                    
+                    return (
+                      <div
+                        key={agent.id}
+                        className="p-5 rounded-xl border border-gray-200 dark:border-dark-border hover:border-primary/50 transition-all bg-white dark:bg-dark-surface-hover group"
+                      >
+                        <div className="flex items-start gap-4">
+                          {/* Icon */}
+                          <div className={`w-14 h-14 rounded-xl ${style.bgColor} flex items-center justify-center text-2xl flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                            {style.icon}
                           </div>
-                          <p className="text-sm text-secondary mb-2">{agent.description}</p>
-                          <div className="flex items-center gap-4 text-xs text-secondary">
-                            <span className="flex items-center gap-1">
-                              <strong>Model:</strong> {agent.model_name}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <strong>Temp:</strong> {agent.temperature}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <strong>Max Tokens:</strong> {agent.max_tokens}
-                            </span>
+                          
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <h4 className="font-bold text-lg">{agent.display_name}</h4>
+                                <p className={`text-xs font-medium ${style.color}`}>
+                                  {style.specialty}
+                                </p>
+                              </div>
+                              
+                              {/* Status Badge */}
+                              {agent.is_enabled === 1 ? (
+                                <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-600 dark:text-green-400 font-medium">
+                                  ✓ Active
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 text-xs rounded-full bg-gray-500/20 text-gray-600 dark:text-gray-400 font-medium">
+                                  Disabled
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* Description */}
+                            <p className="text-sm text-secondary mb-3 line-clamp-2">
+                              {agent.description}
+                            </p>
+                            
+                            {/* Config Info */}
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              <span className="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-dark-surface border border-gray-200 dark:border-dark-border">
+                                <strong>Model:</strong> {agent.model_name}
+                              </span>
+                              <span className="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-dark-surface border border-gray-200 dark:border-dark-border">
+                                <strong>Temp:</strong> {agent.temperature}
+                              </span>
+                              <span className="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-dark-surface border border-gray-200 dark:border-dark-border">
+                                <strong>Tokens:</strong> {agent.max_tokens}
+                              </span>
+                            </div>
+                            
+                            {/* Actions */}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleToggleAgent(agent.id)}
+                                className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                  agent.is_enabled === 1
+                                    ? 'bg-green-500/20 hover:bg-green-500/30 text-green-600 dark:text-green-400'
+                                    : 'bg-gray-500/20 hover:bg-gray-500/30 text-gray-600 dark:text-gray-400'
+                                }`}
+                                title={agent.is_enabled === 1 ? 'Disable agent' : 'Enable agent'}
+                              >
+                                <Power className="w-3 h-3 inline mr-1" />
+                                {agent.is_enabled === 1 ? 'Disable' : 'Enable'}
+                              </button>
+                              <button
+                                onClick={() => handleEditAgent(agent)}
+                                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-primary/20 hover:bg-primary/30 text-primary transition-all"
+                                title="Edit agent configuration"
+                              >
+                                <Edit2 className="w-3 h-3 inline mr-1" />
+                                Configure
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleToggleAgent(agent.id)}
-                            className={`p-2 rounded-lg transition-all ${
-                              agent.is_enabled === 1
-                                ? 'bg-green-500/20 hover:bg-green-500/30 text-green-600'
-                                : 'bg-gray-500/20 hover:bg-gray-500/30 text-gray-600'
-                            }`}
-                            title={agent.is_enabled === 1 ? 'Disable' : 'Enable'}
-                          >
-                            <Power className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEditAgent(agent)}
-                            className="p-2 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary transition-all"
-                            title="Edit configuration"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <p className="text-sm text-blue-800 dark:text-blue-300">
-                    💡 <strong>Tip:</strong> Each agent uses a specialized model. Change models to optimize for speed, accuracy, or resource usage.
-                  </p>
+                {agentConfigs.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-dark-surface-hover rounded-full flex items-center justify-center mx-auto mb-4">
+                      <InfoIcon className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-secondary">No agent configurations found</p>
+                    <button
+                      onClick={loadAgentConfigs}
+                      className="mt-4 px-4 py-2 bg-primary hover:bg-secondary text-white rounded-lg text-sm font-medium transition-all"
+                    >
+                      Load Agent Configs
+                    </button>
+                  </div>
+                )}
+                
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                      💡 <strong>Tip:</strong> Each agent uses a different model optimized for its task. Click "Configure" to change models.
+                    </p>
+                  </div>
+                  <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+                    <p className="text-sm text-purple-800 dark:text-purple-300">
+                      ⚡ <strong>Performance:</strong> Lighter models (phi3, gemma2) are faster. Larger models (llama3, qwen2.5) are more accurate.
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -951,6 +1093,17 @@ export default function SettingsPage() {
       <HelpModal
         isOpen={isHelpModalOpen}
         onClose={() => setIsHelpModalOpen(false)}
+      />
+      
+      {/* Edit Agent Modal */}
+      <EditAgentModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setEditingAgent(null)
+        }}
+        agent={editingAgent}
+        onSave={handleSaveAgent}
       />
     </div>
   )
