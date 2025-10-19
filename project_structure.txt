@@ -1,0 +1,72 @@
+.
+|-- CLEANUP_SUMMARY.md
+|-- POST_CLEANUP_VERIFICATION.md
+|-- README.md
+|-- backend
+|   |-- ai
+|   |-- data
+|   |-- database.py
+|   |-- frontend_tools
+|   |-- migrate_paths_to_relative.py
+|   |-- modules
+|   |-- requirements.txt
+|   |-- reset_and_load_samples.py
+|   |-- routes
+|   |-- sample_tools
+|   |-- sample_tools_v2
+|   |-- server.py
+|   `-- tools
+|-- build_release.py
+|-- docs
+|   |-- BACKEND_TESTING_GUIDE.md
+|   |-- DEVELOPMENT.md
+|   |-- MANUAL_TESTING_GUIDE.md
+|   |-- MODEL_MANAGEMENT_QUICKSTART.md
+|   |-- PHASE-1.5-IMPROVEMENTS.md
+|   |-- QUICK_START_PHASE2.md
+|   |-- TESTING.md
+|   |-- TOOLS_V2_GUIDE.md
+|   |-- TOOL_EXECUTION_PAGE.md
+|   |-- games.md
+|   |-- golden-rules.md
+|   |-- index.md
+|   |-- launcher.md
+|   |-- phase
+|   |-- phase-1.5-quick-reference.md
+|   |-- portability.md
+|   |-- quick-reference.md
+|   |-- quick-start.md
+|   |-- scripts-universal.md
+|   |-- scripts.md
+|   |-- test_result.md
+|   `-- tools.md
+|-- electron
+|   |-- main.ts
+|   `-- preload.ts
+|-- index.html
+|-- package.json
+|-- postcss.config.js
+|-- pre-commit-check.sh
+|-- project_structure.txt
+|-- public
+|   `-- icon.svg
+|-- src
+|   |-- App.tsx
+|   |-- components
+|   |-- lib
+|   |-- main.tsx
+|   |-- pages
+|   |-- store
+|   `-- styles
+|-- start_chimera.sh
+|-- tailwind.config.js
+|-- tests
+|   `-- README.md
+|-- tsconfig.json
+|-- tsconfig.node.json
+|-- verify_setup.py
+|-- vite.config.ts
+|-- vite.config.web.ts
+`-- yarn.lock
+
+21 directories, 49 files

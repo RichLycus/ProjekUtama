@@ -317,18 +317,45 @@ start_backend() {
     python3 server.py > "$BACKEND_LOG" 2>&1 &
     BACKEND_PID=$!
     
-    # Wait for backend to start
-    log_info "Waiting for backend to start..."
-    sleep 3
+    # Wait for backend to start with retry logic
+    log_info "Waiting for backend to initialize (RAG system, embedding models, etc.)..."
     
-    # Check if backend is running
-    if curl -s http://localhost:8001/ > /dev/null 2>&1; then
+    MAX_RETRIES=10
+    RETRY_DELAY=2
+    RETRY_COUNT=0
+    BACKEND_READY=0
+    
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        # Check if process is still running
+        if ! ps -p $BACKEND_PID > /dev/null 2>&1; then
+            log_error "Backend process died unexpectedly!"
+            log_error "Last 30 lines of backend log:"
+            cat "$BACKEND_LOG" | tail -30
+            exit 1
+        fi
+        
+        # Try to connect to backend
+        if curl -s http://localhost:8001/ > /dev/null 2>&1; then
+            BACKEND_READY=1
+            break
+        fi
+        
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        echo -ne "\r${CYAN}[$(date +'%Y-%m-%d %H:%M:%S')] ⏳ Attempt $RETRY_COUNT/$MAX_RETRIES...${NC}"
+        sleep $RETRY_DELAY
+    done
+    
+    echo "" # New line after progress indicator
+    
+    if [ $BACKEND_READY -eq 1 ]; then
         log_success "Backend API server started! (PID: $BACKEND_PID)"
         log_info "Backend API: http://localhost:8001"
         echo $BACKEND_PID > "$LOG_DIR/backend.pid"
     else
-        log_error "Backend failed to start. Check $BACKEND_LOG for details"
-        cat "$BACKEND_LOG" | tail -20
+        log_error "Backend failed to respond after $MAX_RETRIES attempts"
+        log_error "The backend process is running but not responding to HTTP requests"
+        log_error "Last 30 lines of backend log:"
+        cat "$BACKEND_LOG" | tail -30
         exit 1
     fi
     
