@@ -102,12 +102,42 @@ class SQLiteDB:
                 )
             """)
             
-            # Create indexes
+            # Create indexes for tools
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_tools_category ON tools(category)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_tools_status ON tools(status)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_tools_type ON tools(tool_type)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_logs_tool_id ON tool_logs(tool_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON tool_logs(timestamp)")
+            
+            # Chat conversations table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id TEXT PRIMARY KEY,
+                    title TEXT,
+                    persona TEXT DEFAULT 'lycus',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            
+            # Chat messages table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS messages (
+                    id TEXT PRIMARY KEY,
+                    conversation_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    agent_tag TEXT,
+                    execution_log TEXT,
+                    timestamp TEXT NOT NULL,
+                    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+                )
+            """)
+            
+            # Create indexes for chat
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at)")
     
     def reset_tools_table(self):
         """Drop and recreate tools table - USE WITH CAUTION"""
@@ -272,3 +302,133 @@ class SQLiteDB:
             data['dependencies'] = json.loads(data['dependencies'])
         
         return data
+
+    # ============================================
+    # CHAT METHODS
+    # ============================================
+    
+    def insert_conversation(self, conversation_data: Dict[str, Any]) -> str:
+        """Insert a new conversation"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO conversations (
+                    id, title, persona, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?)
+            """, (
+                conversation_data['id'],
+                conversation_data.get('title', 'New Conversation'),
+                conversation_data.get('persona', 'lycus'),
+                conversation_data['created_at'],
+                conversation_data['updated_at']
+            ))
+            return conversation_data['id']
+    
+    def get_conversations(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get all conversations"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM conversations 
+                ORDER BY updated_at DESC 
+                LIMIT ?
+            """, (limit,))
+            
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+    
+    def get_conversation(self, conversation_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific conversation"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM conversations WHERE id = ?", (conversation_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+    
+    def update_conversation(self, conversation_id: str, updates: Dict[str, Any]) -> bool:
+        """Update conversation (title, persona, updated_at)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            set_clause = ", ".join([f"{key} = ?" for key in updates.keys()])
+            values = list(updates.values()) + [conversation_id]
+            
+            cursor.execute(f"""
+                UPDATE conversations 
+                SET {set_clause}
+                WHERE id = ?
+            """, values)
+            
+            return cursor.rowcount > 0
+    
+    def delete_conversation(self, conversation_id: str) -> bool:
+        """Delete a conversation (cascades to messages)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
+            return cursor.rowcount > 0
+    
+    def insert_message(self, message_data: Dict[str, Any]) -> str:
+        """Insert a new message"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Convert execution_log to JSON if it's a dict
+            exec_log = message_data.get('execution_log')
+            if isinstance(exec_log, dict):
+                exec_log = json.dumps(exec_log)
+            
+            cursor.execute("""
+                INSERT INTO messages (
+                    id, conversation_id, role, content, agent_tag, execution_log, timestamp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                message_data['id'],
+                message_data['conversation_id'],
+                message_data['role'],
+                message_data['content'],
+                message_data.get('agent_tag'),
+                exec_log,
+                message_data['timestamp']
+            ))
+            
+            # Update conversation updated_at
+            cursor.execute("""
+                UPDATE conversations 
+                SET updated_at = ? 
+                WHERE id = ?
+            """, (message_data['timestamp'], message_data['conversation_id']))
+            
+            return message_data['id']
+    
+    def get_messages(self, conversation_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get messages for a conversation"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM messages 
+                WHERE conversation_id = ? 
+                ORDER BY timestamp ASC 
+                LIMIT ?
+            """, (conversation_id, limit))
+            
+            rows = cursor.fetchall()
+            messages = []
+            for row in rows:
+                msg = dict(row)
+                # Parse execution_log JSON
+                if msg.get('execution_log'):
+                    try:
+                        msg['execution_log'] = json.loads(msg['execution_log'])
+                    except:
+                        pass
+                messages.append(msg)
+            return messages
+    
+    def delete_message(self, message_id: str) -> bool:
+        """Delete a specific message"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM messages WHERE id = ?", (message_id,))
+            return cursor.rowcount > 0
+
