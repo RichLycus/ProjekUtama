@@ -138,6 +138,37 @@ class SQLiteDB:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at)")
+            
+            # AI Models table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS ai_models (
+                    id TEXT PRIMARY KEY,
+                    model_name TEXT NOT NULL UNIQUE,
+                    display_name TEXT NOT NULL,
+                    description TEXT,
+                    is_default INTEGER DEFAULT 0,
+                    created_at TEXT NOT NULL
+                )
+            """)
+            
+            # Create index for default model lookup
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_models_default ON ai_models(is_default)")
+            
+            # Seed default models if table is empty
+            cursor.execute("SELECT COUNT(*) FROM ai_models")
+            count = cursor.fetchone()[0]
+            if count == 0:
+                now = datetime.now().isoformat()
+                default_models = [
+                    ('model-1', 'llama3:8b', 'Core Agent 7B', 'General purpose model, fast and reliable', 1, now),
+                    ('model-2', 'mistral:7b', 'Mistral Fast 7B', 'Optimized for speed and efficiency', 0, now),
+                    ('model-3', 'qwen2.5-coder-id:latest', 'Code Assistant', 'Specialized for coding tasks', 0, now),
+                    ('model-4', 'phi-2:2.7b', 'Lightweight Agent', 'Small and efficient for simple tasks', 0, now),
+                ]
+                cursor.executemany("""
+                    INSERT INTO ai_models (id, model_name, display_name, description, is_default, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, default_models)
     
     def reset_tools_table(self):
         """Drop and recreate tools table - USE WITH CAUTION"""
@@ -431,4 +462,103 @@ class SQLiteDB:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM messages WHERE id = ?", (message_id,))
             return cursor.rowcount > 0
+
+
+    # ============================================
+    # AI MODELS METHODS
+    # ============================================
+    
+    def insert_ai_model(self, model_data: Dict[str, Any]) -> str:
+        """Insert a new AI model"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO ai_models (
+                    id, model_name, display_name, description, is_default, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                model_data['id'],
+                model_data['model_name'],
+                model_data['display_name'],
+                model_data.get('description', ''),
+                model_data.get('is_default', 0),
+                model_data['created_at']
+            ))
+            return model_data['id']
+    
+    def get_ai_models(self) -> List[Dict[str, Any]]:
+        """Get all AI models"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM ai_models ORDER BY is_default DESC, display_name ASC")
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+    
+    def get_ai_model(self, model_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific AI model by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM ai_models WHERE id = ?", (model_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+    
+    def get_ai_model_by_name(self, model_name: str) -> Optional[Dict[str, Any]]:
+        """Get a specific AI model by model_name"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM ai_models WHERE model_name = ?", (model_name,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+    
+    def update_ai_model(self, model_id: str, updates: Dict[str, Any]) -> bool:
+        """Update an AI model"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Build UPDATE query dynamically
+            set_clause = ", ".join([f"{k} = ?" for k in updates.keys()])
+            values = list(updates.values()) + [model_id]
+            
+            cursor.execute(f"""
+                UPDATE ai_models 
+                SET {set_clause}
+                WHERE id = ?
+            """, values)
+            
+            return cursor.rowcount > 0
+    
+    def delete_ai_model(self, model_id: str) -> bool:
+        """Delete an AI model (only if not default)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Check if it's the default model
+            cursor.execute("SELECT is_default FROM ai_models WHERE id = ?", (model_id,))
+            row = cursor.fetchone()
+            if row and row['is_default'] == 1:
+                raise ValueError("Cannot delete default model. Set another model as default first.")
+            
+            cursor.execute("DELETE FROM ai_models WHERE id = ?", (model_id,))
+            return cursor.rowcount > 0
+    
+    def set_default_ai_model(self, model_id: str) -> bool:
+        """Set a model as default (unsets all others)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # First, unset all default flags
+            cursor.execute("UPDATE ai_models SET is_default = 0")
+            
+            # Then set the new default
+            cursor.execute("UPDATE ai_models SET is_default = 1 WHERE id = ?", (model_id,))
+            
+            return cursor.rowcount > 0
+    
+    def get_default_ai_model(self) -> Optional[Dict[str, Any]]:
+        """Get the default AI model"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM ai_models WHERE is_default = 1 LIMIT 1")
+            row = cursor.fetchone()
+            return dict(row) if row else None
 

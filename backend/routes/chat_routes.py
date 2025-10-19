@@ -382,3 +382,186 @@ async def list_ollama_models():
             "models": [],
             "message": str(e)
         }
+
+
+# ============================================
+# AI MODELS MANAGEMENT ENDPOINTS (Database)
+# ============================================
+
+class AIModelRequest(BaseModel):
+    model_name: str
+    display_name: str
+    description: Optional[str] = ""
+
+@router.get("/ai/models/list")
+async def get_ai_models_from_db():
+    """Get all AI models from database"""
+    try:
+        models = db.get_ai_models()
+        return {
+            "success": True,
+            "models": models
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to get models: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get models: {str(e)}")
+
+@router.post("/ai/models/add")
+async def add_ai_model(request: AIModelRequest):
+    """Add a new AI model to database"""
+    try:
+        # Check if model_name already exists
+        existing = db.get_ai_model_by_name(request.model_name)
+        if existing:
+            raise HTTPException(status_code=400, detail="Model with this name already exists")
+        
+        # Create new model
+        model_id = str(uuid.uuid4())
+        model_data = {
+            'id': model_id,
+            'model_name': request.model_name,
+            'display_name': request.display_name,
+            'description': request.description,
+            'is_default': 0,
+            'created_at': datetime.now().isoformat()
+        }
+        
+        db.insert_ai_model(model_data)
+        
+        return {
+            "success": True,
+            "message": "Model added successfully",
+            "model": model_data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to add model: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to add model: {str(e)}")
+
+@router.put("/ai/models/{model_id}")
+async def update_ai_model(model_id: str, request: AIModelRequest):
+    """Update an AI model"""
+    try:
+        # Check if model exists
+        existing = db.get_ai_model(model_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Model not found")
+        
+        # Update model
+        updates = {
+            'model_name': request.model_name,
+            'display_name': request.display_name,
+            'description': request.description
+        }
+        
+        success = db.update_ai_model(model_id, updates)
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Model updated successfully"
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to update model")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to update model: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update model: {str(e)}")
+
+@router.delete("/ai/models/{model_id}")
+async def delete_ai_model(model_id: str):
+    """Delete an AI model (cannot delete default)"""
+    try:
+        success = db.delete_ai_model(model_id)
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Model deleted successfully"
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to delete model")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"❌ Failed to delete model: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete model: {str(e)}")
+
+@router.post("/ai/models/set-default/{model_id}")
+async def set_default_model(model_id: str):
+    """Set a model as default"""
+    try:
+        # Check if model exists
+        model = db.get_ai_model(model_id)
+        if not model:
+            raise HTTPException(status_code=404, detail="Model not found")
+        
+        # Set as default
+        success = db.set_default_ai_model(model_id)
+        
+        if success:
+            # Update config to use this model
+            config_manager.save_config({'model': model['model_name']})
+            
+            # Reload orchestrator
+            if orchestrator:
+                orchestrator.reload_config()
+            
+            return {
+                "success": True,
+                "message": f"Default model set to: {model['display_name']}"
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Failed to set default model")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to set default model: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to set default model: {str(e)}")
+
+@router.post("/ai/models/test/{model_name}")
+async def test_specific_model(model_name: str):
+    """Test a specific model (check if it exists in Ollama)"""
+    try:
+        if not orchestrator:
+            return {
+                "success": False,
+                "available": False,
+                "message": "Agent Orchestrator not initialized"
+            }
+        
+        # Test connection first
+        if not orchestrator.test_ollama_connection():
+            return {
+                "success": False,
+                "available": False,
+                "message": "❌ Cannot connect to Ollama server. Make sure Ollama is running."
+            }
+        
+        # List available models
+        available_models = orchestrator.ollama.list_models()
+        
+        # Check if the model exists
+        model_exists = model_name in available_models
+        
+        if model_exists:
+            return {
+                "success": True,
+                "available": True,
+                "message": f"✅ Model '{model_name}' is available in Ollama!"
+            }
+        else:
+            return {
+                "success": False,
+                "available": False,
+                "message": f"❌ Model '{model_name}' not found in Ollama. Available models: {', '.join(available_models[:3])}..."
+            }
+    except Exception as e:
+        logger.error(f"❌ Failed to test model: {str(e)}")
+        return {
+            "success": False,
+            "available": False,
+            "message": f"❌ Test failed: {str(e)}"
+        }

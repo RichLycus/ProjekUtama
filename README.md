@@ -16,6 +16,8 @@
 - **🔧 [Phase 2 Complete](docs/phase/phase_2.md)** - UI Fix + SQLite Migration
 - **⚡ [Phase 2 Backend](docs/QUICK_START_PHASE2.md)** - Backend API guide
 - **🧪 [Backend Testing Guide](docs/BACKEND_TESTING_GUIDE.md)** - Test backend API
+- **🤖 [Phase 3 Progress](docs/phase/phase_3_progress.md)** - AI Chat System (85% Complete)
+- **⚙️ [Model Management](docs/MODEL_MANAGEMENT_QUICKSTART.md)** - NEW! Test AI models quickly
 
 ## 🚀 Phase 0 - Foundation Complete
 

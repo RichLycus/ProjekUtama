@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare } from 'lucide-react'
+import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare, Edit2, Trash2, Star, TestTube } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
 import { useThemeStore } from '@/store/themeStore'
 import { useAIConfigStore } from '@/store/aiConfigStore'
+import { useAIModelsStore } from '@/store/aiModelsStore'
 import ToolsTable from '@/components/ToolsTable'
 import UploadToolModal from '@/components/UploadToolModal'
 import HelpModal from '@/components/HelpModal'
@@ -16,35 +17,57 @@ export default function SettingsPage() {
   
   // AI Config state
   const { config, loadConfig, saveConfig, testConnection } = useAIConfigStore()
+  const { models, loadModels, addModel, updateModel, deleteModel, setDefaultModel, testModel } = useAIModelsStore()
+  
   const [ollamaUrl, setOllamaUrl] = useState('')
-  const [selectedModel, setSelectedModel] = useState('')
+  const [selectedModelId, setSelectedModelId] = useState('')
   const [defaultPersona, setDefaultPersona] = useState('')
   const [contextSize, setContextSize] = useState(4000)
   const [executionEnabled, setExecutionEnabled] = useState(true)
   const [executionPolicy, setExecutionPolicy] = useState('ask')
   
-  // Load AI config on mount
+  // Model management state
+  const [showAddModel, setShowAddModel] = useState(false)
+  const [editingModelId, setEditingModelId] = useState<string | null>(null)
+  const [newModelName, setNewModelName] = useState('')
+  const [newDisplayName, setNewDisplayName] = useState('')
+  const [newDescription, setNewDescription] = useState('')
+  
+  // Load AI config and models on mount
   useEffect(() => {
     loadConfig()
+    loadModels()
   }, [])
   
   // Update local state when config loads
   useEffect(() => {
     if (config) {
       setOllamaUrl(config.ollama_url)
-      setSelectedModel(config.model)
       setDefaultPersona(config.default_persona)
       setContextSize(config.context_window_size)
       setExecutionEnabled(config.execution_enabled)
       setExecutionPolicy(config.execution_policy)
+      
+      // Find model ID that matches config.model
+      const matchingModel = models.find(m => m.model_name === config.model)
+      if (matchingModel) {
+        setSelectedModelId(matchingModel.id)
+      }
     }
-  }, [config])
+  }, [config, models])
   
   // Save AI config handler
   const handleSaveAIConfig = async () => {
+    // Get selected model's model_name
+    const selectedModel = models.find(m => m.id === selectedModelId)
+    if (!selectedModel) {
+      toast.error('Please select a model')
+      return
+    }
+    
     const success = await saveConfig({
       ollama_url: ollamaUrl,
-      model: selectedModel,
+      model: selectedModel.model_name,
       default_persona: defaultPersona,
       context_window_size: contextSize,
       execution_enabled: executionEnabled,
@@ -52,7 +75,6 @@ export default function SettingsPage() {
     })
     
     if (success) {
-      // Reload config to get updated values
       loadConfig()
     }
   }
@@ -60,6 +82,76 @@ export default function SettingsPage() {
   // Test connection handler
   const handleTestConnection = async () => {
     await testConnection()
+  }
+  
+  // Add model handler
+  const handleAddModel = async () => {
+    if (!newModelName || !newDisplayName) {
+      toast.error('Please fill in model name and display name')
+      return
+    }
+    
+    const success = await addModel(newModelName, newDisplayName, newDescription)
+    if (success) {
+      setShowAddModel(false)
+      setNewModelName('')
+      setNewDisplayName('')
+      setNewDescription('')
+    }
+  }
+  
+  // Update model handler
+  const handleUpdateModel = async () => {
+    if (!editingModelId || !newModelName || !newDisplayName) {
+      toast.error('Please fill in all fields')
+      return
+    }
+    
+    const success = await updateModel(editingModelId, newModelName, newDisplayName, newDescription)
+    if (success) {
+      setEditingModelId(null)
+      setNewModelName('')
+      setNewDisplayName('')
+      setNewDescription('')
+    }
+  }
+  
+  // Start editing model
+  const startEditModel = (modelId: string) => {
+    const model = models.find(m => m.id === modelId)
+    if (model) {
+      setEditingModelId(modelId)
+      setNewModelName(model.model_name)
+      setNewDisplayName(model.display_name)
+      setNewDescription(model.description)
+      setShowAddModel(false)
+    }
+  }
+  
+  // Cancel editing
+  const cancelEdit = () => {
+    setEditingModelId(null)
+    setShowAddModel(false)
+    setNewModelName('')
+    setNewDisplayName('')
+    setNewDescription('')
+  }
+  
+  // Delete model handler
+  const handleDeleteModel = async (modelId: string) => {
+    if (confirm('Are you sure you want to delete this model?')) {
+      await deleteModel(modelId)
+    }
+  }
+  
+  // Set default model handler
+  const handleSetDefaultModel = async (modelId: string) => {
+    await setDefaultModel(modelId)
+  }
+  
+  // Test specific model
+  const handleTestModel = async (modelName: string) => {
+    await testModel(modelName)
   }
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
@@ -416,18 +508,129 @@ export default function SettingsPage() {
 
                   {/* Model Selection */}
                   <div>
-                    <label className="block text-sm font-medium mb-2">AI Model</label>
-                    <select 
-                      value={selectedModel}
-                      onChange={(e) => setSelectedModel(e.target.value)}
-                      className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
-                    >
-                      <option value="llama3:8b">Llama 3 - 8B (Recommended)</option>
-                      <option value="mistral:7b">Mistral - 7B (Fast)</option>
-                      <option value="qwen2.5-coder-id:latest">Code Qwen - 7B (Coding)</option>
-                      <option value="phi-2:2.7b">Phi-2 - 2.7B (Lightweight)</option>
-                    </select>
-                    <p className="text-xs text-secondary mt-1">Choose the AI model for chat responses</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium">AI Model</label>
+                      <button
+                        onClick={() => {
+                          setShowAddModel(!showAddModel)
+                          setEditingModelId(null)
+                        }}
+                        className="text-xs px-3 py-1 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg transition-all flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Add Model
+                      </button>
+                    </div>
+                    
+                    {/* Model List */}
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {models.map((model) => (
+                        <div
+                          key={model.id}
+                          className={`p-3 rounded-lg border-2 transition-all ${
+                            selectedModelId === model.id
+                              ? 'border-primary bg-primary/10'
+                              : 'border-gray-200 dark:border-dark-border hover:border-primary/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1" onClick={() => setSelectedModelId(model.id)}>
+                              <div className="flex items-center gap-2">
+                                {model.is_default === 1 && (
+                                  <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                                )}
+                                <p className="font-medium cursor-pointer">{model.display_name}</p>
+                              </div>
+                              <p className="text-xs text-secondary mt-0.5">{model.model_name}</p>
+                              {model.description && (
+                                <p className="text-xs text-secondary mt-1">{model.description}</p>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              {model.is_default !== 1 && (
+                                <button
+                                  onClick={() => handleSetDefaultModel(model.id)}
+                                  className="p-1.5 hover:bg-gray-200 dark:hover:bg-dark-surface-hover rounded"
+                                  title="Set as default"
+                                >
+                                  <Star className="w-4 h-4 text-gray-400" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleTestModel(model.model_name)}
+                                className="p-1.5 hover:bg-gray-200 dark:hover:bg-dark-surface-hover rounded"
+                                title="Test model"
+                              >
+                                <TestTube className="w-4 h-4 text-blue-500" />
+                              </button>
+                              <button
+                                onClick={() => startEditModel(model.id)}
+                                className="p-1.5 hover:bg-gray-200 dark:hover:bg-dark-surface-hover rounded"
+                                title="Edit"
+                              >
+                                <Edit2 className="w-4 h-4 text-gray-500" />
+                              </button>
+                              {model.is_default !== 1 && (
+                                <button
+                                  onClick={() => handleDeleteModel(model.id)}
+                                  className="p-1.5 hover:bg-gray-200 dark:hover:bg-dark-surface-hover rounded"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-500" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Add/Edit Model Form */}
+                    {(showAddModel || editingModelId) && (
+                      <div className="mt-4 p-4 bg-gray-50 dark:bg-dark-surface-hover rounded-lg space-y-3">
+                        <h4 className="font-medium text-sm">
+                          {editingModelId ? 'Edit Model' : 'Add New Model'}
+                        </h4>
+                        <input
+                          type="text"
+                          placeholder="Model Name (e.g., llama3:8b)"
+                          value={newModelName}
+                          onChange={(e) => setNewModelName(e.target.value)}
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Display Name (e.g., Core Agent 7B)"
+                          value={newDisplayName}
+                          onChange={(e) => setNewDisplayName(e.target.value)}
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
+                        />
+                        <textarea
+                          placeholder="Description (optional)"
+                          value={newDescription}
+                          onChange={(e) => setNewDescription(e.target.value)}
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
+                          rows={2}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={editingModelId ? handleUpdateModel : handleAddModel}
+                            className="px-4 py-2 text-sm bg-primary hover:bg-secondary text-white rounded-lg transition-all"
+                          >
+                            {editingModelId ? 'Update' : 'Add'}
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            className="px-4 py-2 text-sm bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-500 rounded-lg transition-all"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-secondary mt-2">Choose the AI model for chat responses (managed in your database)</p>
                   </div>
 
                   {/* Test Connection Button */}
