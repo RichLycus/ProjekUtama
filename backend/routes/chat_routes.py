@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 from database import SQLiteDB
 
 # Import AI modules
-from ai.agent_orchestrator import AgentOrchestrator
+from ai.multi_model_orchestrator import MultiModelOrchestrator
 from ai.config_manager import AIConfigManager
 from ai.rag import get_rag_system
 
@@ -32,15 +32,15 @@ except Exception as e:
     logger.error(f"⚠️ Failed to initialize RAG system: {str(e)}")
     rag_system = None
 
-# Initialize Agent Orchestrator with config manager
+# Initialize Multi-Model Orchestrator with config manager
 try:
-    orchestrator = AgentOrchestrator(
+    orchestrator = MultiModelOrchestrator(
         db_manager=db,
         config_manager=config_manager
     )
-    logger.info("✅ Agent Orchestrator initialized successfully")
+    logger.info("✅ Multi-Model Orchestrator initialized successfully")
 except Exception as e:
-    logger.error(f"⚠️ Failed to initialize Agent Orchestrator: {str(e)}")
+    logger.error(f"⚠️ Failed to initialize Multi-Model Orchestrator: {str(e)}")
     orchestrator = None
 
 # ============================================
@@ -272,24 +272,28 @@ async def get_chat_status():
             system_status = orchestrator.get_system_status()
             ollama_connected = system_status["ollama_connected"]
             agents_ready = system_status["agents_ready"]
+            orchestrator_type = system_status.get("orchestrator_type", "multi-model")
+            agent_models = system_status.get("agent_models", {})
         else:
             ollama_connected = False
             agents_ready = {
                 "router": False,
                 "rag": False,
-                "execution": False,
-                "reasoning": False,
+                "specialized": False,
                 "persona": False
             }
+            orchestrator_type = "unknown"
+            agent_models = {}
         
         return {
             "status": "operational" if orchestrator else "limited",
+            "orchestrator_type": orchestrator_type,
             "total_conversations": total_convs,
             "llm_integrated": ollama_connected,
-            "rag_active": True,  # Basic RAG is active
+            "rag_active": True,
             "agents_ready": agents_ready,
-            "model": orchestrator.model if orchestrator else "N/A",
-            "message": "5-Agent system operational with Ollama" if ollama_connected else "Mock mode - Ollama not connected"
+            "agent_models": agent_models,
+            "message": "Multi-Model system operational with Ollama" if ollama_connected else "Mock mode - Ollama not connected"
         }
     except Exception as e:
         logger.error(f"❌ Status check error: {str(e)}")

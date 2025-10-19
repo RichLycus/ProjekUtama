@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare, Edit2, Trash2, Star, TestTube, Users } from 'lucide-react'
+import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare, Edit2, Trash2, Star, TestTube, Users, Power, RefreshCw } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
 import { useThemeStore } from '@/store/themeStore'
 import { useAIConfigStore } from '@/store/aiConfigStore'
@@ -32,6 +32,9 @@ export default function SettingsPage() {
   const [newModelName, setNewModelName] = useState('')
   const [newDisplayName, setNewDisplayName] = useState('')
   const [newDescription, setNewDescription] = useState('')
+  
+  // Agent configs state
+  const [agentConfigs, setAgentConfigs] = useState<any[]>([])
   
   // Load AI config and models on mount
   useEffect(() => {
@@ -151,6 +154,61 @@ export default function SettingsPage() {
   const handleTestModel = async (modelName: string) => {
     await testModel(modelName)
   }
+  
+  // Load agent configs
+  const loadAgentConfigs = async () => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'
+      const response = await fetch(`${backendUrl}/api/agents/configs`)
+      const data = await response.json()
+      
+      if (data.success) {
+        setAgentConfigs(data.configs)
+        toast.success('✅ Agent configs loaded')
+      }
+    } catch (error) {
+      console.error('Failed to load agent configs:', error)
+      toast.error('❌ Failed to load agent configs')
+    }
+  }
+  
+  // Toggle agent enable/disable
+  const handleToggleAgent = async (agentId: string) => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'
+      const response = await fetch(`${backendUrl}/api/agents/configs/${agentId}/toggle`, {
+        method: 'POST'
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        toast.success(`✅ Agent ${data.config.is_enabled === 1 ? 'enabled' : 'disabled'}`)
+        loadAgentConfigs()
+      } else {
+        toast.error('❌ Failed to toggle agent')
+      }
+    } catch (error) {
+      console.error('Failed to toggle agent:', error)
+      toast.error('❌ Failed to toggle agent')
+    }
+  }
+  
+  // Edit agent config (placeholder - will implement full edit modal if needed)
+  const handleEditAgent = (agent: any) => {
+    toast('🔧 Edit functionality coming soon for ' + agent.display_name, {
+      icon: '⚙️',
+      duration: 3000
+    })
+    // TODO: Open edit modal with agent data
+  }
+  
+  // Load agent configs when AI Chat tab is active
+  useEffect(() => {
+    if (activeTab === 'ai-chat') {
+      loadAgentConfigs()
+    }
+  }, [activeTab])
+  
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -736,9 +794,94 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              {/* Agent Configurations */}
+              <div className="glass rounded-xl p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-bold">Agent Model Configurations</h3>
+                    <p className="text-sm text-secondary">Configure models for each specialized agent</p>
+                  </div>
+                  <button
+                    onClick={() => loadAgentConfigs()}
+                    className="px-4 py-2 text-sm bg-primary/20 hover:bg-primary/30 text-primary rounded-lg transition-all flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Refresh
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {agentConfigs.map((agent) => (
+                    <div
+                      key={agent.id}
+                      className="p-4 rounded-lg border border-gray-200 dark:border-dark-border hover:border-primary/50 transition-all"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="font-semibold">{agent.display_name}</h4>
+                            <span className="px-2 py-0.5 text-xs rounded bg-primary/20 text-primary">
+                              {agent.agent_type}
+                            </span>
+                            {agent.is_enabled === 1 ? (
+                              <span className="px-2 py-0.5 text-xs rounded bg-green-500/20 text-green-600 dark:text-green-400">
+                                Enabled
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 text-xs rounded bg-gray-500/20 text-gray-600 dark:text-gray-400">
+                                Disabled
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-secondary mb-2">{agent.description}</p>
+                          <div className="flex items-center gap-4 text-xs text-secondary">
+                            <span className="flex items-center gap-1">
+                              <strong>Model:</strong> {agent.model_name}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <strong>Temp:</strong> {agent.temperature}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <strong>Max Tokens:</strong> {agent.max_tokens}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleToggleAgent(agent.id)}
+                            className={`p-2 rounded-lg transition-all ${
+                              agent.is_enabled === 1
+                                ? 'bg-green-500/20 hover:bg-green-500/30 text-green-600'
+                                : 'bg-gray-500/20 hover:bg-gray-500/30 text-gray-600'
+                            }`}
+                            title={agent.is_enabled === 1 ? 'Disable' : 'Enable'}
+                          >
+                            <Power className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleEditAgent(agent)}
+                            className="p-2 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary transition-all"
+                            title="Edit configuration"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-300">
+                    💡 <strong>Tip:</strong> Each agent uses a specialized model. Change models to optimize for speed, accuracy, or resource usage.
+                  </p>
+                </div>
+              </div>
+
               {/* Agent Status Overview */}
               <div className="glass rounded-xl p-6">
-                <h3 className="text-lg font-bold mb-4">5-Core Agent System Status</h3>
+                <h3 className="text-lg font-bold mb-4">Multi-Model Agent System Status</h3>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   {[
                     { name: 'Router', status: 'ready', color: 'blue' },

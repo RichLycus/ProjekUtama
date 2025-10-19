@@ -192,6 +192,48 @@ class SQLiteDB:
             # Create index for default persona lookup
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_personas_default ON personas(is_default)")
             
+            # Agent Configs table (multi-model configuration)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS agent_configs (
+                    id TEXT PRIMARY KEY,
+                    agent_type TEXT NOT NULL UNIQUE,
+                    model_name TEXT NOT NULL,
+                    display_name TEXT NOT NULL,
+                    description TEXT,
+                    is_enabled INTEGER DEFAULT 1,
+                    temperature REAL DEFAULT 0.7,
+                    max_tokens INTEGER DEFAULT 2000,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            
+            # Create index for agent configs
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_configs_type ON agent_configs(agent_type)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_configs_enabled ON agent_configs(is_enabled)")
+            
+            # Seed default agent configs if table is empty
+            cursor.execute("SELECT COUNT(*) FROM agent_configs")
+            agent_config_count = cursor.fetchone()[0]
+            if agent_config_count == 0:
+                now = datetime.now().isoformat()
+                default_agent_configs = [
+                    ('agent-router', 'router', 'phi3:mini', 'Router Agent', 'Lightweight model for intent classification and routing', 1, 0.3, 500, now, now),
+                    ('agent-rag', 'rag', 'all-MiniLM-L6-v2', 'RAG Agent', 'Embedding model for context retrieval', 1, 0.0, 0, now, now),
+                    ('agent-execution', 'execution', 'phi3:mini', 'Execution Agent', 'Lightweight model for tool detection', 1, 0.3, 500, now, now),
+                    ('agent-reasoning', 'reasoning', 'qwen2.5:7b', 'Reasoning Agent', 'Strong reasoning model for complex queries', 1, 0.7, 2000, now, now),
+                    ('agent-persona', 'persona', 'gemma2:2b', 'Persona Agent', 'Lightweight model for response formatting', 1, 0.6, 1000, now, now),
+                    ('agent-chat', 'chat', 'gemma2:2b', 'Chat Agent', 'Simple conversational model for general chat', 1, 0.7, 1500, now, now),
+                    ('agent-code', 'code', 'qwen2.5-coder:7b', 'Code Agent', 'Specialized model for programming tasks', 1, 0.5, 2500, now, now),
+                    ('agent-analysis', 'analysis', 'qwen2.5:7b', 'Analysis Agent', 'Model for data analysis and reasoning', 1, 0.6, 2000, now, now),
+                    ('agent-creative', 'creative', 'llama3:8b', 'Creative Agent', 'Model for creative and artistic tasks', 1, 0.8, 2000, now, now),
+                    ('agent-tool', 'tool', 'phi3:mini', 'Tool Agent', 'Lightweight model for tool execution', 1, 0.4, 1000, now, now),
+                ]
+                cursor.executemany("""
+                    INSERT INTO agent_configs (id, agent_type, model_name, display_name, description, is_enabled, temperature, max_tokens, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, default_agent_configs)
+            
             # Seed default personas if table is empty
             cursor.execute("SELECT COUNT(*) FROM personas")
             persona_count = cursor.fetchone()[0]
@@ -798,3 +840,103 @@ class SQLiteDB:
                         persona['personality_traits'] = {}
                 return persona
             return None
+
+    # ============================================
+    # AGENT CONFIGS METHODS
+    # ============================================
+    
+    def insert_agent_config(self, config_data: Dict[str, Any]) -> str:
+        """Insert a new agent config"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO agent_configs (
+                    id, agent_type, model_name, display_name, description, 
+                    is_enabled, temperature, max_tokens, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                config_data['id'],
+                config_data['agent_type'],
+                config_data['model_name'],
+                config_data['display_name'],
+                config_data.get('description', ''),
+                config_data.get('is_enabled', 1),
+                config_data.get('temperature', 0.7),
+                config_data.get('max_tokens', 2000),
+                config_data['created_at'],
+                config_data['updated_at']
+            ))
+            return config_data['id']
+    
+    def get_agent_configs(self) -> List[Dict[str, Any]]:
+        """Get all agent configs"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM agent_configs ORDER BY agent_type ASC")
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+    
+    def get_agent_config(self, agent_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific agent config by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM agent_configs WHERE id = ?", (agent_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+    
+    def get_agent_config_by_type(self, agent_type: str) -> Optional[Dict[str, Any]]:
+        """Get a specific agent config by type"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM agent_configs WHERE agent_type = ?", (agent_type,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+    
+    def update_agent_config(self, agent_id: str, updates: Dict[str, Any]) -> bool:
+        """Update an agent config"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Add updated_at
+            updates['updated_at'] = datetime.now().isoformat()
+            
+            # Build UPDATE query dynamically
+            set_clause = ", ".join([f"{k} = ?" for k in updates.keys()])
+            values = list(updates.values()) + [agent_id]
+            
+            cursor.execute(f"""
+                UPDATE agent_configs 
+                SET {set_clause}
+                WHERE id = ?
+            """, values)
+            
+            return cursor.rowcount > 0
+    
+    def delete_agent_config(self, agent_id: str) -> bool:
+        """Delete an agent config"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM agent_configs WHERE id = ?", (agent_id,))
+            return cursor.rowcount > 0
+    
+    def toggle_agent_config(self, agent_id: str) -> bool:
+        """Toggle agent enabled status"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get current status
+            cursor.execute("SELECT is_enabled FROM agent_configs WHERE id = ?", (agent_id,))
+            row = cursor.fetchone()
+            if not row:
+                return False
+            
+            new_status = 0 if row['is_enabled'] == 1 else 1
+            
+            # Update status
+            cursor.execute("""
+                UPDATE agent_configs 
+                SET is_enabled = ?, updated_at = ?
+                WHERE id = ?
+            """, (new_status, datetime.now().isoformat(), agent_id))
+            
+            return cursor.rowcount > 0
