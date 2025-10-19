@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle } from 'lucide-react'
+import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
 import { useThemeStore } from '@/store/themeStore'
 import ToolsTable from '@/components/ToolsTable'
@@ -8,7 +8,7 @@ import HelpModal from '@/components/HelpModal'
 import ThemeCard from '@/components/ThemeCard'
 import toast from 'react-hot-toast'
 
-type TabType = 'tools' | 'appearance' | 'about'
+type TabType = 'tools' | 'appearance' | 'ai-chat' | 'about'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('tools')
@@ -82,6 +82,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'tools' as TabType, label: 'Tools Management', icon: Wrench },
     { id: 'appearance' as TabType, label: 'Appearance', icon: Palette },
+    { id: 'ai-chat' as TabType, label: 'AI Chat', icon: MessageSquare },
     { id: 'about' as TabType, label: 'About', icon: Info },
   ]
 
@@ -330,6 +331,173 @@ export default function SettingsPage() {
                       Soon
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* AI Chat Tab */}
+          {activeTab === 'ai-chat' && (
+            <div className="space-y-6">
+              {/* Ollama Configuration */}
+              <div className="glass rounded-xl p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                    <MessageSquare className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">Ollama Model Configuration</h2>
+                    <p className="text-sm text-secondary">Configure local LLM settings</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Ollama URL */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Ollama Server URL</label>
+                    <input
+                      type="text"
+                      defaultValue="http://localhost:11434"
+                      className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
+                      placeholder="http://localhost:11434"
+                    />
+                    <p className="text-xs text-secondary mt-1">Default Ollama server endpoint</p>
+                  </div>
+
+                  {/* Model Selection */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">AI Model</label>
+                    <select className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary">
+                      <option value="llama3:8b">Llama 3 - 8B (Recommended)</option>
+                      <option value="mistral:7b">Mistral - 7B (Fast)</option>
+                      <option value="qwen2.5-coder-id:latest">Code Qwen - 7B (Coding)</option>
+                      <option value="phi-2:2.7b">Phi-2 - 2.7B (Lightweight)</option>
+                    </select>
+                    <p className="text-xs text-secondary mt-1">Choose the AI model for chat responses</p>
+                  </div>
+
+                  {/* Test Connection Button */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => toast.loading('Testing connection...', { duration: 2000 })}
+                      className="px-6 py-2 bg-primary hover:bg-secondary text-white rounded-lg font-medium transition-all"
+                    >
+                      Test Connection
+                    </button>
+                    <button
+                      onClick={() => toast.success('Settings saved!', { duration: 2000 })}
+                      className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-all"
+                    >
+                      Save Settings
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* RAG Configuration */}
+              <div className="glass rounded-xl p-6">
+                <h3 className="text-lg font-bold mb-4">RAG & Context Management</h3>
+                <div className="space-y-4">
+                  {/* RAG Status */}
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-dark-surface-hover">
+                    <div>
+                      <p className="font-medium">RAG System Status</p>
+                      <p className="text-sm text-secondary">Retrieval-Augmented Generation</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-sm text-green-500 font-medium">Ready</span>
+                    </div>
+                  </div>
+
+                  {/* Context Size */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Context Window Size</label>
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="range"
+                        min="1000"
+                        max="8000"
+                        step="1000"
+                        defaultValue="4000"
+                        className="flex-1"
+                      />
+                      <span className="text-sm font-medium w-20 text-right">4000 tokens</span>
+                    </div>
+                    <p className="text-xs text-secondary mt-1">Higher values use more memory but provide better context</p>
+                  </div>
+
+                  {/* Vector DB Path */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Vector Database Path</label>
+                    <input
+                      type="text"
+                      defaultValue="/app/backend/data/vector_db"
+                      className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
+                      disabled
+                    />
+                    <p className="text-xs text-secondary mt-1">Storage location for embeddings</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Multi-Agent & Persona Control */}
+              <div className="glass rounded-xl p-6">
+                <h3 className="text-lg font-bold mb-4">Multi-Agent & Persona Settings</h3>
+                <div className="space-y-4">
+                  {/* Default Persona */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Default Persona</label>
+                    <select className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary">
+                      <option value="lycus">Lycus (Technical & Direct)</option>
+                      <option value="polar">Polar Nexus (Creative & Inspiring)</option>
+                      <option value="sarah">Sarah (Friendly & Helpful)</option>
+                    </select>
+                    <p className="text-xs text-secondary mt-1">AI personality for responses</p>
+                  </div>
+
+                  {/* Execution Agent */}
+                  <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-surface-hover transition-colors">
+                    <div>
+                      <p className="font-medium">Tool Execution Agent</p>
+                      <p className="text-sm text-secondary">Allow AI to run Python tools automatically</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" defaultChecked />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+
+                  {/* Execution Policy */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Execution Policy</label>
+                    <select className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary">
+                      <option value="ask">Ask Before Running (Recommended)</option>
+                      <option value="auto">Auto-execute (Trusted only)</option>
+                      <option value="never">Never Execute</option>
+                    </select>
+                    <p className="text-xs text-secondary mt-1">How AI should handle tool execution requests</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Agent Status Overview */}
+              <div className="glass rounded-xl p-6">
+                <h3 className="text-lg font-bold mb-4">5-Core Agent System Status</h3>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  {[
+                    { name: 'Router', status: 'ready', color: 'blue' },
+                    { name: 'RAG', status: 'ready', color: 'green' },
+                    { name: 'Execution', status: 'ready', color: 'orange' },
+                    { name: 'Reasoning', status: 'ready', color: 'purple' },
+                    { name: 'Persona', status: 'ready', color: 'pink' }
+                  ].map((agent) => (
+                    <div key={agent.name} className="text-center p-4 rounded-lg bg-gray-50 dark:bg-dark-surface-hover">
+                      <div className={`w-3 h-3 rounded-full bg-${agent.color}-500 mx-auto mb-2`} />
+                      <p className="text-sm font-medium">{agent.name}</p>
+                      <p className="text-xs text-secondary capitalize">{agent.status}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

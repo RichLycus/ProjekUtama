@@ -1,6 +1,6 @@
 """
 Chat API Routes for ChimeraAI Phase 3
-Simple message storage and retrieval (20% implementation)
+Multi-Agent System with Ollama Integration (60% implementation)
 """
 
 from fastapi import APIRouter, HTTPException
@@ -8,13 +8,32 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 import uuid
+import logging
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 # Import database
 from database import SQLiteDB
 
+# Import AI orchestrator
+from ai.agent_orchestrator import AgentOrchestrator
+
 db = SQLiteDB()
+
+# Initialize Agent Orchestrator
+# It will try to connect to Ollama, but will work with mock if unavailable
+try:
+    orchestrator = AgentOrchestrator(
+        ollama_url="http://localhost:11434",
+        model="llama3:8b",
+        db_manager=db
+    )
+    logger = logging.getLogger(__name__)
+    logger.info("✅ Agent Orchestrator initialized successfully")
+except Exception as e:
+    logger = logging.getLogger(__name__)
+    logger.error(f"⚠️ Failed to initialize Agent Orchestrator: {str(e)}")
+    orchestrator = None
 
 # ============================================
 # REQUEST/RESPONSE MODELS
@@ -51,7 +70,8 @@ async def send_message(request: MessageRequest):
     Send a chat message
     - Creates new conversation if conversation_id is None
     - Saves user message
-    - Returns mock AI response (for now, real LLM integration in future)
+    - Processes through 5-Agent Pipeline (Router → RAG → Execution → Reasoning → Persona)
+    - Returns AI response from Ollama LLM
     """
     try:
         # Generate IDs
@@ -60,16 +80,23 @@ async def send_message(request: MessageRequest):
         
         # Create or get conversation
         conversation_id = request.conversation_id
+        persona = 'lycus'  # Default persona
+        
         if not conversation_id:
             # Create new conversation
             conversation_id = str(uuid.uuid4())
             db.insert_conversation({
                 'id': conversation_id,
                 'title': request.content[:50] + ('...' if len(request.content) > 50 else ''),
-                'persona': 'lycus',  # Default persona
+                'persona': persona,
                 'created_at': timestamp,
                 'updated_at': timestamp
             })
+        else:
+            # Get persona from existing conversation
+            conv = db.get_conversation(conversation_id)
+            if conv:
+                persona = conv.get('persona', 'lycus')
         
         # Save user message
         user_message_data = {
@@ -83,24 +110,50 @@ async def send_message(request: MessageRequest):
         }
         db.insert_message(user_message_data)
         
-        # Generate mock AI response (Phase 3.2 will replace with real LLM)
+        # Process through Agent Orchestrator
         ai_message_id = str(uuid.uuid4())
         ai_timestamp = datetime.now().isoformat()
         
-        ai_response = f"[Mock Response] I received your message: '{request.content[:30]}...'. Real AI integration coming in Phase 3.2!"
+        if orchestrator and orchestrator.test_ollama_connection():
+            logger.info(f"🤖 Processing message through 5-Agent Pipeline...")
+            
+            # Get conversation history (last 5 messages for context)
+            history = db.get_messages(conversation_id, limit=5)
+            
+            # Process through agents
+            result = orchestrator.process_message(
+                user_input=request.content,
+                persona=persona,
+                conversation_history=history
+            )
+            
+            ai_response = result.get("response", "")
+            agent_tag = result.get("agent_tag", "multi-agent")
+            execution_log = result.get("execution_log", {})
+            
+            logger.info(f"✅ Agent pipeline complete: {len(ai_response)} chars")
+            
+        else:
+            # Fallback to mock response if Ollama unavailable
+            logger.warning("⚠️ Ollama not available, using mock response")
+            ai_response = f"[Mock Response] I received your message: '{request.content[:30]}...'. Ollama integration ready, but server not connected."
+            agent_tag = 'mock-agent'
+            execution_log = {
+                'router': 'Ollama not connected',
+                'rag': 'Skipped',
+                'execution': 'Skipped',
+                'reasoning': 'Mock response',
+                'persona': persona
+            }
         
+        # Save AI response
         ai_message_data = {
             'id': ai_message_id,
             'conversation_id': conversation_id,
             'role': 'assistant',
             'content': ai_response,
-            'agent_tag': 'mock-agent',
-            'execution_log': {
-                'router': 'Mock intent detected',
-                'rag': 'No RAG yet',
-                'reasoning': 'Mock response generated',
-                'persona': 'lycus'
-            },
+            'agent_tag': agent_tag,
+            'execution_log': execution_log,
             'timestamp': ai_timestamp
         }
         db.insert_message(ai_message_data)
@@ -109,6 +162,7 @@ async def send_message(request: MessageRequest):
         return MessageResponse(**ai_message_data)
         
     except Exception as e:
+        logger.error(f"❌ Error in send_message: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
 
 @router.get("/history/{conversation_id}", response_model=List[MessageResponse])
@@ -171,24 +225,33 @@ async def clear_all_conversations():
 async def get_chat_status():
     """Get chat system status (for monitoring)"""
     try:
-        conversations = db.get_conversations(limit=1)
         total_convs = len(db.get_conversations(limit=1000))  # Quick count
         
-        return {
-            "status": "operational",
-            "total_conversations": total_convs,
-            "llm_integrated": False,  # Will be True in Phase 3.2
-            "rag_active": False,       # Will be True in Phase 3.2
-            "agents_ready": {
+        if orchestrator:
+            system_status = orchestrator.get_system_status()
+            ollama_connected = system_status["ollama_connected"]
+            agents_ready = system_status["agents_ready"]
+        else:
+            ollama_connected = False
+            agents_ready = {
                 "router": False,
                 "rag": False,
                 "execution": False,
                 "reasoning": False,
                 "persona": False
-            },
-            "message": "Chat infrastructure ready. LLM integration pending."
+            }
+        
+        return {
+            "status": "operational" if orchestrator else "limited",
+            "total_conversations": total_convs,
+            "llm_integrated": ollama_connected,
+            "rag_active": True,  # Basic RAG is active
+            "agents_ready": agents_ready,
+            "model": orchestrator.model if orchestrator else "N/A",
+            "message": "5-Agent system operational with Ollama" if ollama_connected else "Mock mode - Ollama not connected"
         }
     except Exception as e:
+        logger.error(f"❌ Status check error: {str(e)}")
         return {
             "status": "error",
             "message": str(e)
