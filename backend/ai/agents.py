@@ -248,45 +248,87 @@ class PersonaAgent:
         self.client = ollama_client
         self.model = model
         
-    def format_response(self, raw_response: str, persona: str = "lycus") -> Dict[str, Any]:
-        """Apply persona formatting to response"""
+    def format_response(self, raw_response: str, persona = None) -> Dict[str, Any]:
+        """
+        Apply persona formatting to response
+        
+        Args:
+            raw_response: The response to format
+            persona: Either persona name (string) or full persona object (dict)
+        """
         try:
+            # Handle different persona input types
+            if persona is None:
+                persona_name = "lycus"
+                persona_obj = None
+            elif isinstance(persona, dict):
+                # Full persona object from database
+                persona_obj = persona
+                persona_name = persona_obj.get('name', 'lycus').lower()
+            else:
+                # Legacy string persona
+                persona_name = str(persona).lower()
+                persona_obj = None
+            
+            logger.info(f"✨ Persona Agent: Applying '{persona_name}' style...")
+            
+            # If we have full persona object, use personality_traits
+            if persona_obj and 'personality_traits' in persona_obj:
+                traits = persona_obj['personality_traits']
+                response_style = persona_obj.get('response_style', 'balanced')
+                tone = persona_obj.get('tone', 'friendly')
+                user_greeting = persona_obj.get('user_greeting', 'Kawan')
+                ai_name = persona_obj.get('ai_name', 'Assistant')
+                
+                logger.info(f"   Using personality traits: technical={traits.get('technical', 50)}, "
+                          f"friendly={traits.get('friendly', 50)}, direct={traits.get('direct', 50)}")
+                logger.info(f"   Style: {response_style}, Tone: {tone}")
+                
+                # Apply personality-based formatting
+                formatted = self._apply_personality_formatting(
+                    raw_response, traits, response_style, tone, user_greeting, ai_name
+                )
+                
+                logger.info(f"✅ Persona: Applied personality-based formatting for '{ai_name}'")
+                
+                return {
+                    "success": True,
+                    "response": formatted,
+                    "persona": persona_name,
+                    "log": f"Applied {ai_name} persona with personality traits"
+                }
+            
+            # Fallback to legacy persona handling
             personas = {
                 "lycus": "Technical, direct, practical. Use code examples when relevant. Stay concise.",
                 "polar": "Creative, inspiring, artistic. Use metaphors. Encourage exploration.",
                 "sarah": "Friendly, warm, helpful. Be conversational. Explain clearly."
             }
             
-            persona_style = personas.get(persona, personas["lycus"])
+            persona_style = personas.get(persona_name, personas["lycus"])
             
-            # For now, light formatting (Phase 3.3 will add full LLM formatting)
-            # In production, we'd use LLM here to rewrite in persona style
-            # For efficiency, we'll skip extra LLM call and return as-is with minimal changes
-            
-            logger.info(f"✨ Persona Agent: Applying '{persona}' style...")
-            
-            # Simple formatting based on persona
+            # Simple formatting based on legacy persona
             formatted = raw_response
             
-            if persona == "lycus":
+            if persona_name == "lycus":
                 # Already technical, minimal changes
                 pass
-            elif persona == "polar":
+            elif persona_name == "polar":
                 # Add creative flair
                 if not raw_response.startswith(("Imagine", "Think of", "Picture")):
                     formatted = raw_response
-            elif persona == "sarah":
+            elif persona_name == "sarah":
                 # Add friendly tone
                 if not raw_response.startswith(("I'd be happy", "Let me help", "Sure")):
                     formatted = raw_response
             
-            logger.info(f"✅ Persona: Applied '{persona}' formatting")
+            logger.info(f"✅ Persona: Applied '{persona_name}' formatting (legacy)")
             
             return {
                 "success": True,
                 "response": formatted,
-                "persona": persona,
-                "log": f"Applied {persona} persona"
+                "persona": persona_name,
+                "log": f"Applied {persona_name} persona (legacy)"
             }
             
         except Exception as e:
@@ -294,6 +336,50 @@ class PersonaAgent:
             return {
                 "success": False,
                 "response": raw_response,  # Return original on error
-                "persona": persona,
+                "persona": "unknown",
                 "log": f"Error: {str(e)}, returned original response"
             }
+    
+    def _apply_personality_formatting(
+        self, 
+        response: str, 
+        traits: dict,
+        response_style: str,
+        tone: str,
+        user_greeting: str,
+        ai_name: str
+    ) -> str:
+        """
+        Apply personality-based formatting using personality_traits
+        
+        This is a simplified implementation. In future, we can use LLM to rewrite
+        the response based on personality traits.
+        """
+        # For now, we'll do minimal formatting based on dominant traits
+        # In Phase 3.3+, we can add full LLM-based persona transformation
+        
+        formatted = response
+        
+        # If response doesn't start with a greeting-like phrase, add one based on traits
+        greeting_phrases = ["Hi", "Hello", "Hey", "Sure", "I'd", "Let me"]
+        starts_with_greeting = any(formatted.startswith(phrase) for phrase in greeting_phrases)
+        
+        if not starts_with_greeting and len(formatted) > 100:
+            # Add personality-appropriate intro based on traits
+            friendly_level = traits.get('friendly', 50)
+            professional_level = traits.get('professional', 50)
+            
+            if friendly_level > 70:
+                # High friendly: warm greeting
+                intro = f"Halo {user_greeting}! "
+            elif professional_level > 70:
+                # High professional: formal
+                intro = f"Tentu, {user_greeting}. "
+            else:
+                # Balanced: simple
+                intro = ""
+            
+            if intro:
+                formatted = intro + formatted
+        
+        return formatted

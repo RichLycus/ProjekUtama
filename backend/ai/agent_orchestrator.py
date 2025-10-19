@@ -71,11 +71,16 @@ class AgentOrchestrator:
     def process_message(
         self, 
         user_input: str, 
-        persona: str = "lycus",
+        persona = None,  # Can be string or dict (persona object)
         conversation_history: list = None
     ) -> Dict[str, Any]:
         """
         Process user message through the 5-agent pipeline
+        
+        Args:
+            user_input: User's message
+            persona: Either persona name (string) or full persona object (dict)
+            conversation_history: List of previous messages
         
         Returns:
             {
@@ -93,8 +98,16 @@ class AgentOrchestrator:
         try:
             execution_log = {}
             
+            # Handle persona - accept both string and object
+            if persona is None:
+                persona = "lycus"  # Default fallback
+            
             logger.info("=" * 60)
             logger.info("🚀 Starting 5-Agent Pipeline")
+            if isinstance(persona, dict):
+                logger.info(f"👤 Persona: {persona.get('ai_name', 'Unknown')} (from database)")
+            else:
+                logger.info(f"👤 Persona: {persona} (legacy string)")
             logger.info("=" * 60)
             
             # STEP 1: Router Agent - Classify Intent

@@ -22,7 +22,6 @@ export default function SettingsPage() {
   
   const [ollamaUrl, setOllamaUrl] = useState('')
   const [selectedModelId, setSelectedModelId] = useState('')
-  const [defaultPersona, setDefaultPersona] = useState('')
   const [contextSize, setContextSize] = useState(4000)
   const [executionEnabled, setExecutionEnabled] = useState(true)
   const [executionPolicy, setExecutionPolicy] = useState('ask')
@@ -44,7 +43,6 @@ export default function SettingsPage() {
   useEffect(() => {
     if (config) {
       setOllamaUrl(config.ollama_url)
-      setDefaultPersona(config.default_persona)
       setContextSize(config.context_window_size)
       setExecutionEnabled(config.execution_enabled)
       setExecutionPolicy(config.execution_policy)
@@ -69,7 +67,6 @@ export default function SettingsPage() {
     const success = await saveConfig({
       ollama_url: ollamaUrl,
       model: selectedModel.model_name,
-      default_persona: defaultPersona,
       context_window_size: contextSize,
       execution_enabled: executionEnabled,
       execution_policy: executionPolicy
@@ -705,22 +702,7 @@ export default function SettingsPage() {
               <div className="glass rounded-xl p-6">
                 <h3 className="text-lg font-bold mb-4">Multi-Agent & Persona Settings</h3>
                 <div className="space-y-4">
-                  {/* Default Persona */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Default Persona</label>
-                    <select 
-                      value={defaultPersona}
-                      onChange={(e) => setDefaultPersona(e.target.value)}
-                      className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
-                    >
-                      <option value="lycus">Lycus (Technical & Direct)</option>
-                      <option value="polar">Polar Nexus (Creative & Inspiring)</option>
-                      <option value="sarah">Sarah (Friendly & Helpful)</option>
-                    </select>
-                    <p className="text-xs text-secondary mt-1">AI personality for responses</p>
-                  </div>
-
-                  {/* Execution Agent */}
+                  {/* Tool Execution Agent */}
                   <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-surface-hover transition-colors">
                     <div>
                       <p className="font-medium">Tool Execution Agent</p>

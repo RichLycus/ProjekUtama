@@ -33,14 +33,16 @@ interface ChatStore {
   messages: Message[]
   loading: boolean
   error: string | null
+  currentPersonaId: string | null  // Track current persona
   
   // Actions
-  sendMessage: (content: string) => Promise<void>
+  sendMessage: (content: string, personaId?: string) => Promise<void>
   loadHistory: (conversationId: string) => Promise<void>
   loadConversations: () => Promise<Conversation[]>
   createNewConversation: () => void
   clearChat: () => void
   setError: (error: string | null) => void
+  setCurrentPersonaId: (personaId: string | null) => void
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -49,21 +51,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   messages: [],
   loading: false,
   error: null,
+  currentPersonaId: null,
   
   // Send message action
-  sendMessage: async (content: string) => {
+  sendMessage: async (content: string, personaId?: string) => {
     if (!content.trim()) return
     
     set({ loading: true, error: null })
     
     try {
-      const { currentConversation } = get()
+      const { currentConversation, currentPersonaId } = get()
       
-      // Call backend API
+      // Use provided personaId or fall back to currentPersonaId
+      const effectivePersonaId = personaId || currentPersonaId
+      
+      // Call backend API with persona_id
       const response = await axios.post(`${API_BASE_URL}/api/chat/message`, {
         conversation_id: currentConversation?.id || null,
         content: content.trim(),
-        role: 'user'
+        role: 'user',
+        persona_id: effectivePersonaId  // Send persona_id to backend
       })
       
       const aiMessage: Message = response.data
@@ -154,5 +161,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   // Set error
   setError: (error: string | null) => {
     set({ error })
+  },
+  
+  // Set current persona
+  setCurrentPersonaId: (personaId: string | null) => {
+    set({ currentPersonaId: personaId })
   }
 }))

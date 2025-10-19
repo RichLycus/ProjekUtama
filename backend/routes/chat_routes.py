@@ -51,6 +51,7 @@ class MessageRequest(BaseModel):
     conversation_id: Optional[str] = None
     content: str
     role: str = "user"  # user | assistant | system
+    persona_id: Optional[str] = None  # Optional persona override
 
 class MessageResponse(BaseModel):
     id: str
@@ -86,25 +87,57 @@ async def send_message(request: MessageRequest):
         message_id = str(uuid.uuid4())
         timestamp = datetime.now().isoformat()
         
+        # Get persona - priority: request.persona_id > default from DB
+        persona_obj = None
+        persona_id = request.persona_id
+        
+        if persona_id:
+            # User specified a persona
+            persona_obj = db.get_persona(persona_id)
+        else:
+            # Get default persona from database
+            persona_obj = db.get_default_persona()
+        
+        # Fallback to Lycus if no persona found
+        if not persona_obj:
+            logger.warning("⚠️ No persona found, using fallback")
+            persona_obj = {
+                'id': 'fallback-lycus',
+                'name': 'Lycus',
+                'ai_name': 'Lycus',
+                'user_greeting': 'Kawan',
+                'personality_traits': {
+                    'technical': 90,
+                    'friendly': 70,
+                    'direct': 85,
+                    'creative': 60,
+                    'professional': 75
+                },
+                'response_style': 'technical',
+                'tone': 'direct'
+            }
+        
         # Create or get conversation
         conversation_id = request.conversation_id
-        persona = 'lycus'  # Default persona
         
         if not conversation_id:
-            # Create new conversation
+            # Create new conversation with persona_id
             conversation_id = str(uuid.uuid4())
             db.insert_conversation({
                 'id': conversation_id,
                 'title': request.content[:50] + ('...' if len(request.content) > 50 else ''),
-                'persona': persona,
+                'persona': persona_obj['id'],  # Store persona_id instead of name
                 'created_at': timestamp,
                 'updated_at': timestamp
             })
         else:
-            # Get persona from existing conversation
+            # Get existing conversation
             conv = db.get_conversation(conversation_id)
-            if conv:
-                persona = conv.get('persona', 'lycus')
+            if conv and not persona_id:
+                # Use conversation's persona if no override
+                conv_persona = db.get_persona(conv.get('persona', persona_obj['id']))
+                if conv_persona:
+                    persona_obj = conv_persona
         
         # Save user message
         user_message_data = {
@@ -131,7 +164,7 @@ async def send_message(request: MessageRequest):
             # Process through agents
             result = orchestrator.process_message(
                 user_input=request.content,
-                persona=persona,
+                persona=persona_obj,  # Pass full persona object, not string
                 conversation_history=history
             )
             
@@ -151,7 +184,7 @@ async def send_message(request: MessageRequest):
                 'rag': 'Skipped',
                 'execution': 'Skipped',
                 'reasoning': 'Mock response',
-                'persona': persona
+                'persona': persona_obj['name']
             }
         
         # Save AI response

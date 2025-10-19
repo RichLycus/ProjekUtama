@@ -15,7 +15,8 @@ export default function ChatPage() {
     loading, 
     error, 
     sendMessage, 
-    setError 
+    setError,
+    setCurrentPersonaId 
   } = useChatStore()
   
   const { currentPersona, fetchDefaultPersona } = usePersonaStore()
@@ -28,6 +29,13 @@ export default function ChatPage() {
   useEffect(() => {
     fetchDefaultPersona()
   }, [])
+  
+  // Update chatStore when persona changes
+  useEffect(() => {
+    if (currentPersona) {
+      setCurrentPersonaId(currentPersona.id)
+    }
+  }, [currentPersona, setCurrentPersonaId])
   
   // Detect screen size
   useEffect(() => {
