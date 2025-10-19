@@ -66,15 +66,15 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "build/icon.svg"
+      "icon": "build/icon.icns"
     },
     "win": {
       "target": "nsis",
-      "icon": "build/icon.svg"
+      "icon": "build/icon.ico"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "build/icon.svg",
+      "icon": "build/icon.png",
       "category": "Utility"
     }
   }

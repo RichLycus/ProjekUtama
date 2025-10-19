@@ -54,9 +54,11 @@ export default function TitleBar() {
         className="flex items-center gap-2 group"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
-        <div className="w-5 h-5 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-sm">
-          <span className="text-xs font-bold text-white">C</span>
-        </div>
+        <img 
+          src="/logo-128.png" 
+          alt="ChimeraAI Logo" 
+          className="w-5 h-5 object-contain"
+        />
         <span className="text-sm font-display font-semibold group-hover:text-primary transition-colors">
           ChimeraAI
         </span>
