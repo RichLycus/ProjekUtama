@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import Store from 'electron-store'
+import { spawn, ChildProcess } from 'node:child_process'
+import fs from 'node:fs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -22,8 +24,102 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST
 
 let mainWindow: BrowserWindow | null
+let backendProcess: ChildProcess | null = null
+
+// Start Python Backend Server
+function startBackend() {
+  return new Promise<void>((resolve) => {
+    try {
+      console.log('[Backend] Starting Python backend...')
+      
+      // Determine backend path
+      const isDev = process.env.NODE_ENV !== 'production'
+      const backendDir = isDev 
+        ? path.join(process.env.APP_ROOT || '', 'backend')
+        : path.join(process.resourcesPath, 'backend')
+      
+      console.log('[Backend] Backend directory:', backendDir)
+      
+      // Check if backend directory exists
+      if (!fs.existsSync(backendDir)) {
+        console.error('[Backend] Backend directory not found:', backendDir)
+        // Continue anyway - maybe backend is running externally
+        resolve()
+        return
+      }
+      
+      // Find Python executable
+      const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
+      
+      // Start backend server
+      backendProcess = spawn(pythonCmd, [
+        '-m', 'uvicorn',
+        'server:app',
+        '--host', '127.0.0.1',
+        '--port', '8001',
+        '--reload'
+      ], {
+        cwd: backendDir,
+        env: { ...process.env },
+        stdio: 'pipe'
+      })
+      
+      if (backendProcess.stdout) {
+        backendProcess.stdout.on('data', (data) => {
+          console.log('[Backend]', data.toString().trim())
+        })
+      }
+      
+      if (backendProcess.stderr) {
+        backendProcess.stderr.on('data', (data) => {
+          console.error('[Backend Error]', data.toString().trim())
+        })
+      }
+      
+      backendProcess.on('error', (error) => {
+        console.error('[Backend] Failed to start:', error)
+        // Don't reject - continue even if backend fails
+        resolve()
+      })
+      
+      backendProcess.on('exit', (code) => {
+        console.log('[Backend] Process exited with code', code)
+        backendProcess = null
+      })
+      
+      // Wait a bit for backend to start
+      setTimeout(() => {
+        console.log('[Backend] Assuming backend started successfully')
+        resolve()
+      }, 3000)
+      
+    } catch (error) {
+      console.error('[Backend] Error starting backend:', error)
+      // Don't reject - continue anyway
+      resolve()
+    }
+  })
+}
+
+// Stop backend server
+function stopBackend() {
+  if (backendProcess) {
+    console.log('[Backend] Stopping backend server...')
+    backendProcess.kill()
+    backendProcess = null
+  }
+}
 
 function createWindow() {
+  // Determine icon path
+  const isDev = VITE_DEV_SERVER_URL !== undefined
+  const iconPath = isDev
+    ? path.join(process.env.APP_ROOT || '', 'build', 'icon.png')
+    : path.join(process.resourcesPath, 'icon.png')
+  
+  console.log('[Main] Icon path:', iconPath)
+  console.log('[Main] Icon exists:', fs.existsSync(iconPath))
+  
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -31,7 +127,7 @@ function createWindow() {
     minHeight: 600,
     frame: false, // Frameless window - custom title bar
     backgroundColor: '#1e1e2f',
-    icon: path.join(process.env.VITE_PUBLIC || '', 'icon.png'),
+    icon: iconPath,
     webPreferences: {
       preload: path.join(MAIN_DIST, 'preload.js'),
       contextIsolation: true,
@@ -56,7 +152,10 @@ function createWindow() {
   ipcMain.handle('ping', () => 'pong')
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Start backend server first
+  await startBackend()
+  
   // Setup IPC handlers BEFORE creating window
   setupIPC()
   createWindow()
@@ -77,7 +176,7 @@ app.on('window-all-closed', () => {
 // Cleanup on quit - Kill backend if running
 app.on('will-quit', () => {
   console.log('App is quitting, cleaning up...')
-  // Additional cleanup can be added here if needed
+  stopBackend()
 })
 
 // IPC Handlers for Window Controls

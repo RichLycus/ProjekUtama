@@ -4,12 +4,38 @@ import { Link } from 'react-router-dom'
 
 export default function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false)
+  const [logoSrc, setLogoSrc] = useState('/logo-128.png')
 
   useEffect(() => {
     // Check if running in Electron
     if (window.electronAPI) {
       window.electronAPI.isMaximized().then(setIsMaximized)
     }
+    
+    // Try different logo paths
+    const tryLogoPath = async () => {
+      const paths = [
+        '/logo-128.png',
+        './logo-128.png',
+        '../logo-128.png',
+        'logo-128.png'
+      ]
+      
+      for (const p of paths) {
+        try {
+          const response = await fetch(p)
+          if (response.ok) {
+            setLogoSrc(p)
+            console.log('[TitleBar] Logo found at:', p)
+            break
+          }
+        } catch (e) {
+          // Try next path
+        }
+      }
+    }
+    
+    tryLogoPath()
   }, [])
 
   const handleMinimize = () => {
@@ -55,10 +81,20 @@ export default function TitleBar() {
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <img 
-          src="/logo-128.png" 
+          src={logoSrc}
           alt="ChimeraAI Logo" 
           className="w-5 h-5 object-contain"
+          onError={() => {
+            console.error('[TitleBar] Logo failed to load, using fallback')
+            // Fallback to gradient box if image fails
+            setLogoSrc('')
+          }}
         />
+        {!logoSrc && (
+          <div className="w-5 h-5 rounded-md bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-sm">
+            <span className="text-xs font-bold text-white">C</span>
+          </div>
+        )}
         <span className="text-sm font-display font-semibold group-hover:text-primary transition-colors">
           ChimeraAI
         </span>

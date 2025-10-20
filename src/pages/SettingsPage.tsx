@@ -4,6 +4,7 @@ import { useToolsStore } from '@/store/toolsStore'
 import { useThemeStore } from '@/store/themeStore'
 import { useAIConfigStore } from '@/store/aiConfigStore'
 import { useAIModelsStore } from '@/store/aiModelsStore'
+import { API_ENDPOINTS } from '@/lib/backend'
 import ToolsTable from '@/components/ToolsTable'
 import UploadToolModal from '@/components/UploadToolModal'
 import HelpModal from '@/components/HelpModal'
@@ -163,8 +164,7 @@ export default function SettingsPage() {
   // Load agent configs
   const loadAgentConfigs = async () => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'
-      const response = await fetch(`${backendUrl}/api/agents/configs`)
+      const response = await fetch(API_ENDPOINTS.agents.configs)
       const data = await response.json()
       
       if (data.success) {
@@ -180,8 +180,7 @@ export default function SettingsPage() {
   // Toggle agent enable/disable
   const handleToggleAgent = async (agentId: string) => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'
-      const response = await fetch(`${backendUrl}/api/agents/configs/${agentId}/toggle`, {
+      const response = await fetch(API_ENDPOINTS.agents.toggle(agentId), {
         method: 'POST'
       })
       const data = await response.json()
@@ -212,8 +211,7 @@ export default function SettingsPage() {
   // Save agent config updates
   const handleSaveAgent = async (agentId: string, updates: any) => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'
-      const response = await fetch(`${backendUrl}/api/agents/configs/${agentId}`, {
+      const response = await fetch(API_ENDPOINTS.agents.update(agentId), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'

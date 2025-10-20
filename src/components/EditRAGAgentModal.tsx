@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Save, Zap, Download, TestTube, CheckCircle2, XCircle, Loader2, Info } from 'lucide-react'
+import { X, Save, Download, TestTube, CheckCircle2, Loader2, Info } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface EmbeddingModel {
@@ -39,7 +39,7 @@ export default function EditRAGAgentModal({ isOpen, onClose, agent, onSave }: Ed
   const [downloading, setDownloading] = useState<string | null>(null)
   const [testResults, setTestResults] = useState<any>(null)
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001'
 
   // Load embedding models on mount
   useEffect(() => {

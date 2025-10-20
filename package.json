@@ -6,10 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/build-icons.cjs && tsc && vite build && electron-builder",
+    "build": "node scripts/pre-build.cjs && node scripts/build-icons.cjs && tsc && vite build && electron-builder",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "node scripts/build-icons.cjs && vite build && electron-builder"
+    "electron:build": "node scripts/pre-build.cjs && node scripts/build-icons.cjs && vite build && electron-builder"
   },
   "keywords": [
     "electron",
@@ -62,7 +62,25 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "dist-electron/**/*",
+      "backend/**/*",
+      "!backend/__pycache__",
+      "!backend/**/*.pyc"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": ["**/*", "!__pycache__", "!**/*.pyc"]
+      },
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      },
+      {
+        "from": "public/logo-128.png",
+        "to": "logo-128.png"
+      }
     ],
     "mac": {
       "category": "public.app-category.productivity",
