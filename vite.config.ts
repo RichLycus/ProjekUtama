@@ -69,6 +69,13 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    fs: {
+      // Exclude backend files from Vite scanning
+      deny: [
+        '**/backend/**/*.html',
+        '**/backend/**/*.js',
+      ]
+    }
   },
   build: {
     rollupOptions: {

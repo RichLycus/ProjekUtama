@@ -210,12 +210,19 @@ python3 build_release.py --info      # Show release info
 
 ---
 
-**Current Status**: Phase 3 Complete ✅  
-**Next**: Phase 4 - Advanced Chat Features (Planned)
+**Current Status**: Phase 4.0 Complete ✅  
+**Next**: Phase 4.1-4.4 OR Phase 10 (Standalone Installer)
+
+### Phase 4.0 Highlights 🎉 (NEW!)
+- ✅ **Syntax highlighting** untuk 50+ languages dengan copy button
+- ✅ **Markdown rendering** lengkap (tables, lists, code, headings)
+- ✅ **Conversation History** sidebar dengan search & filter
+- ✅ **Agent Status Modal** dengan real-time indicators
+- ✅ **Collapsible sidebar** ChatGPT-style dengan smooth animation
+- ✅ **Mobile responsive** dengan auto-collapse
 
 ### Phase 3 Highlights 🎉
 - ✅ Responsive chat interface (mobile, tablet, desktop)
-- ✅ Collapsible sidebar seperti ChatGPT
 - ✅ RAG system dengan ChromaDB
 - ✅ Vector embeddings (all-MiniLM-L6-v2)
 - ✅ Multi-agent architecture (Router, RAG, Execution, Reasoning, Persona)
@@ -223,36 +230,43 @@ python3 build_release.py --info      # Show release info
 - ✅ Model management system
 - ✅ Real-time agent status indicators
 
-### What's New in Phase 3:
+### What's New in Phase 4.0:
 ```bash
-# RAG System
-- ChromaDB vector database
-- Automatic golden rules indexing
-- Context-aware responses
-- Relevance scoring
+# UI/UX Foundation
+- Syntax highlighting (OneDark theme)
+- Code copy button dengan feedback
+- Markdown support (GFM)
+- Conversation list dengan grouping
+- Agent status popup modal
+- Better chat layout
 
-# Responsive UI
-- Mobile-first design
-- Smooth sidebar animations  
-- Expandable execution logs
-- 60fps performance
+# New Components
+- CodeBlock.tsx (syntax highlighting)
+- MarkdownRenderer.tsx (full markdown)
+- ConversationList.tsx (history sidebar)
+- AgentStatusModal.tsx (popup dialog)
 
-# Backend APIs
-- 7 Chat endpoints
-- 4 RAG endpoints
-- 6 Model management endpoints
+# Dependencies Added
+- react-markdown, remark-gfm
+- react-syntax-highlighter
+- date-fns
 ```
 
 ### Quick Start:
 ```bash
-# Start full stack (Backend + Frontend)
-sudo supervisorctl restart all
+# Development mode (Electron app)
+cd /app && yarn dev
+
+# Production build
+cd /app && yarn build
+
+# Backend only (FastAPI)
+sudo supervisorctl restart backend
 
 # Check status
 curl http://localhost:8001/api/chat/status
-curl http://localhost:8001/api/chat/rag/status
 ```
 
-📖 **[See Phase 3 Documentation](docs/phase/phase_3.md)** for complete details!
-📋 **[See Phase 4 Planning](docs/phase/phase_4_planned.md)** for upcoming features!
+📖 **[See Phase 4 Documentation](docs/phase/phase_4_planned.md)** for complete details!  
+📋 **[See Phase 10 Planning](docs/phase/phase-10-planned.md)** for standalone installer plan!
 

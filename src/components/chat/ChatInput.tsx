@@ -26,8 +26,8 @@ export default function ChatInput({ onSend, loading = false, disabled = false }:
   }
   
   return (
-    <div className="glass-strong border-t border-gray-200 dark:border-dark-border p-3 sm:p-4">
-      <div className="flex items-end gap-2 sm:gap-3">
+    <div className="p-3">
+      <div className="flex items-end gap-2">
         {/* Text input */}
         <textarea
           value={message}
@@ -37,7 +37,7 @@ export default function ChatInput({ onSend, loading = false, disabled = false }:
           disabled={disabled || loading}
           rows={1}
           className={cn(
-            'flex-1 resize-none rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base',
+            'flex-1 resize-none rounded-lg px-3 py-2 text-sm',
             'bg-white dark:bg-dark-background',
             'border border-gray-200 dark:border-dark-border',
             'text-text dark:text-white',
@@ -58,7 +58,7 @@ export default function ChatInput({ onSend, loading = false, disabled = false }:
           onClick={handleSend}
           disabled={!message.trim() || loading || disabled}
           className={cn(
-            'flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-xl',
+            'flex-shrink-0 w-10 h-10 rounded-lg',
             'bg-gradient-to-r from-primary to-secondary',
             'text-white',
             'flex items-center justify-center',
@@ -68,9 +68,9 @@ export default function ChatInput({ onSend, loading = false, disabled = false }:
           )}
         >
           {loading ? (
-            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+            <Send className="w-4 h-4" />
           )}
         </button>
       </div>

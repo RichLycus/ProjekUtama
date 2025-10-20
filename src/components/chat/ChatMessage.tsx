@@ -3,6 +3,7 @@ import { User, Bot, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import TypewriterText from '@/components/TypewriterText'
+import MarkdownRenderer from './MarkdownRenderer'
 
 interface ExecutionLog {
   router?: string
@@ -98,12 +99,16 @@ export default function ChatMessage({
           {isUser ? (
             <div className="text-sm sm:text-base whitespace-pre-wrap">{content}</div>
           ) : (
-            <div className="text-sm sm:text-base whitespace-pre-wrap">
-              <TypewriterText 
-                text={content} 
-                speed={50}
-                onComplete={() => setTypingComplete(true)}
-              />
+            <div className="text-sm sm:text-base prose prose-sm dark:prose-invert max-w-none">
+              {typingComplete ? (
+                <MarkdownRenderer content={content} />
+              ) : (
+                <TypewriterText 
+                  text={content} 
+                  speed={50}
+                  onComplete={() => setTypingComplete(true)}
+                />
+              )}
             </div>
           )}
           
