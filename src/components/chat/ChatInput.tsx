@@ -2,6 +2,9 @@ import { useState, KeyboardEvent, useRef } from 'react'
 import { Send, Loader2, Paperclip, Mic, Image as ImageIcon } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { usePersonaStore } from '@/store/personaStore'
+import UploadModal from './UploadModal'
+import { UploadedFile } from './FileUploader'
+import { UploadedImage } from './ImageUploader'
 
 interface ChatInputProps {
   onSend: (message: string) => void
@@ -13,6 +16,9 @@ interface ChatInputProps {
 export default function ChatInput({ onSend, loading = false, disabled = false, placeholder }: ChatInputProps) {
   const [message, setMessage] = useState('')
   const [isFocused, setIsFocused] = useState(false)
+  const [showUploadModal, setShowUploadModal] = useState(false)
+  const [uploadType, setUploadType] = useState<'file' | 'image'>('file')
+  const [attachedFiles, setAttachedFiles] = useState<(UploadedFile | UploadedImage)[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { currentPersona } = usePersonaStore()
   
@@ -47,13 +53,36 @@ export default function ChatInput({ onSend, loading = false, disabled = false, p
   
   const handleSend = () => {
     if (message.trim() && !loading && !disabled) {
-      onSend(message.trim())
+      // Send message with attached files info if any
+      let messageToSend = message.trim()
+      
+      if (attachedFiles.length > 0) {
+        const fileInfo = attachedFiles.map(f => `[File: ${f.filename}]`).join(' ')
+        messageToSend = `${fileInfo}\n\n${messageToSend}`
+      }
+      
+      onSend(messageToSend)
       setMessage('')
+      setAttachedFiles([])
+      
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto'
       }
     }
+  }
+  
+  const handleUploadClick = (type: 'file' | 'image') => {
+    setUploadType(type)
+    setShowUploadModal(true)
+  }
+  
+  const handleUploadComplete = (files: (UploadedFile | UploadedImage)[]) => {
+    setAttachedFiles(prev => [...prev, ...files])
+  }
+  
+  const removeAttachment = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index))
   }
   
   const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -72,109 +101,143 @@ export default function ChatInput({ onSend, loading = false, disabled = false, p
   }
   
   return (
-    <div className="p-3 sm:p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Modern Input Container */}
-        <div 
-          className={cn(
-            'relative rounded-3xl transition-all duration-300',
-            'bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl',
-            'border-2 transition-colors',
-            isFocused 
-              ? 'border-primary shadow-lg shadow-primary/20' 
-              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600',
-            'overflow-hidden'
+    <>
+      <div className="p-3 sm:p-4">
+        <div className="max-w-4xl mx-auto">
+          {/* Attached Files Preview */}
+          {attachedFiles.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {attachedFiles.map((file, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 px-3 py-2 bg-primary/10 text-primary rounded-lg text-sm"
+                >
+                  <span className="truncate max-w-[150px]">{file.filename}</span>
+                  <button
+                    onClick={() => removeAttachment(index)}
+                    className="hover:bg-primary/20 rounded-full p-0.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
-        >
-          <div className="flex items-end gap-2 p-3">
-            {/* Left Actions */}
-            <div className="flex items-center gap-1 flex-shrink-0 mb-1">
-              <button
-                type="button"
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-primary"
-                title="Attach file"
-              >
-                <Paperclip className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-primary"
-                title="Add image"
-              >
-                <ImageIcon className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {/* Text Input */}
-            <textarea
-              ref={textareaRef}
-              value={message}
-              onChange={handleInput}
-              onKeyPress={handleKeyPress}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder={dynamicPlaceholder}
-              disabled={disabled || loading}
-              rows={1}
-              className={cn(
-                'flex-1 resize-none bg-transparent text-base',
-                'text-text dark:text-white',
-                'placeholder:text-gray-400 dark:placeholder:text-gray-500',
-                'focus:outline-none',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-                'py-2 px-2',
-                'max-h-[200px] overflow-y-auto'
-              )}
-              style={{
-                minHeight: '40px',
-              }}
-            />
-            
-            {/* Right Actions */}
-            <div className="flex items-center gap-1 flex-shrink-0 mb-1">
-              {/* Voice Input */}
-              <button
-                type="button"
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-primary"
-                title="Voice input"
-              >
-                <Mic className="w-5 h-5" />
-              </button>
+          
+          {/* Modern Input Container */}
+          <div 
+            className={cn(
+              'relative rounded-3xl transition-all duration-300',
+              'bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl',
+              'border-2 transition-colors',
+              isFocused 
+                ? 'border-primary shadow-lg shadow-primary/20' 
+                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600',
+              'overflow-hidden'
+            )}
+          >
+            <div className="flex items-end gap-2 p-3">
+              {/* Left Actions */}
+              <div className="flex items-center gap-1 flex-shrink-0 mb-1">
+                <button
+                  type="button"
+                  onClick={() => handleUploadClick('file')}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-primary"
+                  title="Attach file"
+                >
+                  <Paperclip className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUploadClick('image')}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-primary"
+                  title="Add image"
+                >
+                  <ImageIcon className="w-5 h-5" />
+                </button>
+              </div>
               
-              {/* Send Button */}
-              <button
-                onClick={handleSend}
-                disabled={!message.trim() || loading || disabled}
+              {/* Text Input */}
+              <textarea
+                ref={textareaRef}
+                value={message}
+                onChange={handleInput}
+                onKeyDown={handleKeyPress}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder={dynamicPlaceholder}
+                disabled={disabled || loading}
+                rows={1}
                 className={cn(
-                  'p-2.5 rounded-full transition-all duration-200',
-                  'flex items-center justify-center',
-                  message.trim() && !loading && !disabled
-                    ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md hover:shadow-lg hover:scale-105'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                  'flex-1 resize-none bg-transparent text-base',
+                  'text-text dark:text-white',
+                  'placeholder:text-gray-400 dark:placeholder:text-gray-500',
+                  'focus:outline-none',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                  'py-2 px-2',
+                  'max-h-[200px] overflow-y-auto'
                 )}
-              >
-                {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </button>
+                style={{
+                  minHeight: '40px',
+                }}
+              />
+              
+              {/* Right Actions */}
+              <div className="flex items-center gap-1 flex-shrink-0 mb-1">
+                {/* Voice Input */}
+                <button
+                  type="button"
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-primary"
+                  title="Voice input"
+                >
+                  <Mic className="w-5 h-5" />
+                </button>
+                
+                {/* Send Button */}
+                <button
+                  onClick={handleSend}
+                  disabled={!message.trim() || loading || disabled}
+                  className={cn(
+                    'p-2.5 rounded-full transition-all duration-200',
+                    'flex items-center justify-center',
+                    message.trim() && !loading && !disabled
+                      ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md hover:shadow-lg hover:scale-105'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                  )}
+                >
+                  {loading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
             </div>
+            
+            {/* Gradient Border Effect on Focus */}
+            {isFocused && (
+              <div className="absolute inset-0 rounded-3xl pointer-events-none">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-primary/20 via-secondary/20 to-purple-500/20 animate-pulse" />
+              </div>
+            )}
           </div>
           
-          {/* Gradient Border Effect on Focus */}
-          {isFocused && (
-            <div className="absolute inset-0 rounded-3xl pointer-events-none">
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-primary/20 via-secondary/20 to-purple-500/20 animate-pulse" />
-            </div>
-          )}
+          {/* Helper Text */}
+          <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-2">
+            Press Enter to send, Shift + Enter for new line
+          </p>
         </div>
-        
-        {/* Helper Text */}
-        <p className="text-xs text-center text-gray-400 dark:text-gray-500 mt-2">
-          Press Enter to send, Shift + Enter for new line
-        </p>
       </div>
-    </div>
+      
+      {/* Upload Modal */}
+      <UploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        type={uploadType}
+        onUploadComplete={handleUploadComplete}
+      />
+    </>
   )
 }
