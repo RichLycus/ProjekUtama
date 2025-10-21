@@ -72,7 +72,7 @@ export default function ChatInput({ onSend, loading = false, disabled = false, p
   }
   
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-3 sm:p-4">
       <div className="max-w-4xl mx-auto">
         {/* Modern Input Container */}
         <div 

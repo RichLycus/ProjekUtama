@@ -6,7 +6,7 @@
  */
 
 // Backend URL for Electron app
-export const BACKEND_URL = 'http://127.0.0.1:8001'
+export const BACKEND_URL = 'http://localhost:8001'
 
 // Backend API endpoints
 export const API_ENDPOINTS = {

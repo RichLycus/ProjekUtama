@@ -6,11 +6,11 @@ import TypewriterText from '@/components/TypewriterText'
 import MarkdownRenderer from './MarkdownRenderer'
 
 interface ExecutionLog {
-  router?: string
-  rag?: string
-  execution?: string
-  reasoning?: string
-  persona?: string
+  router?: string | object
+  rag?: string | object
+  execution?: string | object
+  reasoning?: string | object
+  persona?: string | object
 }
 
 interface ChatMessageProps {
@@ -31,6 +31,34 @@ export default function ChatMessage({
   const [showLog, setShowLog] = useState(false)
   const [typingComplete, setTypingComplete] = useState(false)
   const isUser = role === 'user'
+  
+  // Helper to safely render log values
+  const renderLogValue = (value: string | object | undefined) => {
+    if (!value) return null
+    if (typeof value === 'string') return value
+    if (typeof value === 'object') {
+      // Handle objects by displaying key-value pairs in a readable format
+      try {
+        const entries = Object.entries(value)
+        if (entries.length === 0) return 'Empty object'
+        
+        // If object has only 1 key, show its value
+        if (entries.length === 1) {
+          return String(entries[0][1])
+        }
+        
+        // For multiple keys, show as key: value pairs
+        return entries.map(([key, val]) => {
+          const displayKey = key.charAt(0).toUpperCase() + key.slice(1)
+          return `${displayKey}: ${val}`
+        }).join(' | ')
+      } catch (error) {
+        // Fallback to JSON stringify if parsing fails
+        return JSON.stringify(value, null, 2)
+      }
+    }
+    return String(value)
+  }
   
   // Format timestamp
   const formatTime = (time?: string) => {
@@ -136,32 +164,32 @@ export default function ChatMessage({
                 >
                   {execution_log.router && (
                     <div className="flex items-start gap-2">
-                      <span className="text-blue-500">• Router:</span>
-                      <span className="text-text-secondary dark:text-gray-400">{execution_log.router}</span>
+                      <span className="text-blue-500 flex-shrink-0">• Router:</span>
+                      <span className="text-text-secondary dark:text-gray-400 whitespace-pre-wrap break-words flex-1">{renderLogValue(execution_log.router)}</span>
                     </div>
                   )}
                   {execution_log.rag && (
                     <div className="flex items-start gap-2">
-                      <span className="text-green-500">• RAG:</span>
-                      <span className="text-text-secondary dark:text-gray-400">{execution_log.rag}</span>
+                      <span className="text-green-500 flex-shrink-0">• RAG:</span>
+                      <span className="text-text-secondary dark:text-gray-400 whitespace-pre-wrap break-words flex-1">{renderLogValue(execution_log.rag)}</span>
                     </div>
                   )}
                   {execution_log.execution && (
                     <div className="flex items-start gap-2">
-                      <span className="text-orange-500">• Execution:</span>
-                      <span className="text-text-secondary dark:text-gray-400">{execution_log.execution}</span>
+                      <span className="text-orange-500 flex-shrink-0">• Execution:</span>
+                      <span className="text-text-secondary dark:text-gray-400 whitespace-pre-wrap break-words flex-1">{renderLogValue(execution_log.execution)}</span>
                     </div>
                   )}
                   {execution_log.reasoning && (
                     <div className="flex items-start gap-2">
-                      <span className="text-purple-500">• Reasoning:</span>
-                      <span className="text-text-secondary dark:text-gray-400">{execution_log.reasoning}</span>
+                      <span className="text-purple-500 flex-shrink-0">• Reasoning:</span>
+                      <span className="text-text-secondary dark:text-gray-400 whitespace-pre-wrap break-words flex-1">{renderLogValue(execution_log.reasoning)}</span>
                     </div>
                   )}
                   {execution_log.persona && (
                     <div className="flex items-start gap-2">
-                      <span className="text-pink-500">• Persona:</span>
-                      <span className="text-text-secondary dark:text-gray-400">{execution_log.persona}</span>
+                      <span className="text-pink-500 flex-shrink-0">• Persona:</span>
+                      <span className="text-text-secondary dark:text-gray-400 whitespace-pre-wrap break-words flex-1">{renderLogValue(execution_log.persona)}</span>
                     </div>
                   )}
                 </motion.div>

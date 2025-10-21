@@ -42,7 +42,7 @@ export default function Layout({ children }: LayoutProps) {
       />
       
       {/* Main content area */}
-      <main className="flex-1 pt-8 overflow-auto">
+      <main className={isChatPage ? "flex-1 pt-8 overflow-hidden" : "flex-1 pt-8 overflow-auto"}>
         {children}
       </main>
       

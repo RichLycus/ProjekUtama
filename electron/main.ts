@@ -29,7 +29,7 @@ let backendProcess: ChildProcess | null = null
 // Check if backend is already running
 async function checkBackendHealth(): Promise<boolean> {
   try {
-    const response = await fetch('http://127.0.0.1:8001/health')
+    const response = await fetch('http://localhost:8001/health')
     return response.ok
   } catch {
     return false
