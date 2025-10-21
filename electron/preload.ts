@@ -35,6 +35,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // AI Chat (Phase 3)
   // sendChatMessage: (message: string, context?: any) => ipcRenderer.invoke('ai-chat:send', message, context),
   // onChatResponse: (callback: Function) => ipcRenderer.on('ai-chat:response', (_event, data) => callback(data)),
+  
+  // Games (Phase 5)
+  launchGame: (gameData: any) => ipcRenderer.send('game:launch', gameData),
 })
 
 console.log('[Preload] electronAPI exposed to window')
@@ -63,6 +66,8 @@ export interface ElectronAPI {
   getCategories: () => Promise<any>
   // sendChatMessage: (message: string, context?: any) => Promise<void>
   // onChatResponse: (callback: (data: any) => void) => void
+  // Games
+  launchGame: (gameData: any) => void
 }
 
 declare global {

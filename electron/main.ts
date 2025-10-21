@@ -121,6 +121,42 @@ function stopBackend() {
   }
 }
 
+function createGameWindow(gameData: { gameId: string; gameName: string; gameUrl: string }) {
+  console.log('[Main] Creating game window for:', gameData.gameName)
+  
+  // Minimize main window
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.minimize()
+    console.log('[Main] Main window minimized')
+  }
+  
+  // Create game window
+  const gameWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    title: gameData.gameName,
+    backgroundColor: '#000000',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  })
+  
+  // Load game URL
+  gameWindow.loadURL(gameData.gameUrl)
+  
+  // Restore main window when game window closes
+  gameWindow.on('closed', () => {
+    console.log('[Main] Game window closed, restoring main window')
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+  
+  console.log('[Main] Game window created successfully')
+}
+
 function createWindow() {
   // Determine icon path
   const isDev = VITE_DEV_SERVER_URL !== undefined
@@ -490,6 +526,12 @@ function setupIPC() {
     } catch (error: any) {
       return { categories: [], error: error.message }
     }
+  })
+  
+  // Games handlers
+  ipcMain.on('game:launch', (_event, gameData) => {
+    console.log('[Main] Launching game:', gameData.gameName)
+    createGameWindow(gameData)
   })
 }
 

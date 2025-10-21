@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare, Edit2, Trash2, Star, TestTube, Users, Power, RefreshCw, Info as InfoIcon } from 'lucide-react'
+import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare, Edit2, Trash2, Star, TestTube, Users, Power, RefreshCw, Info as InfoIcon, Gamepad2 } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
 import { useThemeStore } from '@/store/themeStore'
 import { useAIConfigStore } from '@/store/aiConfigStore'
@@ -7,6 +7,7 @@ import { useAIModelsStore } from '@/store/aiModelsStore'
 import { API_ENDPOINTS } from '@/lib/backend'
 import ToolsTable from '@/components/ToolsTable'
 import UploadToolModal from '@/components/UploadToolModal'
+import UploadGameModal from '@/components/UploadGameModal'
 import ToolSettingsModal from '@/components/ToolSettingsModal'
 import HelpModal from '@/components/HelpModal'
 import ThemeCard from '@/components/ThemeCard'
@@ -15,10 +16,15 @@ import EditAgentModal from '@/components/EditAgentModal'
 import EditRAGAgentModal from '@/components/EditRAGAgentModal'
 import toast from 'react-hot-toast'
 
-type TabType = 'tools' | 'appearance' | 'ai-chat' | 'personas' | 'about'
+type TabType = 'tools' | 'appearance' | 'ai-chat' | 'personas' | 'games' | 'about'
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('tools')
+  
+  // Games state
+  const [isUploadGameModalOpen, setIsUploadGameModalOpen] = useState(false)
+  const [games, setGames] = useState<any[]>([])
+  const [loadingGames, setLoadingGames] = useState(false)
   
   // AI Config state
   const { config, loadConfig, saveConfig, testConnection } = useAIConfigStore()
@@ -243,6 +249,28 @@ export default function SettingsPage() {
     }
   }, [activeTab])
   
+  // Load games when Games tab is active
+  const loadGames = async () => {
+    setLoadingGames(true)
+    try {
+      const response = await fetch(`${API_ENDPOINTS.BACKEND_URL}/api/games/list`)
+      const data = await response.json()
+      if (data.success) {
+        setGames(data.games)
+      }
+    } catch (error) {
+      console.error('Failed to load games:', error)
+    } finally {
+      setLoadingGames(false)
+    }
+  }
+  
+  useEffect(() => {
+    if (activeTab === 'games') {
+      loadGames()
+    }
+  }, [activeTab])
+  
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -331,6 +359,7 @@ export default function SettingsPage() {
     { id: 'appearance' as TabType, label: 'Appearance', icon: Palette },
     { id: 'ai-chat' as TabType, label: 'AI Chat', icon: MessageSquare },
     { id: 'personas' as TabType, label: 'Personas', icon: Users },
+    { id: 'games' as TabType, label: 'Games', icon: Gamepad2 },
     { id: 'about' as TabType, label: 'About', icon: Info },
   ]
 
@@ -1071,6 +1100,109 @@ export default function SettingsPage() {
             <PersonaManager />
           )}
 
+          {/* Games Tab */}
+          {activeTab === 'games' && (
+            <div className="space-y-6">
+              <div className="glass rounded-xl p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                      <Gamepad2 className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold">Games Management</h2>
+                      <p className="text-sm text-secondary">Upload and manage WebGL games</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsUploadGameModalOpen(true)}
+                    className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-secondary text-white rounded-lg font-medium transition-all"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Upload Game
+                  </button>
+                </div>
+
+                {/* Games List */}
+                {loadingGames ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : games.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-dark-surface-hover rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Gamepad2 className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-secondary mb-4">No games uploaded yet</p>
+                    <button
+                      onClick={() => setIsUploadGameModalOpen(true)}
+                      className="px-4 py-2 bg-primary hover:bg-secondary text-white rounded-lg text-sm font-medium transition-all"
+                    >
+                      Upload Your First Game
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {games.map((game) => (
+                      <div
+                        key={game.id}
+                        className="flex items-center gap-4 p-4 rounded-lg bg-gray-50 dark:bg-dark-surface-hover border border-gray-200 dark:border-dark-border hover:border-primary/50 transition-all"
+                      >
+                        {/* Game Cover */}
+                        <img
+                          src={game.cover_image_url}
+                          alt={game.name}
+                          className="w-16 h-16 rounded-lg object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = `https://via.placeholder.com/64x64/667eea/ffffff?text=${game.name.charAt(0)}`
+                          }}
+                        />
+                        
+                        {/* Game Info */}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium truncate">{game.name}</h4>
+                          <p className="text-sm text-secondary truncate">{game.description}</p>
+                          <div className="flex gap-3 mt-1 text-xs text-secondary">
+                            <span>{(game.file_size / (1024 * 1024)).toFixed(2)} MB</span>
+                            <span>•</span>
+                            <span>{new Date(game.uploaded_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Actions */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              // Navigate to Games page
+                              window.location.href = '/#/games'
+                            }}
+                            className="px-4 py-2 text-sm bg-primary/20 hover:bg-primary/30 text-primary rounded-lg transition-all"
+                          >
+                            View All Games
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Info Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                  <p className="text-sm text-blue-800 dark:text-blue-300">
+                    💡 <strong>Tip:</strong> Games must be packaged as ZIP files with an index.html entry point. All assets should use relative paths.
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+                  <p className="text-sm text-purple-800 dark:text-purple-300">
+                    🎮 <strong>Play:</strong> Launch games from the Games page. The launcher will minimize automatically when you start playing.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* About Tab */}
           {activeTab === 'about' && (
             <div className="space-y-6">
@@ -1110,6 +1242,13 @@ export default function SettingsPage() {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onSuccess={() => fetchTools()}
+      />
+      
+      {/* Upload Game Modal */}
+      <UploadGameModal
+        isOpen={isUploadGameModalOpen}
+        onClose={() => setIsUploadGameModalOpen(false)}
+        onSuccess={() => loadGames()}
       />
       
       {/* Help Modal */}

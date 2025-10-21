@@ -212,6 +212,26 @@ class SQLiteDB:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_configs_type ON agent_configs(agent_type)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_configs_enabled ON agent_configs(is_enabled)")
             
+            # Games table (WebGL games)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS games (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    cover_image_url TEXT,
+                    folder_path TEXT NOT NULL,
+                    index_file TEXT NOT NULL,
+                    file_size INTEGER DEFAULT 0,
+                    status TEXT DEFAULT 'active',
+                    uploaded_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            
+            # Create index for games
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_games_status ON games(status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_games_uploaded ON games(uploaded_at)")
+            
             # Seed default agent configs if table is empty
             cursor.execute("SELECT COUNT(*) FROM agent_configs")
             agent_config_count = cursor.fetchone()[0]
@@ -939,4 +959,74 @@ class SQLiteDB:
                 WHERE id = ?
             """, (new_status, datetime.now().isoformat(), agent_id))
             
+            return cursor.rowcount > 0
+
+    # ============================================
+    # GAMES METHODS
+    # ============================================
+    
+    def insert_game(self, game_data: Dict[str, Any]) -> str:
+        """Insert a new game"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO games (
+                    id, name, description, cover_image_url, folder_path, 
+                    index_file, file_size, status, uploaded_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                game_data['id'],
+                game_data['name'],
+                game_data.get('description', ''),
+                game_data.get('cover_image_url', ''),
+                game_data['folder_path'],
+                game_data['index_file'],
+                game_data.get('file_size', 0),
+                game_data.get('status', 'active'),
+                game_data['uploaded_at'],
+                game_data['updated_at']
+            ))
+            return game_data['id']
+    
+    def get_games(self) -> List[Dict[str, Any]]:
+        """Get all games"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM games WHERE status = 'active' ORDER BY uploaded_at DESC")
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+    
+    def get_game(self, game_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific game by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM games WHERE id = ?", (game_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+    
+    def update_game(self, game_id: str, updates: Dict[str, Any]) -> bool:
+        """Update a game"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Add updated_at
+            updates['updated_at'] = datetime.now().isoformat()
+            
+            # Build UPDATE query dynamically
+            set_clause = ", ".join([f"{k} = ?" for k in updates.keys()])
+            values = list(updates.values()) + [game_id]
+            
+            cursor.execute(f"""
+                UPDATE games 
+                SET {set_clause}
+                WHERE id = ?
+            """, values)
+            
+            return cursor.rowcount > 0
+    
+    def delete_game(self, game_id: str) -> bool:
+        """Delete a game"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM games WHERE id = ?", (game_id,))
             return cursor.rowcount > 0
