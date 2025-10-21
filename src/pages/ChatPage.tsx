@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useChatStore } from '../store/chatStore'
 import { usePersonaStore } from '../store/personaStore'
+import { useBackgroundStore } from '../store/backgroundStore'
 import ChatMessage from '../components/chat/ChatMessage'
 import ChatInput from '../components/chat/ChatInput'
-import { MessageSquare, AlertCircle } from 'lucide-react'
+import BackgroundSettingsModal from '../components/chat/BackgroundSettingsModal'
+import { MessageSquare, AlertCircle, Settings, Sparkles } from 'lucide-react'
 
 export default function ChatPage() {
   const { 
@@ -17,6 +19,8 @@ export default function ChatPage() {
   } = useChatStore()
   
   const { currentPersona, fetchDefaultPersona } = usePersonaStore()
+  const { backgroundType, backgroundValue } = useBackgroundStore()
+  const [showBackgroundSettings, setShowBackgroundSettings] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
@@ -37,82 +41,111 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
   
+  // Get background style
+  const getBackgroundStyle = () => {
+    if (backgroundType === 'image') {
+      return {
+        backgroundImage: `url(${backgroundValue})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed'
+      }
+    } else if (backgroundType === 'gradient') {
+      return { background: backgroundValue }
+    } else if (backgroundType === 'color') {
+      return { backgroundColor: backgroundValue }
+    } else {
+      return { background: backgroundValue }
+    }
+  }
+  
   return (
-    <div className="h-full flex flex-col bg-background dark:bg-dark-background">
-      {/* Main chat area - Full height, no header */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        {/* Messages container with proper flex */}
-        <div className="flex-1 overflow-y-auto px-4 py-4">
-          {/* Welcome message with Avatar Card - COMPACT */}
+    <div 
+      className="h-full flex flex-col relative overflow-hidden"
+      style={getBackgroundStyle()}
+    >
+      {/* Background Overlay for better readability */}
+      <div className="absolute inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-[2px]" />
+      
+      {/* Content */}
+      <div className="relative z-10 h-full flex flex-col">
+        {/* Settings Button - Top Right */}
+        <div className="absolute top-4 right-4 z-20">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowBackgroundSettings(true)}
+            className="p-3 rounded-full glass-strong border border-white/20 hover:border-white/40 shadow-lg hover:shadow-xl transition-all group"
+            title="Background Settings"
+          >
+            <Settings className="w-5 h-5 text-white group-hover:rotate-90 transition-transform duration-300" />
+          </motion.button>
+        </div>
+
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto px-4 py-6">
+          {/* Empty State - Centered Welcome */}
           {messages.length === 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="max-w-xl mx-auto"
+              className="h-full flex flex-col items-center justify-center max-w-3xl mx-auto px-4"
             >
-              {/* Avatar Card di chat area - COMPACT VERSION */}
-              <div className="glass-strong rounded-xl p-4 border border-gray-200 dark:border-dark-border mb-4 hover:shadow-lg transition-all duration-300">
-                {/* Avatar with gradient background */}
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary via-secondary to-purple-600 flex items-center justify-center shadow-md">
-                      <MessageSquare className="w-6 h-6 text-white" />
-                    </div>
-                    {/* Online indicator */}
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-dark-background">
-                      <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75" />
-                    </div>
+              {/* Logo/Avatar - Large & Centered */}
+              <div className="mb-8">
+                <div className="relative">
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl bg-gradient-to-br from-primary via-secondary to-purple-600 flex items-center justify-center shadow-2xl">
+                    <MessageSquare className="w-12 h-12 sm:w-16 sm:h-16 text-white" />
                   </div>
-                  
-                  <div className="flex-1">
-                    <h2 className="text-base font-bold text-text dark:text-white">
-                      {currentPersona?.ai_name || 'Lycus AI'}
-                    </h2>
-                    <p className="text-xs text-text-secondary dark:text-gray-400">
-                      Siap membantu Anda
-                    </p>
-                  </div>
-
-                  {/* Status badge */}
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-green-500/10 dark:bg-green-500/20 rounded-full">
-                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                    <span className="text-xs font-medium text-green-600 dark:text-green-400">
-                      Online
-                    </span>
-                  </div>
+                  {/* Animated rings */}
+                  <div className="absolute inset-0 rounded-3xl border-4 border-primary/30 animate-ping" />
+                  <div className="absolute inset-0 rounded-3xl border-4 border-secondary/20 animate-pulse" />
                 </div>
+              </div>
 
-                {/* Greeting - COMPACT */}
-                <div className="mb-3">
-                  <h3 className="text-sm font-bold text-text dark:text-white mb-1">
-                    Mulai Percakapan Baru
-                  </h3>
-                  <p className="text-xs text-text-secondary dark:text-gray-400 line-clamp-2">
-                    {currentPersona?.sample_greeting || 'Halo! Saya Lycus, siap membantu.'}
-                  </p>
-                </div>
+              {/* Welcome Text */}
+              <h1 className="text-3xl sm:text-5xl font-bold text-white mb-4 text-center">
+                {currentPersona?.ai_name || 'ChimeraAI'}
+              </h1>
+              <p className="text-lg sm:text-xl text-white/80 text-center mb-8 max-w-lg">
+                {currentPersona?.sample_greeting || 'How can I help you today?'}
+              </p>
 
-                {/* 3D Avatar Feature - COMPACT */}
-                <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-purple-500/10 to-primary/10 dark:from-purple-500/20 dark:to-primary/20 p-3 border border-purple-200 dark:border-purple-800/30">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-purple-500/20 rounded-md">
-                      <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
+              {/* Quick Actions / Suggestions */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
+                {[
+                  { icon: '🔍', text: 'Search information', subtext: 'Find answers quickly' },
+                  { icon: '💡', text: 'Get ideas', subtext: 'Creative solutions' },
+                  { icon: '📝', text: 'Write content', subtext: 'Articles, emails, more' },
+                  { icon: '🎨', text: 'Create projects', subtext: 'Design and build' },
+                ].map((action, index) => (
+                  <motion.button
+                    key={index}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="glass-strong rounded-2xl p-4 border border-white/20 hover:border-white/40 hover:bg-white/10 transition-all text-left group"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-3xl">{action.icon}</span>
+                      <div className="flex-1">
+                        <h3 className="text-white font-semibold mb-1 group-hover:text-primary transition-colors">
+                          {action.text}
+                        </h3>
+                        <p className="text-white/60 text-sm">{action.subtext}</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-text dark:text-white">
-                        🎬 3D Avatar - Coming Soon
-                      </p>
-                      <p className="text-[10px] text-text-muted dark:text-gray-500">
-                        Lipsync Animation Ready
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Shine effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
-                </div>
+                  </motion.button>
+                ))}
+              </div>
+
+              {/* Feature Badge */}
+              <div className="mt-8 flex items-center gap-2 glass-strong rounded-full px-4 py-2 border border-white/20">
+                <Sparkles className="w-4 h-4 text-yellow-300" />
+                <span className="text-white/80 text-sm">
+                  Powered by Advanced AI
+                </span>
               </div>
             </motion.div>
           )}
@@ -134,20 +167,20 @@ export default function ChatPage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg max-w-xl mx-auto"
+              className="mb-4 p-4 glass-strong border border-red-400/50 rounded-xl max-w-xl mx-auto"
             >
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-red-800 dark:text-red-400 mb-1">
+                  <p className="text-sm font-medium text-red-300 mb-1">
                     Error
                   </p>
-                  <p className="text-xs text-red-600 dark:text-red-300 break-words">
+                  <p className="text-sm text-red-200 break-words">
                     {error}
                   </p>
                   <button
                     onClick={() => setError(null)}
-                    className="text-xs text-red-600 dark:text-red-400 hover:underline mt-1"
+                    className="text-sm text-red-300 hover:text-red-200 underline mt-2"
                   >
                     Dismiss
                   </button>
@@ -160,22 +193,20 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </div>
         
-        {/* Input area - Always visible, sticky at bottom */}
-        <div className="flex-shrink-0 border-t border-gray-200 dark:border-dark-border">
+        {/* Input Area - Fixed at Bottom */}
+        <div className="flex-shrink-0">
           <ChatInput 
             onSend={sendMessage}
             loading={loading}
           />
         </div>
       </div>
-      
-      <style>{`
-        @keyframes shimmer {
-          100% {
-            transform: translateX(200%);
-          }
-        }
-      `}</style>
+
+      {/* Background Settings Modal */}
+      <BackgroundSettingsModal
+        isOpen={showBackgroundSettings}
+        onClose={() => setShowBackgroundSettings(false)}
+      />
     </div>
   )
 }
