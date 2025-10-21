@@ -1,4 +1,4 @@
-import { Edit, Trash2, Power, AlertCircle, CheckCircle, Clock } from 'lucide-react'
+import { Edit, Trash2, Power, AlertCircle, CheckCircle, Clock, Settings } from 'lucide-react'
 import { Tool } from '@/store/toolsStore'
 import { cn } from '@/lib/utils'
 
@@ -8,9 +8,10 @@ interface ToolsTableProps {
   onDelete: (toolId: string) => void
   onToggle: (toolId: string) => void
   onViewLogs: (toolId: string) => void
+  onSettings: (tool: Tool) => void
 }
 
-export default function ToolsTable({ tools, onEdit, onDelete, onToggle, onViewLogs }: ToolsTableProps) {
+export default function ToolsTable({ tools, onEdit, onDelete, onToggle, onViewLogs, onSettings }: ToolsTableProps) {
   const getStatusBadge = (status: string) => {
     if (status === 'active') {
       return (
@@ -104,6 +105,16 @@ export default function ToolsTable({ tools, onEdit, onDelete, onToggle, onViewLo
               </td>
               <td className="py-4 px-4">
                 <div className="flex items-center justify-end gap-2">
+                  {/* Settings Button */}
+                  <button
+                    onClick={() => onSettings(tool)}
+                    className="p-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-500 transition-all"
+                    title="Tool settings & dependencies"
+                    data-testid={`settings-tool-${tool._id}`}
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
+
                   {/* Edit Button */}
                   <button
                     onClick={() => onEdit(tool)}

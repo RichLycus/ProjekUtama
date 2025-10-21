@@ -7,6 +7,7 @@ import { useAIModelsStore } from '@/store/aiModelsStore'
 import { API_ENDPOINTS } from '@/lib/backend'
 import ToolsTable from '@/components/ToolsTable'
 import UploadToolModal from '@/components/UploadToolModal'
+import ToolSettingsModal from '@/components/ToolSettingsModal'
 import HelpModal from '@/components/HelpModal'
 import ThemeCard from '@/components/ThemeCard'
 import PersonaManager from '@/components/PersonaManager'
@@ -247,6 +248,11 @@ export default function SettingsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
+  
+  // Tool Settings Modal state
+  const [settingsToolId, setSettingsToolId] = useState<string | null>(null)
+  const [settingsToolName, setSettingsToolName] = useState<string>('')
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
 
   const {
     tools,
@@ -307,6 +313,17 @@ export default function SettingsPage() {
 
   const handleViewLogs = () => {
     toast('View logs functionality coming in Phase 3!', { icon: 'ℹ️' })
+  }
+  
+  const handleSettings = (tool: any) => {
+    setSettingsToolId(tool._id)
+    setSettingsToolName(tool.name)
+    setIsSettingsModalOpen(true)
+  }
+  
+  const handleDependenciesInstalled = () => {
+    // Refresh tools list after dependencies are installed
+    fetchTools()
   }
 
   const tabs = [
@@ -453,6 +470,7 @@ export default function SettingsPage() {
                     onDelete={handleDelete}
                     onToggle={handleToggle}
                     onViewLogs={handleViewLogs}
+                    onSettings={handleSettings}
                   />
                 )}
               </div>
@@ -1121,6 +1139,21 @@ export default function SettingsPage() {
         agent={editingAgent}
         onSave={handleSaveAgent}
       />
+      
+      {/* Tool Settings Modal */}
+      {settingsToolId && (
+        <ToolSettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => {
+            setIsSettingsModalOpen(false)
+            setSettingsToolId(null)
+            setSettingsToolName('')
+          }}
+          toolId={settingsToolId}
+          toolName={settingsToolName}
+          onDependenciesInstalled={handleDependenciesInstalled}
+        />
+      )}
     </div>
   )
 }

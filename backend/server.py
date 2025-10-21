@@ -587,6 +587,190 @@ async def install_dependencies(tool_id: str):
         raise HTTPException(500, f"Dependency installation failed: {str(e)}")
 
 
+
+@app.get("/api/tools/{tool_id}/dependencies")
+async def get_tool_dependencies(tool_id: str):
+    """Get dependency status for a tool (Python and Node.js)"""
+    tool = db.get_tool(tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    
+    try:
+        # Get absolute paths
+        backend_path = BACKEND_DIR / tool["backend_path"]
+        frontend_path = BACKEND_DIR / tool["frontend_path"]
+        
+        # Check all dependencies
+        dep_status = await dep_manager.check_all_dependencies(
+            str(backend_path),
+            str(frontend_path),
+            tool.get("dependencies", [])
+        )
+        
+        return {
+            "success": True,
+            "tool_id": tool_id,
+            "tool_name": tool.get("name"),
+            "dependencies": dep_status
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Failed to check dependencies: {str(e)}")
+
+
+@app.post("/api/tools/{tool_id}/install-python-deps")
+async def install_python_dependencies(tool_id: str):
+    """Install Python dependencies for a tool"""
+    tool = db.get_tool(tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    
+    try:
+        python_deps = tool.get("dependencies", [])
+        result = await dep_manager.install_dependencies(python_deps)
+        
+        # Log action
+        log_action(
+            tool_id,
+            "install-python-deps",
+            "success" if result["success"] else "error",
+            result["message"],
+            result.get("output", "")
+        )
+        
+        return {
+            "success": result["success"],
+            "message": result["message"],
+            "output": result.get("output", "")
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Python dependency installation failed: {str(e)}")
+
+
+@app.post("/api/tools/{tool_id}/install-node-deps")
+async def install_node_dependencies(tool_id: str):
+    """Install Node.js dependencies for a tool"""
+    tool = db.get_tool(tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    
+    try:
+        # Get absolute path
+        frontend_path = BACKEND_DIR / tool["frontend_path"]
+        
+        result = await dep_manager.install_node_dependencies(str(frontend_path))
+        
+        # Log action
+        log_action(
+            tool_id,
+            "install-node-deps",
+            "success" if result["success"] else "error",
+            result["message"],
+            result.get("output", "")
+        )
+        
+        return {
+            "success": result["success"],
+            "message": result["message"],
+            "output": result.get("output", ""),
+            "dependencies": result.get("dependencies", [])
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Node.js dependency installation failed: {str(e)}")
+
+
+@app.post("/api/tools/{tool_id}/install-all-deps")
+async def install_all_dependencies(tool_id: str):
+    """Install both Python and Node.js dependencies for a tool"""
+    tool = db.get_tool(tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    
+    try:
+        results = {
+            "python": {"success": True, "message": "No dependencies"},
+            "node": {"success": True, "message": "No dependencies"}
+        }
+        
+        # Install Python dependencies
+        python_deps = tool.get("dependencies", [])
+        if python_deps:
+            results["python"] = await dep_manager.install_dependencies(python_deps)
+            log_action(
+                tool_id,
+                "install-python-deps",
+                "success" if results["python"]["success"] else "error",
+                results["python"]["message"],
+                results["python"].get("output", "")
+            )
+        
+        # Install Node.js dependencies
+        frontend_path = BACKEND_DIR / tool["frontend_path"]
+        results["node"] = await dep_manager.install_node_dependencies(str(frontend_path))
+        log_action(
+            tool_id,
+            "install-node-deps",
+            "success" if results["node"]["success"] else "error",
+            results["node"]["message"],
+            results["node"].get("output", "")
+        )
+        
+        # Re-validate tool after installation
+        with open(BACKEND_DIR / tool["backend_path"], 'r', encoding='utf-8') as f:
+            backend_content = f.read()
+        
+        with open(frontend_path, 'r', encoding='utf-8') as f:
+            frontend_content = f.read()
+        
+        frontend_ext = Path(tool["frontend_path"]).suffix.lower()
+        
+        backend_validation = validator.validate(str(BACKEND_DIR / tool["backend_path"]), backend_content)
+        frontend_validation = frontend_validator.validate(
+            str(frontend_path),
+            frontend_content,
+            frontend_ext
+        )
+        
+        all_valid = backend_validation["valid"] and frontend_validation["valid"]
+        all_success = results["python"]["success"] and results["node"]["success"]
+        
+        # Update tool status if all dependencies installed successfully
+        if all_success and all_valid:
+            db.update_tool(tool_id, {
+                "status": "active",
+                "last_validated": datetime.utcnow().isoformat()
+            })
+        
+        return {
+            "success": all_success,
+            "results": results,
+            "validation": {
+                "valid": all_valid,
+                "backend": backend_validation,
+                "frontend": frontend_validation
+            },
+            "tool_status": "active" if (all_success and all_valid) else "disabled"
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Dependency installation failed: {str(e)}")
+
+
+@app.post("/api/system/restart")
+async def restart_application():
+    """Restart the application (reload routers and remount tools)"""
+    try:
+        # Reload all tool routers
+        result = mount_tool_routers()
+        
+        return {
+            "success": True,
+            "message": "Application restarted successfully",
+            "mounted_tools": result.get("mounted", 0)
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Restart failed: {str(e)}")
+
+
+
 @app.get("/api/tools/{tool_id}/logs")
 async def get_tool_logs(tool_id: str, limit: int = 50):
     """Get logs for a specific tool"""

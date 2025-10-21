@@ -175,7 +175,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
         
         const result = await response.json()
         
-        if (result.success) {
+        if (response.ok && result.success) {
           setValidationResult(result.validation)
           
           if (result.validation.valid) {
@@ -188,7 +188,10 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
             toast.error('⚠️ Tool uploaded but validation failed', { id: toastId })
           }
         } else {
-          toast.error('❌ Upload failed', { id: toastId })
+          // Show detailed error message from backend
+          const errorMsg = result.detail || result.error || result.message || 'Upload failed'
+          toast.error(`❌ ${errorMsg}`, { id: toastId })
+          console.error('Upload error:', result)
         }
       }
       

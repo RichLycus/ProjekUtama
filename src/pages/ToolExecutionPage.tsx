@@ -93,9 +93,270 @@ export default function ToolExecutionPage() {
         } else {
           htmlContent = '<html>' + toolIdInjection + '<body>' + toolContent + '</body></html>'
         }
+      } else if (fileExt === 'jsx' || fileExt === 'tsx' || fileExt === 'js') {
+        // For JSX/TSX/JS files, create React wrapper with proper module handling
+        // Transform import statements to work with CDN modules
+        let transformedContent = toolContent
+          // Remove import statements and store them
+          .replace(/import\s+React[^;]+;?/g, '// React imported from CDN')
+          .replace(/import\s+\{[^}]+\}\s+from\s+['"]react['"];?/g, '// React hooks imported from CDN')
+          .replace(/import\s+\{[^}]+\}\s+from\s+['"]lucide-react['"];?/g, '// Lucide icons imported from CDN')
+          // Remove any other imports
+          .replace(/import\s+[^;]+;/g, '')
+          // Remove export statements
+          .replace(/export\s+default\s+/g, '')
+          .replace(/export\s+/g, '')
+        
+        htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>${toolData.name}</title>
+  
+  <!-- React & ReactDOM from CDN (Development versions for better error messages) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  
+  <!-- Babel Standalone for JSX transformation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Axios for HTTP requests -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  
+  <script>
+    // Inject tool context
+    window.TOOL_ID = "${toolData._id}";
+    window.BACKEND_URL = "${backendUrl}";
+    
+    // Setup Tailwind config
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {}
+      }
+    }
+  </script>
+  
+  <style>
+    body { 
+      margin: 0; 
+      padding: 0; 
+      overflow-x: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    #root { width: 100%; min-height: 100vh; }
+    .loading-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: system-ui;
+    }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="loading-indicator">Loading dependencies...</div>
+  </div>
+  
+  <script type="text/babel" data-type="module">
+    (async function() {
+      try {
+        // Wait for dependencies to load
+        const maxWait = 5000; // 5 seconds
+        const startTime = Date.now();
+        
+        while (!window.React || !window.ReactDOM) {
+          if (Date.now() - startTime > maxWait) {
+            throw new Error('Failed to load React dependencies');
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Extract React globals
+        const React = window.React;
+        const { useState, useEffect, useCallback, useRef, useMemo, useReducer, createContext, useContext } = React;
+        const ReactDOM = window.ReactDOM;
+        
+        // Create Lucide icon components as React functional components
+        const createLucideIcon = (name, path) => {
+          return (props) => {
+            const { size = 24, color = 'currentColor', strokeWidth = 2, className = '', ...rest } = props || {};
+            return React.createElement('svg', {
+              xmlns: 'http://www.w3.org/2000/svg',
+              width: size,
+              height: size,
+              viewBox: '0 0 24 24',
+              fill: 'none',
+              stroke: color,
+              strokeWidth: strokeWidth,
+              strokeLinecap: 'round',
+              strokeLinejoin: 'round',
+              className: className,
+              ...rest
+            }, path);
+          };
+        };
+        
+        // Define commonly used Lucide icons with their SVG paths
+        const Upload = createLucideIcon('Upload', [
+          React.createElement('path', { key: 1, d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' }),
+          React.createElement('polyline', { key: 2, points: '17 8 12 3 7 8' }),
+          React.createElement('line', { key: 3, x1: '12', y1: '3', x2: '12', y2: '15' })
+        ]);
+        
+        const Download = createLucideIcon('Download', [
+          React.createElement('path', { key: 1, d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' }),
+          React.createElement('polyline', { key: 2, points: '7 10 12 15 17 10' }),
+          React.createElement('line', { key: 3, x1: '12', y1: '15', x2: '12', y2: '3' })
+        ]);
+        
+        const Eye = createLucideIcon('Eye', [
+          React.createElement('path', { key: 1, d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
+          React.createElement('circle', { key: 2, cx: '12', cy: '12', r: '3' })
+        ]);
+        
+        const EyeOff = createLucideIcon('EyeOff', [
+          React.createElement('path', { key: 1, d: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24' }),
+          React.createElement('line', { key: 2, x1: '1', y1: '1', x2: '23', y2: '23' })
+        ]);
+        
+        const Trash2 = createLucideIcon('Trash2', [
+          React.createElement('polyline', { key: 1, points: '3 6 5 6 21 6' }),
+          React.createElement('path', { key: 2, d: 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' }),
+          React.createElement('line', { key: 3, x1: '10', y1: '11', x2: '10', y2: '17' }),
+          React.createElement('line', { key: 4, x1: '14', y1: '11', x2: '14', y2: '17' })
+        ]);
+        
+        const Sparkles = createLucideIcon('Sparkles', [
+          React.createElement('path', { key: 1, d: 'm12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z' }),
+          React.createElement('path', { key: 2, d: 'M5 3v4' }),
+          React.createElement('path', { key: 3, d: 'M19 17v4' }),
+          React.createElement('path', { key: 4, d: 'M3 5h4' }),
+          React.createElement('path', { key: 5, d: 'M17 19h4' })
+        ]);
+        
+        const Check = createLucideIcon('Check', [
+          React.createElement('polyline', { key: 1, points: '20 6 9 17 4 12' })
+        ]);
+        
+        const Info = createLucideIcon('Info', [
+          React.createElement('circle', { key: 1, cx: '12', cy: '12', r: '10' }),
+          React.createElement('line', { key: 2, x1: '12', y1: '16', x2: '12', y2: '12' }),
+          React.createElement('line', { key: 3, x1: '12', y1: '8', x2: '12.01', y2: '8' })
+        ]);
+        
+        const X = createLucideIcon('X', [
+          React.createElement('line', { key: 1, x1: '18', y1: '6', x2: '6', y2: '18' }),
+          React.createElement('line', { key: 2, x1: '6', y1: '6', x2: '18', y2: '18' })
+        ]);
+        
+        const ImageIcon = createLucideIcon('Image', [
+          React.createElement('rect', { key: 1, x: '3', y: '3', width: '18', height: '18', rx: '2', ry: '2' }),
+          React.createElement('circle', { key: 2, cx: '8.5', cy: '8.5', r: '1.5' }),
+          React.createElement('polyline', { key: 3, points: '21 15 16 10 5 21' })
+        ]);
+        
+        const Copy = createLucideIcon('Copy', [
+          React.createElement('rect', { key: 1, x: '9', y: '9', width: '13', height: '13', rx: '2', ry: '2' }),
+          React.createElement('path', { key: 2, d: 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1' })
+        ]);
+        
+        const RotateCcw = createLucideIcon('RotateCcw', [
+          React.createElement('polyline', { key: 1, points: '1 4 1 10 7 10' }),
+          React.createElement('path', { key: 2, d: 'M3.51 15a9 9 0 1 0 2.13-9.36L1 10' })
+        ]);
+        
+        const AlertCircle = createLucideIcon('AlertCircle', [
+          React.createElement('circle', { key: 1, cx: '12', cy: '12', r: '10' }),
+          React.createElement('line', { key: 2, x1: '12', y1: '8', x2: '12', y2: '12' }),
+          React.createElement('line', { key: 3, x1: '12', y1: '16', x2: '12.01', y2: '16' })
+        ]);
+        
+        // Tool component code
+        ${transformedContent}
+        
+        // Render the component
+        const rootElement = document.getElementById('root');
+        const root = ReactDOM.createRoot(rootElement);
+        
+        // Find the component (look for common export patterns)
+        let Component = null;
+        
+        // Try to find the component by common names
+        if (typeof BackgroundRemover !== 'undefined') Component = BackgroundRemover;
+        else if (typeof App !== 'undefined') Component = App;
+        else if (typeof Tool !== 'undefined') Component = Tool;
+        else if (typeof default_1 !== 'undefined') Component = default_1;
+        
+        if (Component) {
+          root.render(React.createElement(Component));
+        } else {
+          root.render(
+            React.createElement('div', { style: { padding: '20px', color: 'red', fontFamily: 'monospace' } }, [
+              React.createElement('h3', { key: 'h3' }, 'Error: Component not found'),
+              React.createElement('p', { key: 'p1' }, 'Please ensure your component is exported. Supported names: BackgroundRemover, App, Tool'),
+              React.createElement('p', { key: 'p2' }, 'Example: const BackgroundRemover = () => ...')
+            ])
+          );
+        }
+      } catch (error) {
+        console.error('Failed to initialize tool:', error);
+        const rootEl = document.getElementById('root');
+        if (rootEl) {
+          rootEl.innerHTML = 
+            '<div style="padding: 20px; color: red; font-family: monospace;">' +
+            '<h3>Initialization Error:</h3>' +
+            '<p>' + error.message + '</p>' +
+            '<details style="margin-top: 10px;"><summary>Stack Trace</summary><pre>' + (error?.stack || 'No stack trace available') + '</pre></details>' +
+            '</div>';
+        }
+      }
+    })();
+  </script>
+  
+  <script>
+    // Global error handling
+    window.onerror = function(msg, url, lineNo, columnNo, error) {
+      console.error('Tool Error:', msg, error);
+      const rootEl = document.getElementById('root');
+      if (rootEl) {
+        rootEl.innerHTML = 
+          '<div style="padding: 20px; color: red; font-family: monospace;">' +
+          '<h3>Runtime Error:</h3>' +
+          '<p>' + msg + '</p>' +
+          '<p>Line: ' + lineNo + ', Column: ' + columnNo + '</p>' +
+          '<details style="margin-top: 10px;"><summary>Stack Trace</summary><pre>' + (error?.stack || 'No stack trace available') + '</pre></details>' +
+          '</div>';
+      }
+      return false;
+    };
+    
+    // Handle unhandled promise rejections
+    window.addEventListener('unhandledrejection', function(event) {
+      console.error('Unhandled promise rejection:', event.reason);
+      const rootEl = document.getElementById('root');
+      if (rootEl && !rootEl.innerHTML) {
+        rootEl.innerHTML = 
+          '<div style="padding: 20px; color: red; font-family: monospace;">' +
+          '<h3>Promise Rejection:</h3>' +
+          '<p>' + event.reason + '</p>' +
+          '</div>';
+      }
+    });
+  </script>
+</body>
+</html>
+`
       } else {
-        // For other types, create wrapper (future support)
-        htmlContent = `<html><body><h3>Unsupported file type: ${fileExt}</h3></body></html>`
+        // For other types, show unsupported message
+        htmlContent = `<html><body><h3>Unsupported file type: ${fileExt}</h3><p>Supported: .html, .jsx, .tsx, .js</p></body></html>`
       }
 
       setIframeContent(htmlContent)

@@ -13,5 +13,23 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    fs: {
+      // Exclude backend files from Vite scanning
+      deny: [
+        '**/backend/**',
+      ],
+      allow: [
+        '.',
+        'src',
+        'public',
+        'node_modules'
+      ]
+    },
+    watch: {
+      ignored: ['**/backend/**', '**/dist-electron/**', '**/build/**']
+    }
+  },
+  optimizeDeps: {
+    exclude: ['electron']
   },
 })

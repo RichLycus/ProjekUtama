@@ -11,6 +11,8 @@ export const BACKEND_URL = 'http://127.0.0.1:8001'
 // Backend API endpoints
 export const API_ENDPOINTS = {
   // Tools
+  BACKEND_URL: BACKEND_URL,
+  TOOLS: `${BACKEND_URL}/api/tools`,
   tools: {
     list: `${BACKEND_URL}/api/tools`,
     upload: `${BACKEND_URL}/api/tools/upload`,
@@ -21,8 +23,17 @@ export const API_ENDPOINTS = {
     delete: (id: string) => `${BACKEND_URL}/api/tools/${id}`,
     validate: (id: string) => `${BACKEND_URL}/api/tools/${id}/validate`,
     installDeps: (id: string) => `${BACKEND_URL}/api/tools/${id}/install-deps`,
+    dependencies: (id: string) => `${BACKEND_URL}/api/tools/${id}/dependencies`,
+    installPythonDeps: (id: string) => `${BACKEND_URL}/api/tools/${id}/install-python-deps`,
+    installNodeDeps: (id: string) => `${BACKEND_URL}/api/tools/${id}/install-node-deps`,
+    installAllDeps: (id: string) => `${BACKEND_URL}/api/tools/${id}/install-all-deps`,
     logs: (id: string) => `${BACKEND_URL}/api/tools/${id}/logs`,
     categories: `${BACKEND_URL}/api/tools/categories`,
+  },
+  
+  // System
+  system: {
+    restart: `${BACKEND_URL}/api/system/restart`,
   },
   
   // Agents

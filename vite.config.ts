@@ -72,8 +72,14 @@ export default defineConfig({
     fs: {
       // Exclude backend files from Vite scanning
       deny: [
-        '**/backend/**/*.html',
-        '**/backend/**/*.js',
+        '**/backend/**',
+      ],
+      allow: [
+        '.',
+        'src',
+        'public',
+        'electron',
+        'node_modules'
       ]
     }
   },
