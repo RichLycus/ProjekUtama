@@ -70,8 +70,4 @@ export interface ElectronAPI {
   launchGame: (gameData: any) => void
 }
 
-declare global {
-  interface Window {
-    electronAPI: ElectronAPI
-  }
-}
+console.log('[Preload] electronAPI exposed to window')

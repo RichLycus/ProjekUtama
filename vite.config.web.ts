@@ -15,18 +15,16 @@ export default defineConfig({
     port: 5173,
     fs: {
       // Exclude backend files from Vite scanning
-      deny: [
-        '**/backend/**',
-      ],
+      strict: false,
       allow: [
         '.',
-        'src',
-        'public',
-        'node_modules'
+        './src',
+        './public',
+        './node_modules'
       ]
     },
     watch: {
-      ignored: ['**/backend/**', '**/dist-electron/**', '**/build/**']
+      ignored: ['**/backend/**', '**/dist-electron/**', '**/build/**', '**/tests/**']
     }
   },
   optimizeDeps: {
