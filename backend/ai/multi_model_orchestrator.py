@@ -4,12 +4,21 @@ Intelligent routing with specialized agents using different models
 """
 
 import logging
+import time
+import uuid
 from typing import Dict, Any, Optional
 from .ollama_client import OllamaClient
 from .enhanced_router import EnhancedRouterAgent
 from .specialized_agents import ChatAgent, CodeAgent, AnalysisAgent, CreativeAgent, ToolAgent
 from .agents import RAGAgent, PersonaAgent
 from .config_manager import AIConfigManager
+
+# Import Chat Flow Logger
+try:
+    from utils.chat_flow_logger import get_chat_flow_logger
+    CHAT_FLOW_LOGGER_AVAILABLE = True
+except ImportError:
+    CHAT_FLOW_LOGGER_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +173,17 @@ class MultiModelOrchestrator:
             if persona is None:
                 persona = "lycus"
             
+            # Initialize Chat Flow Logger
+            flow_logger = None
+            message_id = str(uuid.uuid4())
+            if CHAT_FLOW_LOGGER_AVAILABLE:
+                try:
+                    flow_logger = get_chat_flow_logger()
+                    persona_dict = persona if isinstance(persona, dict) else {'ai_name': str(persona), 'name': str(persona)}
+                    flow_logger.start_message(message_id, user_input, persona_dict)
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to initialize chat flow logger: {e}")
+            
             logger.info("=" * 60)
             logger.info("🚀 Starting Multi-Model Pipeline")
             if isinstance(persona, dict):
@@ -176,34 +196,103 @@ class MultiModelOrchestrator:
             # STEP 1: Enhanced Router
             # ========================================
             logger.info("\n[STEP 1/4] Enhanced Router Agent")
+            router_start = time.time()
             routing_result = self.router.route_request(user_input)
+            router_duration = time.time() - router_start
             execution_log["router"] = routing_result.get("log", {})
             
             intent = routing_result.get("intent", "chat")
             final_input = routing_result.get("final_input", user_input)
             needs_rag = routing_result.get("needs_rag", False)
             needs_tools = routing_result.get("needs_tools", False)
+            confidence = routing_result.get("confidence", 0.0) * 100  # Convert to percentage
             
             logger.info(f"   ✅ Routing complete: intent={intent}, RAG={needs_rag}, Tools={needs_tools}")
+            
+            # Log to chat flow
+            if flow_logger:
+                try:
+                    router_config = self.agent_configs.get('router', {})
+                    keywords = routing_result.get("keywords", [])
+                    # Get agent display name from database
+                    agent_display_name = router_config.get('display_name', 'Router Agent')
+                    
+                    flow_logger.log_router(
+                        intent=intent,
+                        confidence=confidence,
+                        keywords=keywords,
+                        model_info={
+                            'model_name': router_config.get('model_name', 'phi3:mini'),
+                            'temperature': router_config.get('temperature', 0.3),
+                            'max_tokens': router_config.get('max_tokens', 500)
+                        },
+                        duration=router_duration,
+                        agent_display_name=agent_display_name
+                    )
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to log router step: {e}")
             
             # ========================================
             # STEP 2: Conditional RAG
             # ========================================
             rag_context = ""
+            rag_start = time.time()
             if needs_rag:
                 logger.info("\n[STEP 2/4] RAG Agent (Context Retrieval)")
                 rag_result = self.rag.retrieve_context(final_input, intent)
                 execution_log["rag"] = rag_result.get("log", "")
                 rag_context = rag_result.get("context", "")
+                rag_duration = time.time() - rag_start
                 logger.info(f"   ✅ RAG context retrieved")
+                
+                # Log to chat flow
+                if flow_logger:
+                    try:
+                        # Extract RAG metrics from result
+                        docs_found = len(rag_result.get("documents", []))
+                        relevant_docs = len([d for d in rag_result.get("documents", []) if d.get("score", 0) > 0.7])
+                        context_length = len(rag_context)
+                        
+                        # Get agent display name from database
+                        rag_config = self.agent_configs.get('rag', {})
+                        agent_display_name = rag_config.get('display_name', 'RAG Agent')
+                        
+                        flow_logger.log_rag(
+                            docs_found=docs_found,
+                            relevant_docs=relevant_docs,
+                            context_length=context_length,
+                            duration=rag_duration,
+                            agent_display_name=agent_display_name
+                        )
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to log RAG step: {e}")
             else:
+                rag_duration = time.time() - rag_start
                 logger.info("\n[STEP 2/4] RAG Agent - SKIPPED (not needed)")
                 execution_log["rag"] = "Skipped - not needed for this request"
+                
+                # Log skipped RAG
+                if flow_logger:
+                    try:
+                        # Get agent display name from database
+                        rag_config = self.agent_configs.get('rag', {})
+                        agent_display_name = rag_config.get('display_name', 'RAG Agent')
+                        
+                        flow_logger.log_rag(
+                            docs_found=0,
+                            relevant_docs=0,
+                            context_length=0,
+                            duration=rag_duration,
+                            agent_display_name=agent_display_name
+                        )
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to log RAG step: {e}")
             
             # ========================================
             # STEP 3: Specialized Agent Processing
             # ========================================
             logger.info(f"\n[STEP 3/4] Specialized Agent: {intent.upper()}")
+            specialist_start = time.time()
             
             # Get the appropriate specialized agent
             agent = self.specialized_agents.get(intent)
@@ -236,16 +325,55 @@ class MultiModelOrchestrator:
                 # code, analysis, creative agents support RAG context
                 agent_result = agent.process(final_input, rag_context=rag_context)
             
+            specialist_duration = time.time() - specialist_start
             execution_log["specialist"] = agent_result.get("log", "")
             raw_response = agent_result.get("response", "")
             
             logger.info(f"   ✅ {intent.capitalize()} agent completed")
             
+            # Log to chat flow
+            if flow_logger:
+                try:
+                    agent_config = self.agent_configs.get(intent, {})
+                    
+                    # Get agent display name from database
+                    agent_display_name = agent_config.get('display_name', f'{intent.capitalize()} Agent')
+                    
+                    # Fallback names if display_name not in database
+                    agent_name_map = {
+                        'chat': 'Chat Agent',
+                        'code': 'Code Agent',
+                        'analysis': 'Analysis Agent',
+                        'creative': 'Creative Agent',
+                        'tool': 'Tool Agent'
+                    }
+                    
+                    flow_logger.log_specialized_agent(
+                        agent_name=agent_name_map.get(intent, f'{intent.capitalize()} Agent'),
+                        agent_type=intent,
+                        model_info={
+                            'model_name': agent_config.get('model_name', 'gemma2:2b'),
+                            'temperature': agent_config.get('temperature', 0.7),
+                            'max_tokens': agent_config.get('max_tokens', 2000)
+                        },
+                        metrics={
+                            'response_length': len(raw_response),
+                            'tokens_generated': len(raw_response.split())  # Rough estimate
+                        },
+                        duration=specialist_duration,
+                        step_num=3,
+                        agent_display_name=agent_display_name
+                    )
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to log specialist agent step: {e}")
+            
             # ========================================
             # STEP 4: Persona Formatting
             # ========================================
             logger.info("\n[STEP 4/4] Persona Agent")
+            persona_start = time.time()
             persona_result = self.persona.format_response(raw_response, persona)
+            persona_duration = time.time() - persona_start
             execution_log["persona"] = persona_result.get("log", "")
             final_response = persona_result.get("response", raw_response)
             
@@ -255,6 +383,46 @@ class MultiModelOrchestrator:
             logger.info(f"   Used RAG: {needs_rag}")
             logger.info(f"   Response: {len(final_response)} chars")
             logger.info("=" * 60)
+            
+            # Log persona to chat flow
+            if flow_logger:
+                try:
+                    persona_config = self.agent_configs.get('persona', {})
+                    persona_dict = persona if isinstance(persona, dict) else {'ai_name': str(persona), 'name': str(persona)}
+                    persona_name = persona_dict.get('ai_name', persona_dict.get('name', 'Unknown'))
+                    
+                    # Get personality traits if available
+                    traits = persona_dict.get('personality_traits', {
+                        'technical': 90,
+                        'friendly': 70,
+                        'direct': 85,
+                        'creative': 60,
+                        'professional': 75
+                    })
+                    
+                    # Get agent display name from database
+                    agent_display_name = persona_config.get('display_name', 'Persona Agent')
+                    
+                    flow_logger.log_persona(
+                        persona_name=persona_name,
+                        traits=traits,
+                        model_info={
+                            'model_name': persona_config.get('model_name', 'gemma2:2b'),
+                            'temperature': persona_config.get('temperature', 0.6),
+                            'max_tokens': persona_config.get('max_tokens', 1000)
+                        },
+                        duration=persona_duration,
+                        agent_display_name=agent_display_name,
+                        step_num=4  # This is step 4 in multi-model (Router->RAG->Specialist->Persona)
+                    )
+                    
+                    # Finish the flow log
+                    flow_logger.finish_message(
+                        response_length=len(final_response),
+                        success=True
+                    )
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to finish chat flow log: {e}")
             
             return {
                 "success": True,
