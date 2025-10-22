@@ -121,35 +121,39 @@ async def upload_file(
             'parsed': parsed_result.get('success', False)
         }
         
-        # Create files table if not exists
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS uploaded_files (
-                id TEXT PRIMARY KEY,
-                filename TEXT NOT NULL,
-                file_type TEXT NOT NULL,
-                file_size INTEGER NOT NULL,
-                file_path TEXT NOT NULL,
-                conversation_id TEXT,
-                uploaded_at TEXT NOT NULL,
-                parsed INTEGER DEFAULT 0
-            )
-        """)
-        
-        # Insert file record
-        db.execute("""
-            INSERT INTO uploaded_files 
-            (id, filename, file_type, file_size, file_path, conversation_id, uploaded_at, parsed)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            file_record['id'],
-            file_record['filename'],
-            file_record['file_type'],
-            file_record['file_size'],
-            file_record['file_path'],
-            file_record['conversation_id'],
-            file_record['uploaded_at'],
-            1 if file_record['parsed'] else 0
-        ))
+        # Create files table and insert record
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Create files table if not exists
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS uploaded_files (
+                    id TEXT PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    file_type TEXT NOT NULL,
+                    file_size INTEGER NOT NULL,
+                    file_path TEXT NOT NULL,
+                    conversation_id TEXT,
+                    uploaded_at TEXT NOT NULL,
+                    parsed INTEGER DEFAULT 0
+                )
+            """)
+            
+            # Insert file record
+            cursor.execute("""
+                INSERT INTO uploaded_files 
+                (id, filename, file_type, file_size, file_path, conversation_id, uploaded_at, parsed)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                file_record['id'],
+                file_record['filename'],
+                file_record['file_type'],
+                file_record['file_size'],
+                file_record['file_path'],
+                file_record['conversation_id'],
+                file_record['uploaded_at'],
+                1 if file_record['parsed'] else 0
+            ))
         
         return {
             'success': True,
@@ -220,36 +224,38 @@ async def upload_image(
         image_result = parser.process_image(str(file_path))
         
         # Store image metadata in database
-        
-        # Create files table if not exists
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS uploaded_files (
-                id TEXT PRIMARY KEY,
-                filename TEXT NOT NULL,
-                file_type TEXT NOT NULL,
-                file_size INTEGER NOT NULL,
-                file_path TEXT NOT NULL,
-                conversation_id TEXT,
-                uploaded_at TEXT NOT NULL,
-                parsed INTEGER DEFAULT 0
-            )
-        """)
-        
-        # Insert image record
-        db.execute("""
-            INSERT INTO uploaded_files 
-            (id, filename, file_type, file_size, file_path, conversation_id, uploaded_at, parsed)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            file_id,
-            file.filename,
-            file_extension,
-            file_size,
-            str(file_path),
-            conversation_id,
-            datetime.utcnow().isoformat(),
-            1 if image_result.get('success', False) else 0
-        ))
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Create files table if not exists
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS uploaded_files (
+                    id TEXT PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    file_type TEXT NOT NULL,
+                    file_size INTEGER NOT NULL,
+                    file_path TEXT NOT NULL,
+                    conversation_id TEXT,
+                    uploaded_at TEXT NOT NULL,
+                    parsed INTEGER DEFAULT 0
+                )
+            """)
+            
+            # Insert image record
+            cursor.execute("""
+                INSERT INTO uploaded_files 
+                (id, filename, file_type, file_size, file_path, conversation_id, uploaded_at, parsed)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                file_id,
+                file.filename,
+                file_extension,
+                file_size,
+                str(file_path),
+                conversation_id,
+                datetime.utcnow().isoformat(),
+                1 if image_result.get('success', False) else 0
+            ))
         
         return {
             'success': True,
@@ -273,25 +279,27 @@ async def upload_image(
 async def get_file_info(file_id: str):
     """Get file information by ID"""
     try:
-        cursor = db.execute("""
-            SELECT * FROM uploaded_files WHERE id = ?
-        """, (file_id,))
-        
-        file_record = cursor.fetchone()
-        
-        if not file_record:
-            raise HTTPException(status_code=404, detail="File not found")
-        
-        return {
-            'success': True,
-            'file_id': file_record[0],
-            'filename': file_record[1],
-            'file_type': file_record[2],
-            'file_size': file_record[3],
-            'file_size_mb': round(file_record[3] / (1024*1024), 2),
-            'conversation_id': file_record[5],
-            'uploaded_at': file_record[6]
-        }
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM uploaded_files WHERE id = ?
+            """, (file_id,))
+            
+            file_record = cursor.fetchone()
+            
+            if not file_record:
+                raise HTTPException(status_code=404, detail="File not found")
+            
+            return {
+                'success': True,
+                'file_id': file_record[0],
+                'filename': file_record[1],
+                'file_type': file_record[2],
+                'file_size': file_record[3],
+                'file_size_mb': round(file_record[3] / (1024*1024), 2),
+                'conversation_id': file_record[5],
+                'uploaded_at': file_record[6]
+            }
         
     except HTTPException:
         raise
@@ -303,17 +311,19 @@ async def get_file_info(file_id: str):
 async def get_file_content(file_id: str):
     """Get parsed file content by ID"""
     try:
-        cursor = db.execute("""
-            SELECT file_path, file_type FROM uploaded_files WHERE id = ?
-        """, (file_id,))
-        
-        file_record = cursor.fetchone()
-        
-        if not file_record:
-            raise HTTPException(status_code=404, detail="File not found")
-        
-        file_path = file_record[0]
-        file_type = file_record[1]
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT file_path, file_type FROM uploaded_files WHERE id = ?
+            """, (file_id,))
+            
+            file_record = cursor.fetchone()
+            
+            if not file_record:
+                raise HTTPException(status_code=404, detail="File not found")
+            
+            file_path = file_record[0]
+            file_type = file_record[1]
         
         # Parse file again (or use cached result)
         parser = FileParser()
@@ -338,14 +348,16 @@ async def get_file_content(file_id: str):
 async def view_file(file_id: str):
     """View/download file by ID"""
     try:
-        cursor = db.execute("""
-            SELECT file_path, filename, file_type FROM uploaded_files WHERE id = ?
-        """, (file_id,))
-        
-        file_record = cursor.fetchone()
-        
-        if not file_record:
-            raise HTTPException(status_code=404, detail="File not found")
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT file_path, filename, file_type FROM uploaded_files WHERE id = ?
+            """, (file_id,))
+            
+            file_record = cursor.fetchone()
+            
+            if not file_record:
+                raise HTTPException(status_code=404, detail="File not found")
         
         file_path = Path(file_record[0])
         
@@ -370,23 +382,25 @@ async def view_file(file_id: str):
 async def delete_file(file_id: str):
     """Delete file by ID"""
     try:
-        cursor = db.execute("""
-            SELECT file_path FROM uploaded_files WHERE id = ?
-        """, (file_id,))
-        
-        file_record = cursor.fetchone()
-        
-        if not file_record:
-            raise HTTPException(status_code=404, detail="File not found")
-        
-        file_path = Path(file_record[0])
-        
-        # Delete file from disk
-        if file_path.exists():
-            file_path.unlink()
-        
-        # Delete from database
-        db.execute("DELETE FROM uploaded_files WHERE id = ?", (file_id,))
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT file_path FROM uploaded_files WHERE id = ?
+            """, (file_id,))
+            
+            file_record = cursor.fetchone()
+            
+            if not file_record:
+                raise HTTPException(status_code=404, detail="File not found")
+            
+            file_path = Path(file_record[0])
+            
+            # Delete file from disk
+            if file_path.exists():
+                file_path.unlink()
+            
+            # Delete from database
+            cursor.execute("DELETE FROM uploaded_files WHERE id = ?", (file_id,))
         
         return {
             'success': True,

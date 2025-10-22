@@ -24,13 +24,15 @@ class ChatAgent:
         self.model = config.get('model_name', 'gemma2:2b')
         self.temperature = config.get('temperature', 0.7)
         self.max_tokens = config.get('max_tokens', 1500)
+        # Load system prompt from config (database)
+        self.system_prompt = config.get('system_prompt', """You are a helpful and friendly AI assistant.
+Provide clear, concise answers to user questions.
+Be conversational and engaging.""")
         
     def process(self, user_input: str, context: str = "") -> Dict[str, Any]:
         """Process simple chat request"""
         try:
-            system_prompt = """You are a helpful and friendly AI assistant.
-Provide clear, concise answers to user questions.
-Be conversational and engaging."""
+            system_prompt = self.system_prompt
 
             prompt = f"User: {user_input}\n\nAssistant:"
             
@@ -87,14 +89,16 @@ class CodeAgent:
         self.model = config.get('model_name', 'qwen2.5-coder:7b')
         self.temperature = config.get('temperature', 0.5)
         self.max_tokens = config.get('max_tokens', 2500)
+        # Load system prompt from config (database)
+        self.system_prompt = config.get('system_prompt', """You are an expert programming assistant.
+Provide clean, well-documented code with explanations.
+Follow best practices and include error handling.
+Use appropriate design patterns and modern conventions.""")
         
     def process(self, user_input: str, context: str = "", rag_context: str = "") -> Dict[str, Any]:
         """Process code-related request"""
         try:
-            system_prompt = """You are an expert programming assistant.
-Provide clean, well-documented code with explanations.
-Follow best practices and include error handling.
-Use appropriate design patterns and modern conventions."""
+            system_prompt = self.system_prompt
 
             # Build enhanced prompt with RAG context
             prompt = f"User: {user_input}\n\n"
@@ -155,14 +159,16 @@ class AnalysisAgent:
         self.model = config.get('model_name', 'qwen2.5:7b')
         self.temperature = config.get('temperature', 0.6)
         self.max_tokens = config.get('max_tokens', 2000)
+        # Load system prompt from config (database)
+        self.system_prompt = config.get('system_prompt', """You are an expert analytical assistant.
+Provide detailed, well-reasoned analysis with clear explanations.
+Break down complex problems into manageable steps.
+Support your conclusions with evidence and logical reasoning.""")
         
     def process(self, user_input: str, context: str = "", rag_context: str = "") -> Dict[str, Any]:
         """Process analytical request"""
         try:
-            system_prompt = """You are an expert analytical assistant.
-Provide detailed, well-reasoned analysis with clear explanations.
-Break down complex problems into manageable steps.
-Support your conclusions with evidence and logical reasoning."""
+            system_prompt = self.system_prompt
 
             # Build enhanced prompt with RAG context
             prompt = f"User: {user_input}\n\n"
@@ -223,14 +229,16 @@ class CreativeAgent:
         self.model = config.get('model_name', 'llama3:8b')
         self.temperature = config.get('temperature', 0.8)
         self.max_tokens = config.get('max_tokens', 2000)
+        # Load system prompt from config (database)
+        self.system_prompt = config.get('system_prompt', """You are a creative AI assistant with artistic flair.
+Generate imaginative, engaging content with vivid descriptions.
+Use metaphors, storytelling techniques, and emotional resonance.
+Be original, inspiring, and encourage creative exploration.""")
         
     def process(self, user_input: str, context: str = "", rag_context: str = "") -> Dict[str, Any]:
         """Process creative request"""
         try:
-            system_prompt = """You are a creative AI assistant with artistic flair.
-Generate imaginative, engaging content with vivid descriptions.
-Use metaphors, storytelling techniques, and emotional resonance.
-Be original, inspiring, and encourage creative exploration."""
+            system_prompt = self.system_prompt
 
             # Build enhanced prompt with RAG context
             prompt = f"User: {user_input}\n\n"
@@ -290,18 +298,20 @@ class ToolAgent:
         self.model = config.get('model_name', 'phi3:mini')
         self.temperature = config.get('temperature', 0.4)
         self.max_tokens = config.get('max_tokens', 1000)
-        
-    def detect_tool_need(self, user_input: str, context: str = "") -> Dict[str, Any]:
-        """Detect if tools are needed"""
-        try:
-            system_prompt = """You are a tool detection specialist.
+        # Load system prompt from config (database)
+        self.system_prompt = config.get('system_prompt', """You are a tool detection specialist.
 Analyze user requests to determine if external tools are needed.
 Respond with YES if tools/execution is required, NO if it's just a question.
 Examples:
 - "run calculator" → YES
 - "how do I use the calculator?" → NO
 - "execute python script" → YES
-- "what is Python?" → NO"""
+- "what is Python?" → NO""")
+        
+    def detect_tool_need(self, user_input: str, context: str = "") -> Dict[str, Any]:
+        """Detect if tools are needed"""
+        try:
+            system_prompt = self.system_prompt
 
             prompt = f"User request: {user_input}\n\nNeed tools? (YES/NO):"
             

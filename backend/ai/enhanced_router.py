@@ -24,6 +24,16 @@ class EnhancedRouterAgent:
         self.model = config.get('model_name', 'phi3:mini')
         self.temperature = config.get('temperature', 0.3)
         self.max_tokens = config.get('max_tokens', 500)
+        # Load system prompt from config (database)
+        self.system_prompt = config.get('system_prompt', """You are an intelligent request router.
+Your task is to classify user requests into the correct category:
+- chat: General conversation, simple Q&A
+- code: Programming, debugging, code review
+- analysis: Data analysis, reasoning, complex problem-solving
+- creative: Writing, storytelling, creative content
+- tool: Requests requiring tool execution
+
+Respond with just the intent name.""")
         
         # Agent routing keywords
         self.routing_keywords = {
@@ -252,22 +262,12 @@ Improved request:"""
             # Fallback: Use LLM for classification
             logger.info("🤔 No clear keywords, using LLM classification...")
             
-            system_prompt = """You are an intent classifier.
-Classify the user's message into ONE category:
-- chat: Simple conversation, greetings, general questions
-- code: Programming, debugging, code-related tasks
-- analysis: Data analysis, research, logical reasoning
-- creative: Writing, storytelling, creative content
-- tool: Tool execution, running programs
-
-Respond with ONLY the category name, nothing else."""
-
             prompt = f"User message: {user_input}\n\nCategory:"
             
             result = self.client.generate(
                 model=self.model,
                 prompt=prompt,
-                system=system_prompt,
+                system=self.system_prompt,
                 temperature=0.2,
                 max_tokens=10
             )

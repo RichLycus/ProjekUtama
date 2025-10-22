@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import axios from 'axios'
+import { waitForBackendReady } from '../lib/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
@@ -64,6 +65,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       
       // Use provided personaId or fall back to currentPersonaId
       const effectivePersonaId = personaId || currentPersonaId
+      
+      // Wait for backend to be ready (with 10s timeout)
+      const isReady = await waitForBackendReady(10000, 5)
+      if (!isReady) {
+        throw new Error('Backend is not ready. Please wait a moment and try again.')
+      }
       
       // Call backend API with persona_id
       const response = await axios.post(`${API_BASE_URL}/api/chat/message`, {

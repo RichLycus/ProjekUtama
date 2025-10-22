@@ -9,6 +9,7 @@ interface AgentConfig {
   model_name: string
   display_name: string
   description: string
+  system_prompt?: string
   is_enabled: number
   temperature: number
   max_tokens: number
@@ -28,6 +29,7 @@ export default function EditAgentModal({ isOpen, onClose, agent, onSave }: EditA
   const [temperature, setTemperature] = useState(0.7)
   const [maxTokens, setMaxTokens] = useState(2000)
   const [description, setDescription] = useState('')
+  const [systemPrompt, setSystemPrompt] = useState('')
   const [saving, setSaving] = useState(false)
 
   // Load models on mount
@@ -44,6 +46,7 @@ export default function EditAgentModal({ isOpen, onClose, agent, onSave }: EditA
       setTemperature(agent.temperature)
       setMaxTokens(agent.max_tokens)
       setDescription(agent.description)
+      setSystemPrompt(agent.system_prompt || '')
     }
   }, [agent])
 
@@ -60,7 +63,8 @@ export default function EditAgentModal({ isOpen, onClose, agent, onSave }: EditA
       model_name: selectedModel,
       temperature: temperature,
       max_tokens: maxTokens,
-      description: description
+      description: description,
+      system_prompt: systemPrompt
     }
 
     const success = await onSave(agent.id, updates)
@@ -204,6 +208,24 @@ export default function EditAgentModal({ isOpen, onClose, agent, onSave }: EditA
             />
             <p className="text-xs text-secondary mt-2">
               Optional: Add or update the agent's description
+            </p>
+          </div>
+
+          {/* System Prompt */}
+          <div>
+            <label className="text-sm font-semibold mb-3 block flex items-center gap-2">
+              <Brain className="w-4 h-4 text-primary" />
+              System Prompt
+            </label>
+            <textarea
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              rows={8}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-dark-surface-hover border border-gray-200 dark:border-dark-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none font-mono text-sm"
+              placeholder="Enter the system prompt that defines how this agent behaves..."
+            />
+            <p className="text-xs text-secondary mt-2">
+              ✨ Customize the agent's behavior, personality, and instructions. This prompt guides how the agent responds to user requests.
             </p>
           </div>
 

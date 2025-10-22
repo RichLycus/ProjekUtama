@@ -33,7 +33,7 @@ export default function FileUploader({
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001'
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setError(null)
@@ -85,7 +85,14 @@ export default function FileUploader({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: accept.split(',').reduce((acc, ext) => ({ ...acc, [ext]: [] }), {}),
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/msword': ['.doc'],
+      'text/plain': ['.txt'],
+      'text/markdown': ['.md'],
+      'text/csv': ['.csv']
+    },
     maxSize,
     multiple,
   })

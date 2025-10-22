@@ -17,14 +17,11 @@ export default defineConfig({
       // Exclude backend files from Vite scanning
       strict: false,
       allow: [
-        '.',
-        './src',
-        './public',
-        './node_modules'
+        '.'
       ]
     },
     watch: {
-      ignored: ['**/backend/**', '**/dist-electron/**', '**/build/**', '**/tests/**']
+      ignored: ['**/backend/**', '**/dist-electron/**', '**/build/**', '**/tests/**', '**/release/**', '**/docs/**']
     }
   },
   optimizeDeps: {

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>System Power Control</title>
+
+    <style>
+        /* CSS Variables: Biar gampang ganti tema/warna */
+        :root {
+            --color-text: #1e293b;
+            --color-text-secondary: #475569;
+            --color-text-muted: #94a3b8;
+            --color-surface: #ffffff;
+            --color-muted: #f1f5f9;
+            --color-border: #e2e8f0;
+            --color-accent: #8b5cf6;
+            --color-success: #10b981;
+            --color-error: #ef4444;
+            --color-warning: #f59e0b;
+            --color-blue: #2563eb;
+            --color-red: #dc2626;
+        }
+
+        /* Global Styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-muted);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            margin: 0 auto;
+            padding: 32px 24px;
+            max-width: 500px;
+        }
+
+        /* Card Component - Modern Look */
+        .card {
+            background-color: var(--color-surface);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--color-border);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Typography */
+        .heading {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 8px;
+        }
+
+        .text-secondary {
+            color: var(--color-text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .text-muted {
+            color: var(--color-text-muted);
+            font-size: 0.75rem;
+            margin-top: 4px;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--color-text);
+            margin-bottom: 8px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 10px 16px;
+            background-color: var(--color-surface);
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            box-sizing: border-box;
+            transition: all 0.2s;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+
+        /* Button Group */
+        .button-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Base Button Style */
+        .action-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+
+        /* Inactive Button */
+        .action-btn-inactive {
+            background-color: var(--color-muted);
+            color: var(--color-text-secondary);
+        }
+
+        .action-btn-inactive:hover {
+            background-color: var(--color-border);
+        }
+
+        /* Active Buttons */
+        #btn-restart.active {
+            background-color: var(--color-blue);
+            color: white;
+        }
+
+        #btn-shutdown.active {
+            background-color: var(--color-red);
+            color: white;
+        }
+
+        /* Submit Button */
+        #submit-btn {
+            width: 100%;
+            padding: 12px;
+            background-image: linear-gradient(to right, #8b5cf6, #4f46e5);
+            color: white;
+            font-weight: 700;
+            border-radius: 8px;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        #submit-btn:hover:not(:disabled) {
+            background-image: linear-gradient(to right, #7c3aed, #4338ca);
+        }
+
+        #submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Status Div */
+        .status-div {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .status-div.success {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--color-success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-div.error {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--color-error);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-div.show {
+            display: block;
+        }
+
+        /* Info Footer */
+        .info-footer {
+            margin-top: 32px;
+            font-size: 0.875rem;
+            color: var(--color-text-muted);
+            border-top: 1px solid var(--color-border);
+            padding-top: 24px;
+        }
+
+        .info-footer code {
+            background-color: var(--color-muted);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.875em;
+        }
+
+        .info-tag {
+            background-color: rgba(245, 158, 11, 0.2);
+            color: var(--color-warning);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            display: inline-block;
+            margin-top: 12px;
+        }
+
+        /* SVG Spinner Animation */
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="font-sans">
+    <div class="container">
+        <div class="card">
+            <h1 class="heading">System Power Control</h1>
+            <p class="text-secondary">
+                Safely restart or shut down your computer with voice confirmation (female voice).
+            </p>
+
+            <div id="status" class="status-div"></div>
+
+            <div class="space-y-5">
+                <div class="form-group">
+                    <label class="form-label">Action</label>
+                    <div class="button-group">
+                        <button type="button" id="btn-restart" class="action-btn active">
+                            🔁 Restart
+                        </button>
+                        <button type="button" id="btn-shutdown" class="action-btn action-btn-inactive">
+                            ⏻ Shutdown
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="delay" class="form-label">
+                        Delay (seconds)
+                    </label>
+                    <input id="delay" type="number" min="0" max="300" value="5" class="input-field" />
+                    <p class="text-muted">
+                        Time before action (0 = immediate). Voice will warn you.
+                    </p>
+                </div>
+
+                <button id="submit-btn" disabled>
+                    🔊 Speak & Restart
+                </button>
+            </div>
+
+            <div class="info-footer">
+                <p class="mb-2">ℹ️ Uses female voice:</p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>Linux: <code>mb-en1</code> (via eSpeak)</li>
+                    <li>macOS: <code>Samantha</code></li>
+                    <li>Windows: <code>Microsoft Zira Desktop</code></li>
+                </ul>
+                <p>
+                    <span class="info-tag">
+                        Actual shutdown requires system permissions. This demo simulates the action for safety.
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const btnRestart = document.getElementById('btn-restart');
+        const btnShutdown = document.getElementById('btn-shutdown');
+        const delayInput = document.getElementById('delay');
+        const submitBtn = document.getElementById('submit-btn');
+        const statusDiv = document.getElementById('status');
+        const initialSubmitText = submitBtn.textContent;
+
+        let currentAction = 'restart';
+
+        function updateUI(action) {
+            currentAction = action;
+
+            // Update Button Styles
+            if (action === 'restart') {
+                btnRestart.classList.add('active');
+                btnRestart.classList.remove('action-btn-inactive');
+                btnShutdown.classList.remove('active');
+                btnShutdown.classList.add('action-btn-inactive');
+                submitBtn.textContent = '🔊 Speak & Restart';
+            } else {
+                btnShutdown.classList.add('active');
+                btnShutdown.classList.remove('action-btn-inactive');
+                btnRestart.classList.remove('active');
+                btnRestart.classList.add('action-btn-inactive');
+                submitBtn.textContent = '🔊 Speak & Shutdown';
+            }
+
+            // Enable the submit button once an action is defined
+            submitBtn.disabled = false;
+        }
+
+        // Initialize UI
+        updateUI('restart');
+
+        // Button toggle logic
+        btnRestart.addEventListener('click', () => updateUI('restart'));
+        btnShutdown.addEventListener('click', () => updateUI('shutdown'));
+
+        submitBtn.addEventListener('click', async () => {
+            const delay = parseInt(delayInput.value) || 5;
+            if (delay < 0 || isNaN(delay)) delayInput.value = 5;
+
+            // Show loading state
+            submitBtn.disabled = true;
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = `
+        <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Processing...
+      `;
+
+            statusDiv.classList.remove('show', 'success', 'error');
+
+            try {
+                const response = await fetch('/api/tools/system_power_control/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: currentAction,
+                        delay_seconds: delay
+                    })
+                });
+
+                // 💡 SOLUSI: Selalu coba baca respons sebagai teks (untuk debugging)
+                // dan JSON jika memungkinkan. Baca teks dulu agar bisa ditampilkan
+                // di error, tapi HATI-HATI.
+
+                let rawText = await response.text();
+                let data = {};
+                let isJson = false;
+
+                // Coba parse teks ke JSON. Kalau gagal, rawText adalah error mentah
+                try {
+                    data = JSON.parse(rawText);
+                    isJson = true;
+                } catch (e) {
+                    // Gagal parsing JSON, rawText adalah error mentah dari server
+                }
+
+                if (response.ok) {
+                    // Logic Sukses (hanya bisa diakses jika response.ok adalah true)
+                    const successMessage = isJson ? data.message : 'Success, but server response was not valid JSON.';
+                    statusDiv.classList.add('success');
+                    statusDiv.textContent = `✅ ${successMessage}`;
+
+                } else {
+                    // Logic Gagal (status code non-2xx)
+                    let errorMessage;
+                    if (isJson) {
+                        errorMessage = data.detail || data.message || 'Server returned an error status.';
+                    } else {
+                        const truncatedText = rawText.substring(0, 100);
+                        errorMessage = `Server returned status ${response.status}. Raw content: ${truncatedText}...`;
+                    }
+
+                    statusDiv.classList.add('error');
+                    statusDiv.textContent = `❌ Error: ${errorMessage}`;
+                }
+
+            } catch (err) {
+                // Tangkap error jaringan (misalnya server mati)
+                statusDiv.classList.add('error');
+                statusDiv.textContent = `❌ Network Error: ${err.message || 'The server could not be reached.'}`;
+            }
+        });
+    </script>
+</body>
+
+</html>

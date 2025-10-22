@@ -36,12 +36,14 @@ detect_project_dir() {
 PROJECT_DIR=$(detect_project_dir)
 LOG_DIR="$PROJECT_DIR/logs"
 LOG_FILE="$LOG_DIR/launcher.log"
+CHAT_FLOW_LOG="$LOG_DIR/chat_flow.log"
 
 # Create logs directory
 mkdir -p "$LOG_DIR"
 
 # Clean/reset log files at start
 > "$LOG_FILE"  # Reset launcher log
+> "$CHAT_FLOW_LOG"  # Reset chat flow log
 
 #############################################
 # Port Management Functions
@@ -312,6 +314,7 @@ start_backend() {
     
     log_info "Starting FastAPI server on port 8001..."
     log_info "Backend logs: $BACKEND_LOG"
+    log_info "Chat flow logs: $CHAT_FLOW_LOG"
     
     # Start backend in background
     python3 server.py > "$BACKEND_LOG" 2>&1 &
@@ -434,9 +437,10 @@ start_dev_server() {
     echo -e "${GREEN}║${NC} ${CYAN}Frontend (Vite):${NC} http://localhost:5173                ${GREEN}║${NC}"
     echo -e "${GREEN}╠══════════════════════════════════════════════════════════╣${NC}"
     echo -e "${GREEN}║${NC} ${YELLOW}📋 Logs Location:${NC}                                      ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Launcher: $LOG_FILE                               ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Backend:  $LOG_DIR/backend.log                     ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Frontend: $FRONTEND_LOG                             ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Launcher:   $LOG_FILE                            ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Backend:    $LOG_DIR/backend.log                  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Frontend:   $FRONTEND_LOG                          ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Chat Flow:  $CHAT_FLOW_LOG  ${CYAN}[NEW!]${NC}              ${GREEN}║${NC}"
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
     

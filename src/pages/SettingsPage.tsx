@@ -14,6 +14,7 @@ import ThemeCard from '@/components/ThemeCard'
 import PersonaManager from '@/components/PersonaManager'
 import EditAgentModal from '@/components/EditAgentModal'
 import EditRAGAgentModal from '@/components/EditRAGAgentModal'
+import SystemHealthMonitor from '@/components/SystemHealthMonitor'
 import toast from 'react-hot-toast'
 
 type TabType = 'tools' | 'appearance' | 'ai-chat' | 'personas' | 'games' | 'about'
@@ -1206,6 +1207,12 @@ export default function SettingsPage() {
           {/* About Tab */}
           {activeTab === 'about' && (
             <div className="space-y-6">
+              {/* System Health Monitor */}
+              <div className="glass rounded-xl p-6">
+                <SystemHealthMonitor />
+              </div>
+
+              {/* About Info */}
               <div className="glass rounded-xl p-6">
                 <h2 className="text-xl font-bold mb-4">About ChimeraAI</h2>
                 <div className="space-y-4">

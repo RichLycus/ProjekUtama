@@ -37,7 +37,7 @@ export default function ImageUploader({
   const [error, setError] = useState<string | null>(null)
   const [previewUrls, setPreviewUrls] = useState<{[key: string]: string}>({})
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001'
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setError(null)

@@ -200,6 +200,7 @@ class SQLiteDB:
                     model_name TEXT NOT NULL,
                     display_name TEXT NOT NULL,
                     description TEXT,
+                    system_prompt TEXT,
                     is_enabled INTEGER DEFAULT 1,
                     temperature REAL DEFAULT 0.7,
                     max_tokens INTEGER DEFAULT 2000,
@@ -207,6 +208,12 @@ class SQLiteDB:
                     updated_at TEXT NOT NULL
                 )
             """)
+            
+            # Migration: Add system_prompt column if it doesn't exist
+            cursor.execute("PRAGMA table_info(agent_configs)")
+            columns = [col[1] for col in cursor.fetchall()]
+            if 'system_prompt' not in columns:
+                cursor.execute("ALTER TABLE agent_configs ADD COLUMN system_prompt TEXT")
             
             # Create index for agent configs
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_configs_type ON agent_configs(agent_type)")

@@ -27,17 +27,27 @@ from routes.file_upload import router as file_upload_router
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Global readiness flag
+_system_ready = False
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan event handler - startup and shutdown"""
+    global _system_ready
     # Startup
     logger.info("=" * 60)
     logger.info("ChimeraAI Tools API - Starting Up")
     logger.info("=" * 60)
     mount_tool_routers()
     logger.info("=" * 60)
+    
+    # Mark system as ready after all initialization
+    _system_ready = True
+    logger.info("✅ System fully initialized and ready!")
+    
     yield
     # Shutdown
+    _system_ready = False
     logger.info("Shutting down ChimeraAI Tools API")
 
 app = FastAPI(title="ChimeraAI Tools API", lifespan=lifespan)
@@ -179,6 +189,62 @@ def log_action(tool_id: str, action: str, status: str, message: str, trace: str 
 @app.get("/")
 async def root():
     return {"status": "ok", "message": "ChimeraAI Tools API v2.0"}
+
+
+@app.get("/health")
+@app.get("/api/health")
+async def health_check():
+    """
+    Health check endpoint with readiness validation.
+    Returns detailed system status including:
+    - Basic health (alive)
+    - Readiness (fully initialized)
+    - Component status (database, RAG, agents)
+    """
+    from routes.chat_routes import orchestrator, rag_system
+    
+    # Basic health
+    health_status = {
+        "status": "healthy",
+        "ready": _system_ready,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    
+    # Check components if system is ready
+    if _system_ready:
+        try:
+            # Database check
+            db_ok = db is not None
+            
+            # RAG check
+            rag_ok = rag_system is not None
+            
+            # Orchestrator check
+            orchestrator_ok = orchestrator is not None
+            ollama_connected = False
+            if orchestrator:
+                try:
+                    ollama_connected = orchestrator.test_ollama_connection()
+                except:
+                    pass
+            
+            health_status["components"] = {
+                "database": "ok" if db_ok else "unavailable",
+                "rag_system": "ok" if rag_ok else "unavailable", 
+                "orchestrator": "ok" if orchestrator_ok else "unavailable",
+                "ollama": "connected" if ollama_connected else "disconnected"
+            }
+            
+            # Set ready to false if critical components are missing
+            if not (db_ok and orchestrator_ok):
+                health_status["ready"] = False
+                health_status["status"] = "degraded"
+                
+        except Exception as e:
+            logger.error(f"Health check component validation error: {e}")
+            health_status["components_error"] = str(e)
+    
+    return health_status
 
 
 @app.get("/api/tools/categories")
