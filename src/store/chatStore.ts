@@ -37,6 +37,7 @@ interface ChatStore {
   error: string | null
   currentPersonaId: string | null  // Track current persona
   currentMode: 'flash' | 'pro'  // Track current mode
+  onConversationCreated?: () => void  // Callback for new conversation
   
   // Actions
   sendMessage: (content: string, personaId?: string, mode?: 'flash' | 'pro') => Promise<void>
@@ -47,6 +48,7 @@ interface ChatStore {
   setError: (error: string | null) => void
   setCurrentPersonaId: (personaId: string | null) => void
   setCurrentMode: (mode: 'flash' | 'pro') => void
+  setOnConversationCreated: (callback: () => void) => void
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -95,6 +97,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         // Fetch the conversation details
         const convResponse = await axios.get(`${API_BASE_URL}/api/chat/conversation/${aiMessage.conversation_id}`)
         set({ currentConversation: convResponse.data })
+        
+        // Notify sidebar to refresh conversations list
+        const { onConversationCreated } = get()
+        if (onConversationCreated) {
+          onConversationCreated()
+        }
       }
       
       // Add user message and AI response to messages
@@ -186,5 +194,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   // Set current mode
   setCurrentMode: (mode: 'flash' | 'pro') => {
     set({ currentMode: mode })
+  },
+  
+  // Set callback for conversation created
+  setOnConversationCreated: (callback: () => void) => {
+    set({ onConversationCreated: callback })
   }
 }))

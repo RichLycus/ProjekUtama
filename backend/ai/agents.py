@@ -287,14 +287,22 @@ class PersonaAgent:
                 logger.info(f"   AI Name: {ai_name}, Style: {response_style}, Tone: {tone}")
                 logger.info(f"   Preferred Language: {preferred_language}")
                 
-                # Build persona-specific prompt
+                # Build强化 language enforcement prompt
+                language_name = 'Bahasa Indonesia' if preferred_language == 'id' else 'English'
+                language_enforcement = f"""
+🚨 ATURAN BAHASA WAJIB (TIDAK BOLEH DIABAIKAN):
+- HARUS 100% menggunakan {language_name}
+- DILARANG mencampur bahasa lain
+- SETIAP kata, kalimat, dan paragraf HARUS dalam {language_name}
+- Jika input berbahasa lain, tetap respons dalam {language_name}
+"""
+                
                 persona_context = f"""
 Identitas Anda:
 - Nama: {ai_name} {f'({ai_nickname})' if ai_nickname else ''}
 - Panggilan untuk user: {user_greeting}
 - Gaya respons: {response_style}
 - Tone: {tone}
-- Bahasa yang digunakan: {'Bahasa Indonesia' if preferred_language == 'id' else 'English'}
 
 Personality Traits (skala 0-100):
 - Technical depth: {traits.get('technical', 50)}
@@ -304,19 +312,31 @@ Personality Traits (skala 0-100):
 - Professionalism: {traits.get('professional', 50)}
 """
                 
-                # Combine system prompt with persona context
-                full_system_prompt = f"{system_prompt}\n\n{persona_context}"
+                # Combine with STRONG language enforcement
+                full_system_prompt = f"""{system_prompt}
+
+{language_enforcement}
+
+{persona_context}
+
+INGAT: Respons Anda HARUS 100% dalam {language_name}. Ini adalah aturan MUTLAK!"""
                 
-                # User prompt with raw response
+                # User prompt with EXPLICIT language instruction
                 user_prompt = f"""Berikut adalah draf respons dari Agent sebelumnya:
 
 {raw_response}
 
-Silakan tulis ulang respons ini sesuai dengan persona dan bahasa yang diminta. Pastikan:
-1. Menggunakan {'Bahasa Indonesia' if preferred_language == 'id' else 'English'} secara konsisten
-2. Mencerminkan personality traits yang diberikan
-3. Tetap menjaga akurasi fakta dan informasi
-4. Terasa natural dan engaging"""
+INSTRUKSI PENTING - TULIS ULANG DALAM {language_name.upper()}:
+
+Silakan tulis ulang respons ini dengan ketentuan WAJIB:
+1. ✅ HARUS 100% menggunakan {language_name} - TIDAK ADA PENGECUALIAN
+2. ✅ Mencerminkan personality traits yang diberikan
+3. ✅ Tetap menjaga akurasi fakta dan informasi
+4. ✅ Terasa natural dan engaging sesuai karakter {ai_name}
+
+❌ DILARANG: Menggunakan bahasa selain {language_name}
+
+Mulai tulis ulang SEKARANG dalam {language_name}:"""
                 
                 # Call LLM for persona enforcement
                 result = self.client.generate(
@@ -335,7 +355,14 @@ Silakan tulis ulang respons ini sesuai dengan persona dan bahasa yang diminta. P
                         "success": True,
                         "response": formatted,
                         "persona": persona_name,
-                        "log": f"Applied {ai_name} persona with LLM enforcement"
+                        "log": f"Applied {ai_name} persona with LLM enforcement",
+                        "prompts": {
+                            "system_prompt": full_system_prompt,
+                            "user_prompt": user_prompt,
+                            "model": self.model,
+                            "temperature": 0.6,
+                            "max_tokens": 2000
+                        }
                     }
                 else:
                     # Fallback to simple formatting
@@ -348,7 +375,15 @@ Silakan tulis ulang respons ini sesuai dengan persona dan bahasa yang diminta. P
                         "success": True,
                         "response": formatted,
                         "persona": persona_name,
-                        "log": f"Applied {ai_name} persona (fallback formatting)"
+                        "log": f"Applied {ai_name} persona (fallback formatting)",
+                        "prompts": {
+                            "system_prompt": full_system_prompt,
+                            "user_prompt": user_prompt,
+                            "model": self.model,
+                            "temperature": 0.6,
+                            "max_tokens": 2000,
+                            "note": "LLM call failed, used fallback"
+                        }
                     }
             
             # If we have persona object but no system_prompt, use simple formatting
@@ -372,7 +407,10 @@ Silakan tulis ulang respons ini sesuai dengan persona dan bahasa yang diminta. P
                     "success": True,
                     "response": formatted,
                     "persona": persona_name,
-                    "log": f"Applied {ai_name} persona with personality traits"
+                    "log": f"Applied {ai_name} persona with personality traits",
+                    "prompts": {
+                        "note": "Simple personality-based formatting (no LLM call)"
+                    }
                 }
             
             # Fallback to legacy persona handling
@@ -405,7 +443,10 @@ Silakan tulis ulang respons ini sesuai dengan persona dan bahasa yang diminta. P
                 "success": True,
                 "response": formatted,
                 "persona": persona_name,
-                "log": f"Applied {persona_name} persona (legacy)"
+                "log": f"Applied {persona_name} persona (legacy)",
+                "prompts": {
+                    "note": "Legacy persona formatting (no LLM call)"
+                }
             }
             
         except Exception as e:
@@ -414,7 +455,10 @@ Silakan tulis ulang respons ini sesuai dengan persona dan bahasa yang diminta. P
                 "success": False,
                 "response": raw_response,  # Return original on error
                 "persona": "unknown",
-                "log": f"Error: {str(e)}, returned original response"
+                "log": f"Error: {str(e)}, returned original response",
+                "prompts": {
+                    "error": str(e)
+                }
             }
     
     def _apply_personality_formatting(

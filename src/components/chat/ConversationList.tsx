@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useImperativeHandle, forwardRef } from 'react'
 import { motion } from 'framer-motion'
 import { MessageSquare, Plus, Trash2, Edit2, Check, X } from 'lucide-react'
 import axios from 'axios'
@@ -21,15 +21,24 @@ interface ConversationListProps {
   onToggleCollapse?: () => void
 }
 
-export default function ConversationList({
+export interface ConversationListRef {
+  refresh: () => void
+}
+
+const ConversationList = forwardRef<ConversationListRef, ConversationListProps>(({
   currentConversationId,
   onSelectConversation,
   onNewChat,
-}: ConversationListProps) {
+}, ref) => {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [loading, setLoading] = useState(true)
+
+  // Expose refresh function to parent
+  useImperativeHandle(ref, () => ({
+    refresh: fetchConversations
+  }))
 
   // Fetch conversations
   useEffect(() => {
@@ -40,9 +49,13 @@ export default function ConversationList({
     try {
       setLoading(true)
       const response = await axios.get(`${BACKEND_URL}/api/chat/conversations`)
-      setConversations(response.data.conversations || [])
+      // Backend returns array directly, not wrapped in {conversations: [...]}
+      const conversationsData = Array.isArray(response.data) ? response.data : (response.data.conversations || [])
+      setConversations(conversationsData)
+      console.log('✅ Loaded conversations:', conversationsData.length)
     } catch (error) {
-      console.error('Failed to fetch conversations:', error)
+      console.error('❌ Failed to fetch conversations:', error)
+      setConversations([])
     } finally {
       setLoading(false)
     }
@@ -234,4 +247,8 @@ export default function ConversationList({
       </div>
     </div>
   )
-}
+})
+
+ConversationList.displayName = 'ConversationList'
+
+export default ConversationList

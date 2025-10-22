@@ -544,8 +544,47 @@ class ChatFlowLogger:
         for line in lines:
             self._write(line)
     
-    def log_specialized_agent(self, agent_name: str, agent_type: str, model_info: Dict, metrics: Dict, duration: float, step_num: int, agent_display_name: str = None, response_preview: str = None):
-        """Log specialized agent (code, chat, analysis, creative, tool) with response preview"""
+    def _format_prompt_block(self, prompt_text: str, max_lines: int = 5) -> list:
+        """Format prompt text into displayable lines with truncation"""
+        lines = []
+        max_line_length = 70
+        
+        # Split prompt into lines
+        prompt_lines = prompt_text.split('\n')
+        
+        # Show first max_lines
+        displayed_lines = 0
+        for line in prompt_lines:
+            if displayed_lines >= max_lines:
+                lines.append(self._colorize("     ... (truncated)", Colors.GRAY))
+                break
+                
+            # Wrap long lines
+            if len(line) > max_line_length:
+                words = line.split()
+                current_line = ""
+                for word in words:
+                    if len(current_line) + len(word) + 1 <= max_line_length:
+                        current_line += (word + " ")
+                    else:
+                        if current_line:
+                            lines.append(self._colorize(f"     {current_line.strip()}", Colors.CYAN))
+                            displayed_lines += 1
+                            if displayed_lines >= max_lines:
+                                lines.append(self._colorize("     ... (truncated)", Colors.GRAY))
+                                break
+                        current_line = word + " "
+                if current_line and displayed_lines < max_lines:
+                    lines.append(self._colorize(f"     {current_line.strip()}", Colors.CYAN))
+                    displayed_lines += 1
+            else:
+                lines.append(self._colorize(f"     {line}", Colors.CYAN))
+                displayed_lines += 1
+        
+        return lines
+    
+    def log_specialized_agent(self, agent_name: str, agent_type: str, model_info: Dict, metrics: Dict, duration: float, step_num: int, agent_display_name: str = None, response_preview: str = None, prompts: Dict = None):
+        """Log specialized agent (code, chat, analysis, creative, tool) with response preview and prompts"""
         lines = []
         
         emoji_map = {
@@ -607,6 +646,37 @@ class ChatFlowLogger:
         lines.append(self._box_line(
             self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
         ))
+        
+        # Show prompts if available
+        if prompts and 'system_prompt' in prompts:
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}  {BOX['left_t_light']}{BOX['horizontal_light']} 📝 SYSTEM PROMPT:", Colors.YELLOW)
+            ))
+            
+            prompt_lines = self._format_prompt_block(prompts['system_prompt'], max_lines=3)
+            for pline in prompt_lines:
+                lines.append(self._box_line(
+                    self._colorize(f"{BOX['vertical_light']}  {BOX['vertical_light']}  ", Colors.GRAY) + pline
+                ))
+            
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
+            ))
+            
+            if 'user_prompt' in prompts:
+                lines.append(self._box_line(
+                    self._colorize(f"{BOX['vertical_light']}  {BOX['left_t_light']}{BOX['horizontal_light']} 📝 USER PROMPT:", Colors.YELLOW)
+                ))
+                
+                prompt_lines = self._format_prompt_block(prompts['user_prompt'], max_lines=3)
+                for pline in prompt_lines:
+                    lines.append(self._box_line(
+                        self._colorize(f"{BOX['vertical_light']}  {BOX['vertical_light']}  ", Colors.GRAY) + pline
+                    ))
+                
+                lines.append(self._box_line(
+                    self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
+                ))
         
         # Metrics
         if metrics:
@@ -674,8 +744,8 @@ class ChatFlowLogger:
         for line in lines:
             self._write(line)
     
-    def log_persona(self, persona_name: str, traits: Dict, model_info: Dict, duration: float, agent_display_name: str = None, step_num: int = 4, final_response_preview: str = None):
-        """Log persona agent step with final response preview"""
+    def log_persona(self, persona_name: str, traits: Dict, model_info: Dict, duration: float, agent_display_name: str = None, step_num: int = 4, final_response_preview: str = None, prompts: Dict = None):
+        """Log persona agent step with final response preview and prompts"""
         lines = []
         
         lines.append(self._box_line(self._colorize(BOX['top_left_light'] + self._horizontal_line(width=81, heavy=False) + BOX['top_right_light'], Colors.GRAY)))
@@ -730,6 +800,37 @@ class ChatFlowLogger:
         lines.append(self._box_line(
             self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
         ))
+        
+        # Show prompts if available
+        if prompts and 'system_prompt' in prompts:
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}  {BOX['left_t_light']}{BOX['horizontal_light']} 📝 SYSTEM PROMPT (Language Enforcement):", Colors.YELLOW)
+            ))
+            
+            prompt_lines = self._format_prompt_block(prompts['system_prompt'], max_lines=5)
+            for pline in prompt_lines:
+                lines.append(self._box_line(
+                    self._colorize(f"{BOX['vertical_light']}  {BOX['vertical_light']}  ", Colors.GRAY) + pline
+                ))
+            
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
+            ))
+            
+            if 'user_prompt' in prompts:
+                lines.append(self._box_line(
+                    self._colorize(f"{BOX['vertical_light']}  {BOX['left_t_light']}{BOX['horizontal_light']} 📝 USER PROMPT (Rewrite Instruction):", Colors.YELLOW)
+                ))
+                
+                prompt_lines = self._format_prompt_block(prompts['user_prompt'], max_lines=5)
+                for pline in prompt_lines:
+                    lines.append(self._box_line(
+                        self._colorize(f"{BOX['vertical_light']}  {BOX['vertical_light']}  ", Colors.GRAY) + pline
+                    ))
+                
+                lines.append(self._box_line(
+                    self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
+                ))
         
         # Personality traits
         if traits:

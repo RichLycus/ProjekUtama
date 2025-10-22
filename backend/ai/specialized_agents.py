@@ -53,7 +53,14 @@ Be conversational and engaging.""")
                     "success": True,
                     "response": response,
                     "agent": "chat",
-                    "log": f"Chat response ({len(response)} chars)"
+                    "log": f"Chat response ({len(response)} chars)",
+                    "prompts": {
+                        "system_prompt": system_prompt,
+                        "user_prompt": prompt,
+                        "model": self.model,
+                        "temperature": self.temperature,
+                        "max_tokens": self.max_tokens
+                    }
                 }
             else:
                 logger.error("⚠️ Chat Agent failed")
@@ -61,7 +68,12 @@ Be conversational and engaging.""")
                     "success": False,
                     "response": "I'm having trouble responding right now.",
                     "agent": "chat",
-                    "log": f"Error: {result.get('error', 'Unknown')}"
+                    "log": f"Error: {result.get('error', 'Unknown')}",
+                    "prompts": {
+                        "system_prompt": system_prompt,
+                        "user_prompt": prompt,
+                        "error": result.get('error', 'Unknown')
+                    }
                 }
                 
         except Exception as e:
@@ -70,7 +82,10 @@ Be conversational and engaging.""")
                 "success": False,
                 "response": "I encountered an error.",
                 "agent": "chat",
-                "log": f"Error: {str(e)}"
+                "log": f"Error: {str(e)}",
+                "prompts": {
+                    "error": str(e)
+                }
             }
 
 

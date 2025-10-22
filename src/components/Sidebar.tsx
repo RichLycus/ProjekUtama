@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Home, Briefcase, Wrench, MessageSquare, Gamepad2, Settings, Search, User, Sun, Moon, ChevronLeft, ChevronRight, Activity } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useThemeStore } from '@/store/themeStore'
 import { useChatStore } from '@/store/chatStore'
-import ConversationList from './chat/ConversationList'
+import ConversationList, { ConversationListRef } from './chat/ConversationList'
 import AgentStatusModal from './chat/AgentStatusModal'
 
 const navItems = [
@@ -26,15 +26,25 @@ interface SidebarProps {
 export default function Sidebar({ currentConversationId, onSelectConversation, onNewChat }: SidebarProps) {
   const location = useLocation()
   const { actualTheme, setMode } = useThemeStore()
-  const { loading } = useChatStore()
+  const { loading, setOnConversationCreated } = useChatStore()
   const [collapsed, setCollapsed] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isMobile, setIsMobile] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [agentStatusOpen, setAgentStatusOpen] = useState(false)
+  
+  const conversationListRef = useRef<ConversationListRef>(null)
 
   const isChatPage = location.pathname === '/chat'
   const activeAgentsCount = loading ? 5 : 5 // All ready
+  
+  // Register callback to refresh conversations when new one is created
+  useEffect(() => {
+    setOnConversationCreated(() => {
+      // Refresh conversation list
+      conversationListRef.current?.refresh()
+    })
+  }, [])
   
   const toggleTheme = () => {
     setMode(actualTheme === 'dark' ? 'light' : 'dark')
@@ -221,6 +231,7 @@ export default function Sidebar({ currentConversationId, onSelectConversation, o
             </div>
             <div className="h-[calc(100%-40px)] overflow-y-auto px-3 py-2">
               <ConversationList
+                ref={conversationListRef}
                 currentConversationId={currentConversationId}
                 onSelectConversation={onSelectConversation}
                 onNewChat={onNewChat}

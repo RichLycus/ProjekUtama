@@ -229,15 +229,18 @@ Improved request:"""
                     "confidence": 1.0,
                     "needs_rag": False,
                     "needs_tools": False,
+                    "keywords": [user_input_lower.strip()],
                     "log": "Simple greeting detected"
                 }
             
             # Check keywords for each intent
             intent_scores = {}
+            matched_keywords = []
             for intent_type, keywords in self.routing_keywords.items():
                 score = sum(1 for keyword in keywords if keyword in user_input_lower)
                 if score > 0:
                     intent_scores[intent_type] = score
+                    matched_keywords.extend([kw for kw in keywords if kw in user_input_lower])
             
             # If we have clear keyword matches
             if intent_scores:
@@ -256,6 +259,7 @@ Improved request:"""
                     "confidence": confidence,
                     "needs_rag": needs_rag,
                     "needs_tools": needs_tools,
+                    "keywords": matched_keywords[:5],  # Top 5 matched keywords
                     "log": f"Keyword-based classification: {best_intent}"
                 }
             
@@ -291,7 +295,14 @@ Improved request:"""
                     "confidence": 0.8,
                     "needs_rag": needs_rag,
                     "needs_tools": needs_tools,
-                    "log": f"LLM classification: {intent}"
+                    "keywords": [],
+                    "log": f"LLM classification: {intent}",
+                    "prompts": {
+                        "system_prompt": self.system_prompt,
+                        "user_prompt": prompt,
+                        "model": self.model,
+                        "temperature": 0.2
+                    }
                 }
             else:
                 logger.warning("⚠️ Classification failed, defaulting to chat")
@@ -301,6 +312,7 @@ Improved request:"""
                     "confidence": 0.5,
                     "needs_rag": False,
                     "needs_tools": False,
+                    "keywords": [],
                     "log": "Classification failed, default to chat"
                 }
                 
@@ -312,6 +324,7 @@ Improved request:"""
                 "confidence": 0.5,
                 "needs_rag": False,
                 "needs_tools": False,
+                "keywords": [],
                 "log": f"Error: {str(e)}"
             }
     

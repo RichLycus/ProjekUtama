@@ -366,7 +366,8 @@ class MultiModelOrchestrator:
                         duration=specialist_duration,
                         step_num=3,
                         agent_display_name=agent_display_name,
-                        response_preview=raw_response
+                        response_preview=raw_response,
+                        prompts=agent_result.get('prompts', {})
                     )
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to log specialist agent step: {e}")
@@ -418,7 +419,8 @@ class MultiModelOrchestrator:
                         duration=persona_duration,
                         agent_display_name=agent_display_name,
                         step_num=4,  # This is step 4 in multi-model (Router->RAG->Specialist->Persona)
-                        final_response_preview=final_response
+                        final_response_preview=final_response,
+                        prompts=persona_result.get('prompts', {})
                     )
                     
                     # Finish the flow log
