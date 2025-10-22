@@ -318,8 +318,8 @@ class ChatFlowLogger:
                 if 'output_tokens' in result:
                     self.metrics['output_tokens'] += result['output_tokens']
     
-    def log_router(self, intent: str, confidence: float, keywords: list, model_info: Dict, duration: float, agent_display_name: str = None):
-        """Log router agent step"""
+    def log_router(self, intent: str, confidence: float, keywords: list, model_info: Dict, duration: float, agent_display_name: str = None, improved_input: str = None, original_input: str = None):
+        """Log router agent step with content details"""
         lines = []
         
         lines.append(self._box_line(self._colorize(BOX['top_left_light'] + self._horizontal_line(width=81, heavy=False) + BOX['top_right_light'], Colors.GRAY)))
@@ -339,7 +339,7 @@ class ChatFlowLogger:
         status_icon = self._colorize(f"{EMOJI['success']} {duration_str}", Colors.GREEN)
         
         lines.append(self._box_line(
-            self._colorize(f"{BOX['vertical_light']}  [1/5] {EMOJI['router']} {display_name.upper()}", Colors.BOLD + Colors.BLUE) +
+            self._colorize(f"{BOX['vertical_light']}  [1/4] {EMOJI['router']} {display_name.upper()}", Colors.BOLD + Colors.BLUE) +
             " " * (56 - len(display_name) - len(duration_str)) + status_icon +
             self._colorize(f"  {BOX['vertical_light']}", Colors.GRAY)
         ))
@@ -380,7 +380,7 @@ class ChatFlowLogger:
         
         # Classification results
         lines.append(self._box_line(
-            self._colorize(f"{BOX['vertical_light']}  {BOX['left_t_light']}{BOX['horizontal_light']} {EMOJI['target']} Classification Phase:", Colors.GRAY)
+            self._colorize(f"{BOX['vertical_light']}  {BOX['left_t_light']}{BOX['horizontal_light']} {EMOJI['target']} Classification Results:", Colors.GRAY)
         ))
         lines.append(self._box_line(
             self._colorize(f"{BOX['vertical_light']}  {BOX['vertical_light']}   {BOX['left_t_light']}{BOX['horizontal_light']} Intent: ", Colors.GRAY) +
@@ -394,9 +394,45 @@ class ChatFlowLogger:
         if keywords:
             keywords_str = ", ".join(keywords[:5])
             lines.append(self._box_line(
-                self._colorize(f"{BOX['vertical_light']}  {BOX['vertical_light']}   {BOX['bottom_left_light']}{BOX['horizontal_light']} Keywords: ", Colors.GRAY) +
+                self._colorize(f"{BOX['vertical_light']}  {BOX['vertical_light']}   {BOX['left_t_light']}{BOX['horizontal_light']} Keywords: ", Colors.GRAY) +
                 self._colorize(f"[{keywords_str}]", Colors.CYAN)
             ))
+        
+        # Show improved input if different from original
+        if improved_input and original_input and improved_input != original_input:
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}  {BOX['vertical_light']}   {BOX['bottom_left_light']}{BOX['horizontal_light']} Query Improved: ", Colors.GRAY) +
+                self._colorize("YES", Colors.GREEN)
+            ))
+            
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}  {BOX['vertical_light']}", Colors.GRAY)
+            ))
+            
+            # Show improved query content
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}  {BOX['left_t_light']}{BOX['horizontal_light']} {EMOJI['output']} Improved Query:", Colors.GRAY)
+            ))
+            
+            # Split improved input into lines (max 75 chars per line)
+            max_line_length = 73
+            words = improved_input.split()
+            current_line = ""
+            for word in words:
+                if len(current_line) + len(word) + 1 <= max_line_length:
+                    current_line += (word + " ")
+                else:
+                    if current_line:
+                        lines.append(self._box_line(
+                            self._colorize(f"{BOX['vertical_light']}     ", Colors.GRAY) +
+                            f'"{current_line.strip()}"'
+                        ))
+                    current_line = word + " "
+            if current_line:
+                lines.append(self._box_line(
+                    self._colorize(f"{BOX['vertical_light']}     ", Colors.GRAY) +
+                    f'"{current_line.strip()}"'
+                ))
         
         lines.append(self._box_line(
             self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
@@ -406,8 +442,8 @@ class ChatFlowLogger:
         for line in lines:
             self._write(line)
     
-    def log_rag(self, docs_found: int, relevant_docs: int, context_length: int, duration: float, agent_display_name: str = None):
-        """Log RAG agent step"""
+    def log_rag(self, docs_found: int, relevant_docs: int, context_length: int, duration: float, agent_display_name: str = None, context_preview: str = None):
+        """Log RAG agent step with context preview"""
         lines = []
         
         lines.append(self._box_line(self._colorize(BOX['top_left_light'] + self._horizontal_line(width=81, heavy=False) + BOX['top_right_light'], Colors.GRAY)))
@@ -426,7 +462,7 @@ class ChatFlowLogger:
         
         status_icon = self._colorize(f"{EMOJI['success']} {duration_str}", Colors.GREEN)
         lines.append(self._box_line(
-            self._colorize(f"{BOX['vertical_light']}  [2/5] {EMOJI['rag']} {display_name.upper()}", Colors.BOLD + Colors.BLUE) +
+            self._colorize(f"{BOX['vertical_light']}  [2/4] {EMOJI['rag']} {display_name.upper()}", Colors.BOLD + Colors.BLUE) +
             " " * (58 - len(display_name) - len(duration_str)) + status_icon +
             self._colorize(f"  {BOX['vertical_light']}", Colors.GRAY)
         ))
@@ -468,6 +504,38 @@ class ChatFlowLogger:
             self._colorize(f"{context_length:,} chars", Colors.WHITE)
         ))
         
+        # Show context preview if available
+        if context_preview and len(context_preview) > 0:
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
+            ))
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}  {BOX['left_t_light']}{BOX['horizontal_light']} {EMOJI['output']} Context Preview:", Colors.GRAY)
+            ))
+            
+            # Show first 200 chars of context
+            preview_text = context_preview[:200] + "..." if len(context_preview) > 200 else context_preview
+            
+            # Split preview into lines
+            max_line_length = 73
+            words = preview_text.split()
+            current_line = ""
+            for word in words:
+                if len(current_line) + len(word) + 1 <= max_line_length:
+                    current_line += (word + " ")
+                else:
+                    if current_line:
+                        lines.append(self._box_line(
+                            self._colorize(f"{BOX['vertical_light']}     ", Colors.GRAY) +
+                            self._colorize(current_line.strip(), Colors.CYAN)
+                        ))
+                    current_line = word + " "
+            if current_line:
+                lines.append(self._box_line(
+                    self._colorize(f"{BOX['vertical_light']}     ", Colors.GRAY) +
+                    self._colorize(current_line.strip(), Colors.CYAN)
+                ))
+        
         lines.append(self._box_line(
             self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
         ))
@@ -476,8 +544,8 @@ class ChatFlowLogger:
         for line in lines:
             self._write(line)
     
-    def log_specialized_agent(self, agent_name: str, agent_type: str, model_info: Dict, metrics: Dict, duration: float, step_num: int, agent_display_name: str = None):
-        """Log specialized agent (code, chat, analysis, creative, tool)"""
+    def log_specialized_agent(self, agent_name: str, agent_type: str, model_info: Dict, metrics: Dict, duration: float, step_num: int, agent_display_name: str = None, response_preview: str = None):
+        """Log specialized agent (code, chat, analysis, creative, tool) with response preview"""
         lines = []
         
         emoji_map = {
@@ -506,7 +574,7 @@ class ChatFlowLogger:
         
         status_icon = self._colorize(f"{EMOJI['success']} {duration_str}", Colors.GREEN)
         lines.append(self._box_line(
-            self._colorize(f"{BOX['vertical_light']}  [{step_num}/5] {emoji} {display_name.upper()}", Colors.BOLD + Colors.BLUE) +
+            self._colorize(f"{BOX['vertical_light']}  [{step_num}/4] {emoji} {display_name.upper()}", Colors.BOLD + Colors.BLUE) +
             " " * (60 - len(display_name) - len(duration_str)) + status_icon +
             self._colorize(f"  {BOX['vertical_light']}", Colors.GRAY)
         ))
@@ -554,7 +622,7 @@ class ChatFlowLogger:
             
             if 'response_length' in metrics:
                 lines.append(self._box_line(
-                    self._colorize(f"{BOX['vertical_light']}  {BOX['vertical_light']}   {BOX['left_t_light']}{BOX['horizontal_light']} Response length: ", Colors.GRAY) +
+                    self._colorize(f"{BOX['vertical_light']}  {BOX['vertical_light']}   {BOX['bottom_left_light']}{BOX['horizontal_light']} Response length: ", Colors.GRAY) +
                     self._colorize(f"{metrics['response_length']} chars", Colors.WHITE)
                 ))
             
@@ -566,6 +634,38 @@ class ChatFlowLogger:
                     self._colorize(f"{score}/100", score_color)
                 ))
         
+        # Show response preview if available
+        if response_preview and len(response_preview) > 0:
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
+            ))
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}  {BOX['left_t_light']}{BOX['horizontal_light']} {EMOJI['output']} Response Preview:", Colors.GRAY)
+            ))
+            
+            # Show first 200 chars of response
+            preview_text = response_preview[:200] + "..." if len(response_preview) > 200 else response_preview
+            
+            # Split preview into lines
+            max_line_length = 73
+            words = preview_text.split()
+            current_line = ""
+            for word in words:
+                if len(current_line) + len(word) + 1 <= max_line_length:
+                    current_line += (word + " ")
+                else:
+                    if current_line:
+                        lines.append(self._box_line(
+                            self._colorize(f"{BOX['vertical_light']}     ", Colors.GRAY) +
+                            self._colorize(current_line.strip(), Colors.YELLOW)
+                        ))
+                    current_line = word + " "
+            if current_line:
+                lines.append(self._box_line(
+                    self._colorize(f"{BOX['vertical_light']}     ", Colors.GRAY) +
+                    self._colorize(current_line.strip(), Colors.YELLOW)
+                ))
+        
         lines.append(self._box_line(
             self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
         ))
@@ -574,8 +674,8 @@ class ChatFlowLogger:
         for line in lines:
             self._write(line)
     
-    def log_persona(self, persona_name: str, traits: Dict, model_info: Dict, duration: float, agent_display_name: str = None, step_num: int = 5):
-        """Log persona agent step"""
+    def log_persona(self, persona_name: str, traits: Dict, model_info: Dict, duration: float, agent_display_name: str = None, step_num: int = 4, final_response_preview: str = None):
+        """Log persona agent step with final response preview"""
         lines = []
         
         lines.append(self._box_line(self._colorize(BOX['top_left_light'] + self._horizontal_line(width=81, heavy=False) + BOX['top_right_light'], Colors.GRAY)))
@@ -600,7 +700,7 @@ class ChatFlowLogger:
         padding = max(0, 60 - len(display_name) - len(duration_str))
         
         lines.append(self._box_line(
-            self._colorize(f"{BOX['vertical_light']}  [{step_num}/5] {EMOJI['persona']} {display_name.upper()}", Colors.BOLD + Colors.MAGENTA) +
+            self._colorize(f"{BOX['vertical_light']}  [{step_num}/4] {EMOJI['persona']} {display_name.upper()}", Colors.BOLD + Colors.MAGENTA) +
             " " * padding + status_icon +
             self._colorize(f"  {BOX['vertical_light']}", Colors.GRAY)
         ))
@@ -658,6 +758,38 @@ class ChatFlowLogger:
                         self._colorize(bar, Colors.MAGENTA) +
                         self._colorize(f" {value}%", Colors.WHITE)
                     ))
+        
+        # Show final response preview if available
+        if final_response_preview and len(final_response_preview) > 0:
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)
+            ))
+            lines.append(self._box_line(
+                self._colorize(f"{BOX['vertical_light']}  {BOX['left_t_light']}{BOX['horizontal_light']} {EMOJI['output']} Final Response Preview:", Colors.GRAY)
+            ))
+            
+            # Show first 200 chars of final response
+            preview_text = final_response_preview[:200] + "..." if len(final_response_preview) > 200 else final_response_preview
+            
+            # Split preview into lines
+            max_line_length = 73
+            words = preview_text.split()
+            current_line = ""
+            for word in words:
+                if len(current_line) + len(word) + 1 <= max_line_length:
+                    current_line += (word + " ")
+                else:
+                    if current_line:
+                        lines.append(self._box_line(
+                            self._colorize(f"{BOX['vertical_light']}     ", Colors.GRAY) +
+                            self._colorize(current_line.strip(), Colors.MAGENTA)
+                        ))
+                    current_line = word + " "
+            if current_line:
+                lines.append(self._box_line(
+                    self._colorize(f"{BOX['vertical_light']}     ", Colors.GRAY) +
+                    self._colorize(current_line.strip(), Colors.MAGENTA)
+                ))
         
         lines.append(self._box_line(
             self._colorize(f"{BOX['vertical_light']}", Colors.GRAY) + " " * 79 + self._colorize(f"{BOX['vertical_light']}", Colors.GRAY)

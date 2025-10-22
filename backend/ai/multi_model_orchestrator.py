@@ -227,7 +227,9 @@ class MultiModelOrchestrator:
                             'max_tokens': router_config.get('max_tokens', 500)
                         },
                         duration=router_duration,
-                        agent_display_name=agent_display_name
+                        agent_display_name=agent_display_name,
+                        improved_input=final_input,
+                        original_input=user_input
                     )
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to log router step: {e}")
@@ -262,7 +264,8 @@ class MultiModelOrchestrator:
                             relevant_docs=relevant_docs,
                             context_length=context_length,
                             duration=rag_duration,
-                            agent_display_name=agent_display_name
+                            agent_display_name=agent_display_name,
+                            context_preview=rag_context
                         )
                     except Exception as e:
                         logger.warning(f"⚠️ Failed to log RAG step: {e}")
@@ -362,7 +365,8 @@ class MultiModelOrchestrator:
                         },
                         duration=specialist_duration,
                         step_num=3,
-                        agent_display_name=agent_display_name
+                        agent_display_name=agent_display_name,
+                        response_preview=raw_response
                     )
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to log specialist agent step: {e}")
@@ -413,7 +417,8 @@ class MultiModelOrchestrator:
                         },
                         duration=persona_duration,
                         agent_display_name=agent_display_name,
-                        step_num=4  # This is step 4 in multi-model (Router->RAG->Specialist->Persona)
+                        step_num=4,  # This is step 4 in multi-model (Router->RAG->Specialist->Persona)
+                        final_response_preview=final_response
                     )
                     
                     # Finish the flow log
