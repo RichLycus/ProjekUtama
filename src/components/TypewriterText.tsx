@@ -11,7 +11,7 @@ interface TypewriterTextProps {
 
 export default function TypewriterText({ 
   text, 
-  speed = 50, // Dramatic speed: 50ms per character
+  speed = 20, // Fast speed: 20ms per character (was 50ms)
   onComplete,
   className = "",
   cursorColor = "text-primary"
@@ -34,13 +34,13 @@ export default function TypewriterText({
       const char = text[currentIndex]
       let delay = speed
       
-      // Dramatic pauses for punctuation
+      // Reduced pauses for punctuation for faster feel
       if (char === '.' || char === '!' || char === '?') {
-        delay = speed * 8 // Longer pause after sentences
+        delay = speed * 3 // Shorter pause after sentences (was 8)
       } else if (char === ',' || char === ';' || char === ':') {
-        delay = speed * 4 // Medium pause for commas
+        delay = speed * 2 // Shorter pause for commas (was 4)
       } else if (char === '\n') {
-        delay = speed * 6 // Pause for new lines
+        delay = speed * 2 // Shorter pause for new lines (was 6)
       }
 
       timeoutRef.current = setTimeout(() => {

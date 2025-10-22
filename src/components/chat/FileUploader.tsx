@@ -6,7 +6,7 @@ import axios from 'axios'
 
 interface FileUploaderProps {
   onFileUploaded?: (file: UploadedFile) => void
-  accept?: string
+  accept?: string // Dibiarkan di interface kalau mau dipakai nanti
   maxSize?: number
   multiple?: boolean
 }
@@ -24,7 +24,7 @@ export interface UploadedFile {
 
 export default function FileUploader({
   onFileUploaded,
-  accept = '.pdf,.docx,.doc,.txt,.md,.csv',
+  // accept = '.pdf,.docx,.doc,.txt,.md,.csv', // <--- Dihapus untuk menghilangkan error TS6133
   maxSize = 10 * 1024 * 1024, // 10MB
   multiple = false
 }: FileUploaderProps) {

@@ -52,6 +52,7 @@ class MessageRequest(BaseModel):
     content: str
     role: str = "user"  # user | assistant | system
     persona_id: Optional[str] = None  # Optional persona override
+    mode: Optional[str] = "flash"  # Chat mode: flash | pro
 
 class MessageResponse(BaseModel):
     id: str
@@ -66,6 +67,7 @@ class ConversationResponse(BaseModel):
     id: str
     title: str
     persona: str
+    mode: Optional[str] = "flash"  # Chat mode: flash | pro
     created_at: str
     updated_at: str
 
@@ -121,12 +123,13 @@ async def send_message(request: MessageRequest):
         conversation_id = request.conversation_id
         
         if not conversation_id:
-            # Create new conversation with persona_id
+            # Create new conversation with persona_id and mode
             conversation_id = str(uuid.uuid4())
             db.insert_conversation({
                 'id': conversation_id,
                 'title': request.content[:50] + ('...' if len(request.content) > 50 else ''),
                 'persona': persona_obj['id'],  # Store persona_id instead of name
+                'mode': request.mode or 'flash',  # Store chat mode
                 'created_at': timestamp,
                 'updated_at': timestamp
             })

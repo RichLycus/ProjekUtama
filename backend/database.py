@@ -490,17 +490,38 @@ class SQLiteDB:
         """Insert a new conversation"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO conversations (
-                    id, title, persona, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?)
-            """, (
-                conversation_data['id'],
-                conversation_data.get('title', 'New Conversation'),
-                conversation_data.get('persona', 'lycus'),
-                conversation_data['created_at'],
-                conversation_data['updated_at']
-            ))
+            
+            # Check if mode column exists
+            cursor.execute("PRAGMA table_info(conversations)")
+            columns = [col[1] for col in cursor.fetchall()]
+            
+            if 'mode' in columns:
+                cursor.execute("""
+                    INSERT INTO conversations (
+                        id, title, persona, mode, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    conversation_data['id'],
+                    conversation_data.get('title', 'New Conversation'),
+                    conversation_data.get('persona', 'lycus'),
+                    conversation_data.get('mode', 'flash'),
+                    conversation_data['created_at'],
+                    conversation_data['updated_at']
+                ))
+            else:
+                # Legacy fallback (no mode column)
+                cursor.execute("""
+                    INSERT INTO conversations (
+                        id, title, persona, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?)
+                """, (
+                    conversation_data['id'],
+                    conversation_data.get('title', 'New Conversation'),
+                    conversation_data.get('persona', 'lycus'),
+                    conversation_data['created_at'],
+                    conversation_data['updated_at']
+                ))
+            
             return conversation_data['id']
     
     def get_conversations(self, limit: int = 50) -> List[Dict[str, Any]]:

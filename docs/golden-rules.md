@@ -189,7 +189,7 @@ docs/phase/phase-1.md        # Gunakan underscore ❌
 
 ---
 
-## 🧪 **RULE #3: Test Files (test_*.py)**
+## 🧪 **RULE #3: Test Files dan Testing Protocol**
 
 ### ✅ ATURAN KETAT:
 
@@ -214,6 +214,34 @@ docs/phase/phase-1.md        # Gunakan underscore ❌
        assert result == expected
    ```
 
+### 🚫 TESTING PROTOCOL (PENTING!)
+
+**JANGAN auto-test di setiap percakapan!**
+
+1. **Manual Testing First** (DEFAULT)
+   - ✅ Biarkan user yang test sendiri terlebih dahulu
+   - ✅ User akan report jika ada bug atau issue
+   - ✅ Fokus pada implementation dan bug fixing
+   - ❌ JANGAN langsung run automated tests setelah setiap perubahan
+
+2. **Automated Testing** (ONLY WHEN REQUESTED)
+   - ✅ HANYA jalankan automated tests jika user explicitly meminta
+   - ✅ Contoh request valid: "tolong test dengan testing agent", "run automated tests"
+   - ❌ JANGAN auto-test tanpa diminta, ini membuang waktu dan resources
+
+3. **Backend Testing Protocol**
+   - ✅ Untuk backend changes: User akan test manual via UI atau curl
+   - ✅ Backend restart otomatis via supervisor (hot reload aktif)
+   - ❌ JANGAN langsung curl test setiap endpoint
+   - ❌ JANGAN langsung run integration tests
+   - ℹ️  User lebih paham workflow mereka sendiri
+
+4. **Bug Fixing Protocol**
+   - ✅ User report bug → Fix bug → Biarkan user verify
+   - ✅ Fokus pada root cause analysis dan solution
+   - ❌ JANGAN auto-test setelah bug fix
+   - ℹ️  User akan confirm jika fix berhasil
+
 ### 📋 Contoh Test Files:
 ```bash
 ✅ BENAR:
@@ -227,6 +255,13 @@ test_ipc.py                    # Di root ❌
 electron/test_main.py          # Di folder fitur ❌
 tests/ipc_tests.py             # Format nama salah ❌
 ```
+
+### 💡 Why This Rule?
+
+- **Efficiency**: User testing lebih cepat untuk simple changes
+- **Context**: User tahu better apa yang perlu di-test
+- **Resources**: Automated tests consume CPU/memory
+- **Workflow**: User punya workflow testing sendiri yang lebih efficient
 
 ---
 

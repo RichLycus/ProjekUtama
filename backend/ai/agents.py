@@ -250,7 +250,7 @@ class PersonaAgent:
         
     def format_response(self, raw_response: str, persona = None) -> Dict[str, Any]:
         """
-        Apply persona formatting to response
+        Apply persona formatting to response with LLM-based enforcement
         
         Args:
             raw_response: The response to format
@@ -272,17 +272,94 @@ class PersonaAgent:
             
             logger.info(f"✨ Persona Agent: Applying '{persona_name}' style...")
             
-            # If we have full persona object, use personality_traits
-            if persona_obj and 'personality_traits' in persona_obj:
+            # If we have full persona object with system_prompt, use LLM enforcement
+            if persona_obj and persona_obj.get('system_prompt'):
+                traits = persona_obj.get('personality_traits', {})
+                response_style = persona_obj.get('response_style', 'balanced')
+                tone = persona_obj.get('tone', 'friendly')
+                user_greeting = persona_obj.get('user_greeting', 'Kawan')
+                ai_name = persona_obj.get('ai_name', 'Assistant')
+                ai_nickname = persona_obj.get('ai_nickname', '')
+                system_prompt = persona_obj.get('system_prompt')
+                preferred_language = persona_obj.get('preferred_language', 'id')
+                
+                logger.info(f"   Using LLM-based persona enforcement")
+                logger.info(f"   AI Name: {ai_name}, Style: {response_style}, Tone: {tone}")
+                logger.info(f"   Preferred Language: {preferred_language}")
+                
+                # Build persona-specific prompt
+                persona_context = f"""
+Identitas Anda:
+- Nama: {ai_name} {f'({ai_nickname})' if ai_nickname else ''}
+- Panggilan untuk user: {user_greeting}
+- Gaya respons: {response_style}
+- Tone: {tone}
+- Bahasa yang digunakan: {'Bahasa Indonesia' if preferred_language == 'id' else 'English'}
+
+Personality Traits (skala 0-100):
+- Technical depth: {traits.get('technical', 50)}
+- Friendliness: {traits.get('friendly', 50)}
+- Directness: {traits.get('direct', 50)}
+- Creativity: {traits.get('creative', 50)}
+- Professionalism: {traits.get('professional', 50)}
+"""
+                
+                # Combine system prompt with persona context
+                full_system_prompt = f"{system_prompt}\n\n{persona_context}"
+                
+                # User prompt with raw response
+                user_prompt = f"""Berikut adalah draf respons dari Agent sebelumnya:
+
+{raw_response}
+
+Silakan tulis ulang respons ini sesuai dengan persona dan bahasa yang diminta. Pastikan:
+1. Menggunakan {'Bahasa Indonesia' if preferred_language == 'id' else 'English'} secara konsisten
+2. Mencerminkan personality traits yang diberikan
+3. Tetap menjaga akurasi fakta dan informasi
+4. Terasa natural dan engaging"""
+                
+                # Call LLM for persona enforcement
+                result = self.client.generate(
+                    model=self.model,
+                    prompt=user_prompt,
+                    system=full_system_prompt,
+                    temperature=0.6,
+                    max_tokens=2000
+                )
+                
+                if result["success"]:
+                    formatted = result["response"].strip()
+                    logger.info(f"✅ Persona: LLM-based formatting complete ({len(formatted)} chars)")
+                    
+                    return {
+                        "success": True,
+                        "response": formatted,
+                        "persona": persona_name,
+                        "log": f"Applied {ai_name} persona with LLM enforcement"
+                    }
+                else:
+                    # Fallback to simple formatting
+                    logger.warning(f"⚠️ LLM formatting failed, using fallback")
+                    formatted = self._apply_personality_formatting(
+                        raw_response, traits, response_style, tone, user_greeting, ai_name
+                    )
+                    
+                    return {
+                        "success": True,
+                        "response": formatted,
+                        "persona": persona_name,
+                        "log": f"Applied {ai_name} persona (fallback formatting)"
+                    }
+            
+            # If we have persona object but no system_prompt, use simple formatting
+            elif persona_obj and 'personality_traits' in persona_obj:
                 traits = persona_obj['personality_traits']
                 response_style = persona_obj.get('response_style', 'balanced')
                 tone = persona_obj.get('tone', 'friendly')
                 user_greeting = persona_obj.get('user_greeting', 'Kawan')
                 ai_name = persona_obj.get('ai_name', 'Assistant')
                 
-                logger.info(f"   Using personality traits: technical={traits.get('technical', 50)}, "
-                          f"friendly={traits.get('friendly', 50)}, direct={traits.get('direct', 50)}")
-                logger.info(f"   Style: {response_style}, Tone: {tone}")
+                logger.info(f"   Using simple personality-based formatting")
                 
                 # Apply personality-based formatting
                 formatted = self._apply_personality_formatting(
