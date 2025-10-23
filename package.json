@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/pre-build.cjs && node scripts/build-icons.cjs && tsc && vite build && electron-builder",
+    "build": "node scripts/pre-build.cjs && node scripts/build-icons.cjs && python3 build_standalone.py --frontend-only && tsc && vite build && electron-builder",
+    "build:full": "python3 build_standalone.py",
+    "build:backend": "python3 build_standalone.py --backend-only",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "node scripts/pre-build.cjs && node scripts/build-icons.cjs && vite build && electron-builder"
@@ -68,19 +70,21 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*",
-      "backend/**/*",
-      "!backend/__pycache__",
-      "!backend/**/*.pyc"
+      "dist-electron/**/*"
     ],
     "extraResources": [
       {
-        "from": "backend",
-        "to": "backend",
+        "from": "backend/dist/chimera-backend",
+        "to": "backend-dist/chimera-backend",
         "filter": [
-          "**/*",
-          "!__pycache__",
-          "!**/*.pyc"
+          "**/*"
+        ]
+      },
+      {
+        "from": "backend/data",
+        "to": "backend-data",
+        "filter": [
+          "**/*"
         ]
       },
       {
@@ -103,7 +107,14 @@
     "linux": {
       "target": "AppImage",
       "icon": "build/icon.png",
-      "category": "Utility"
+      "category": "Utility",
+      "desktop": {
+        "Name": "ChimeraAI",
+        "Comment": "Intelligent Desktop Assistant with AI",
+        "Terminal": false,
+        "Type": "Application",
+        "Categories": "Utility;Development;Office;"
+      }
     }
   }
 }

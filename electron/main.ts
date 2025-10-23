@@ -50,36 +50,65 @@ async function startBackend() {
     
     console.log('[Backend] Backend not running, starting it now...')
     
-    // Determine backend path
+    // Determine if running in development or production
     const isDev = process.env.NODE_ENV !== 'production'
-    const backendDir = isDev 
-      ? path.join(process.env.APP_ROOT || '', 'backend')
-      : path.join(process.resourcesPath, 'backend')
     
-    console.log('[Backend] Backend directory:', backendDir)
-    
-    // Check if backend directory exists
-    if (!fs.existsSync(backendDir)) {
-      console.error('[Backend] Backend directory not found:', backendDir)
-      // Continue anyway - maybe backend is running externally
-      return
+    if (isDev) {
+      // Development mode: Use Python source files
+      console.log('[Backend] Running in DEVELOPMENT mode (Python source)')
+      
+      const backendDir = path.join(process.env.APP_ROOT || '', 'backend')
+      console.log('[Backend] Backend directory:', backendDir)
+      
+      if (!fs.existsSync(backendDir)) {
+        console.error('[Backend] Backend directory not found:', backendDir)
+        return
+      }
+      
+      const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
+      
+      backendProcess = spawn(pythonCmd, [
+        '-m', 'uvicorn',
+        'server:app',
+        '--host', '127.0.0.1',
+        '--port', '8001',
+        '--reload'
+      ], {
+        cwd: backendDir,
+        env: { ...process.env },
+        stdio: 'pipe'
+      })
+    } else {
+      // Production mode: Use PyInstaller executable
+      console.log('[Backend] Running in PRODUCTION mode (bundled executable)')
+      
+      const backendExecutable = path.join(
+        process.resourcesPath,
+        'backend-dist',
+        'chimera-backend',
+        'chimera-backend'
+      )
+      
+      console.log('[Backend] Executable path:', backendExecutable)
+      
+      if (!fs.existsSync(backendExecutable)) {
+        console.error('[Backend] Backend executable not found:', backendExecutable)
+        console.error('[Backend] App cannot start without backend!')
+        return
+      }
+      
+      // Make sure executable has proper permissions
+      try {
+        fs.chmodSync(backendExecutable, 0o755)
+      } catch (e) {
+        console.warn('[Backend] Could not chmod executable:', e)
+      }
+      
+      backendProcess = spawn(backendExecutable, [], {
+        env: { ...process.env },
+        stdio: 'pipe'
+      })
     }
-    
-    // Find Python executable
-    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
-    
-    // Start backend server
-    backendProcess = spawn(pythonCmd, [
-      '-m', 'uvicorn',
-      'server:app',
-      '--host', '127.0.0.1',
-      '--port', '8001',
-      '--reload'
-    ], {
-      cwd: backendDir,
-      env: { ...process.env },
-      stdio: 'pipe'
-    })
     
     if (backendProcess.stdout) {
       backendProcess.stdout.on('data', (data) => {
@@ -102,9 +131,20 @@ async function startBackend() {
       backendProcess = null
     })
     
-    // Wait a bit for backend to start
-    await new Promise(resolve => setTimeout(resolve, 3000))
-    console.log('[Backend] Backend startup initiated')
+    // Wait for backend to start
+    console.log('[Backend] Waiting for backend to be ready...')
+    const maxRetries = 30
+    for (let i = 0; i < maxRetries; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      const ready = await checkBackendHealth()
+      if (ready) {
+        console.log('[Backend] ✅ Backend is ready!')
+        return
+      }
+      console.log(`[Backend] Retry ${i + 1}/${maxRetries}...`)
+    }
+    
+    console.warn('[Backend] Backend did not respond in time, but continuing...')
     
   } catch (error) {
     console.error('[Backend] Error starting backend:', error)
