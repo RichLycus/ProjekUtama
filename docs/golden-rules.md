@@ -400,11 +400,15 @@ docs/phase/phase-1.md        # Gunakan underscore ❌
    - ✅ Contoh request valid: "tolong test dengan testing agent", "run automated tests"
    - ❌ JANGAN auto-test tanpa diminta, ini membuang waktu dan resources
 
-3. **Backend Testing Protocol**
+3. **Backend Testing Protocol** ⚠️ **SUPER CRITICAL**
    - ✅ Untuk backend changes: User akan test manual via UI atau curl
    - ✅ Backend restart otomatis via supervisor (hot reload aktif)
-   - ❌ JANGAN langsung curl test setiap endpoint
-   - ❌ JANGAN langsung run integration tests
+   - ❌ **DILARANG KERAS**: curl test setiap endpoint tanpa konfirmasi
+   - ❌ **DILARANG KERAS**: run integration tests tanpa konfirmasi
+   - ❌ **DILARANG KERAS**: cek backend logs tanpa konfirmasi user
+   - ❌ **DILARANG KERAS**: tail logs backend untuk verification
+   - 🛑 **WAJIB**: **MINTA KONFIRMASI USER** sebelum testing backend dengan cara apapun
+   - 🛑 **WAJIB**: Setelah selesai implementation, **STOP dan MINTA USER untuk test**
    - ℹ️  User lebih paham workflow mereka sendiri
 
 4. **Bug Fixing Protocol**
@@ -412,6 +416,14 @@ docs/phase/phase-1.md        # Gunakan underscore ❌
    - ✅ Fokus pada root cause analysis dan solution
    - ❌ JANGAN auto-test setelah bug fix
    - ℹ️  User akan confirm jika fix berhasil
+
+5. **After Implementation Protocol** ⭐ **NEW**
+   - ✅ Selesai coding → **STOP IMMEDIATELY**
+   - ✅ **JANGAN cek logs backend** tanpa diminta
+   - ✅ **JANGAN curl test** tanpa diminta
+   - ✅ **ASK USER**: "Implementasi sudah selesai, apakah Anda ingin saya bantu test backend?"
+   - ✅ Tunggu user response sebelum lakukan apapun
+   - ❌ JANGAN asumsi user mau test otomatis
 
 ### 📋 Contoh Test Files:
 ```bash

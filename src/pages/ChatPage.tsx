@@ -9,7 +9,7 @@ import AgentInfoBadge from '../components/chat/AgentInfoBadge'
 import ChatModeSelector from '../components/chat/ChatModeSelector'
 import ActionCards from '../components/chat/ActionCards'
 import FileManagerModal from '../components/chat/FileManagerModal'
-import { MessageSquare, AlertCircle, Sparkles, Zap, Brain, FolderOpen } from 'lucide-react'
+import { MessageSquare, AlertCircle, Sparkles, Zap, Brain, FolderOpen, UserCircle } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 export default function ChatPage() {
@@ -82,6 +82,29 @@ export default function ChatPage() {
 
           {/* Right Side Controls */}
           <div className="flex items-center gap-2">
+            {/* Personal Settings Button */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                // Trigger global event to open modal
+                window.dispatchEvent(new CustomEvent('openPersonalSettings'))
+              }}
+              className={cn(
+                "p-2 rounded-full border shadow-md hover:shadow-lg transition-all",
+                actualTheme === 'dark'
+                  ? "bg-dark-surface border-gray-700 hover:bg-dark-surface-hover"
+                  : "bg-white border-gray-200 hover:border-gray-300"
+              )}
+              title="Personal Settings"
+              data-testid="personal-settings-button"
+            >
+              <UserCircle className={cn(
+                "w-5 h-5",
+                actualTheme === 'dark' ? 'text-white' : 'text-gray-700'
+              )} />
+            </motion.button>
+            
             {/* File Manager Button */}
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -347,8 +370,7 @@ export default function ChatPage() {
             conversationId={conversationId}
           />
         </div>
-      {/* </div> <-- TAG INI HILANG */}
-
+      
       {/* Modals */}
       <ChatModeSelector
         isOpen={showModeSelector}

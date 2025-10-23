@@ -12,23 +12,26 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 5173,
+    port: 3000,
     fs: {
       // Exclude backend files from Vite scanning
-      strict: false,
-      deny: ['**/backend/**'],
+      strict: true,
+      deny: ['**/backend/**', '**/.git/**'],
       allow: [
-        '.',
-        'src',
-        'public',
-        'node_modules'
+        path.resolve(__dirname, 'src'),
+        path.resolve(__dirname, 'public'),
+        path.resolve(__dirname, 'node_modules')
       ]
     },
     watch: {
-      ignored: ['**/backend/**', '**/dist-electron/**', '**/build/**', '**/tests/**', '**/release/**', '**/docs/**']
+      ignored: ['**/backend/**', '**/dist-electron/**', '**/build/**', '**/tests/**', '**/release/**', '**/docs/**', '**/.git/**']
     }
   },
   optimizeDeps: {
-    exclude: ['electron']
+    exclude: ['electron'],
+    entries: [
+      'src/**/*.{ts,tsx}',
+      'index.html'
+    ]
   },
 })

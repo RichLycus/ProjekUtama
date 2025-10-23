@@ -15,11 +15,13 @@ export interface Persona {
   ai_name: string
   ai_nickname: string
   user_greeting: string
+  user_display_name?: string
   personality_traits: PersonalityTraits
   response_style: string
   tone: string
   sample_greeting: string
   avatar_color: string
+  avatar_url?: string | null
   is_default: number
   created_at: string
   updated_at: string
@@ -81,6 +83,7 @@ export const usePersonaStore = create<PersonaStore>((set, get) => ({
         ai_name: 'Lycus',
         ai_nickname: 'Ly',
         user_greeting: 'Kawan',
+        user_display_name: 'Kawan',
         personality_traits: {
           technical: 90,
           friendly: 70,
@@ -92,6 +95,7 @@ export const usePersonaStore = create<PersonaStore>((set, get) => ({
         tone: 'direct',
         sample_greeting: 'Halo kawan! Saya Lycus, siap membantu.',
         avatar_color: 'purple',
+        avatar_url: null,
         is_default: 1,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()

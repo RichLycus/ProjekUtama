@@ -21,9 +21,10 @@ interface SidebarProps {
   currentConversationId?: string
   onSelectConversation?: (id: string) => void
   onNewChat?: () => void
+  onOpenPersonalSettings?: () => void
 }
 
-export default function Sidebar({ currentConversationId, onSelectConversation, onNewChat }: SidebarProps) {
+export default function Sidebar({ currentConversationId, onSelectConversation, onNewChat, onOpenPersonalSettings }: SidebarProps) {
   const location = useLocation()
   const { actualTheme, setMode } = useThemeStore()
   const { loading, setOnConversationCreated } = useChatStore()
@@ -268,12 +269,13 @@ export default function Sidebar({ currentConversationId, onSelectConversation, o
 
             {/* Profile Button */}
             <button
+              onClick={onOpenPersonalSettings}
               className={cn(
                 'p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-surface-hover transition-colors',
                 collapsed && 'w-full flex justify-center'
               )}
               data-testid="profile-button"
-              title="Profile"
+              title="Personal Settings"
             >
               <User className="w-5 h-5 text-text-secondary dark:text-gray-300" />
             </button>

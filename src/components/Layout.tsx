@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import TitleBar from './TitleBar'
 import Sidebar from './Sidebar'
+import PersonalSettingsModal from './chat/PersonalSettingsModal'
 import { useThemeStore } from '@/store/themeStore'
 import { useChatStore } from '@/store/chatStore'
 import { Toaster } from 'react-hot-toast'
@@ -15,10 +16,23 @@ export default function Layout({ children }: LayoutProps) {
   const { loadHistory, createNewConversation } = useChatStore()
   const location = useLocation()
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>()
+  const [showPersonalSettings, setShowPersonalSettings] = useState(false)
 
   useEffect(() => {
     initTheme()
   }, [initTheme])
+  
+  // Listen for global event to open personal settings
+  useEffect(() => {
+    const handleOpenPersonalSettings = () => {
+      setShowPersonalSettings(true)
+    }
+    
+    window.addEventListener('openPersonalSettings', handleOpenPersonalSettings)
+    return () => {
+      window.removeEventListener('openPersonalSettings', handleOpenPersonalSettings)
+    }
+  }, [])
 
   const isChatPage = location.pathname === '/chat'
 
@@ -43,6 +57,7 @@ export default function Layout({ children }: LayoutProps) {
         currentConversationId={isChatPage ? currentConversationId : undefined}
         onSelectConversation={isChatPage ? handleSelectConversation : undefined}
         onNewChat={isChatPage ? handleNewChat : undefined}
+        onOpenPersonalSettings={() => setShowPersonalSettings(true)}
       />
       
       {/* Main content area */}
@@ -60,6 +75,12 @@ export default function Layout({ children }: LayoutProps) {
             border: '1px solid var(--toast-border)',
           },
         }}
+      />
+      
+      {/* Global Personal Settings Modal */}
+      <PersonalSettingsModal
+        isOpen={showPersonalSettings}
+        onClose={() => setShowPersonalSettings(false)}
       />
     </div>
   )

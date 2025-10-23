@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import TypewriterText from '@/components/TypewriterText'
 import MarkdownRenderer from './MarkdownRenderer'
+import { usePersonaStore } from '@/store/personaStore'
 
 interface ExecutionLog {
   router?: string | object
@@ -31,6 +32,17 @@ export default function ChatMessage({
   const [showLog, setShowLog] = useState(false)
   const [typingComplete, setTypingComplete] = useState(false)
   const isUser = role === 'user'
+  
+  // Get current persona for custom names
+  const { currentPersona } = usePersonaStore()
+  
+  // Get display names
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001'
+  const userDisplayName = currentPersona?.user_display_name || 'You'
+  const aiDisplayName = agent_tag || currentPersona?.ai_name || 'Assistant'
+  const userAvatarUrl = currentPersona?.avatar_url 
+    ? `${BACKEND_URL}${currentPersona.avatar_url}` 
+    : null
   
   // Helper to safely render log values
   const renderLogValue = (value: string | object | undefined) => {
@@ -87,12 +99,18 @@ export default function ChatMessage({
     >
       {/* Avatar */}
       <div className={cn(
-        'w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0',
+        'w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden',
         isUser 
           ? 'bg-gradient-to-r from-blue-500 to-blue-600' 
           : 'bg-gradient-to-r from-purple-500 to-purple-600'
       )}>
-        {isUser ? (
+        {isUser && userAvatarUrl ? (
+          <img 
+            src={userAvatarUrl} 
+            alt="User avatar" 
+            className="w-full h-full object-cover"
+          />
+        ) : isUser ? (
           <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
         ) : (
           <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -110,7 +128,7 @@ export default function ChatMessage({
           isUser && 'flex-row-reverse'
         )}>
           <span className="text-sm font-semibold text-text dark:text-white">
-            {isUser ? 'You' : agent_tag || 'Lycus AI'}
+            {isUser ? userDisplayName : aiDisplayName}
           </span>
           <span className="text-xs text-text-muted dark:text-gray-500">
             {formatTime(timestamp)}
