@@ -9,7 +9,8 @@ import AgentInfoBadge from '../components/chat/AgentInfoBadge'
 import ChatModeSelector from '../components/chat/ChatModeSelector'
 import ActionCards from '../components/chat/ActionCards'
 import FileManagerModal from '../components/chat/FileManagerModal'
-import { MessageSquare, AlertCircle, Sparkles, Zap, Brain, FolderOpen, UserCircle } from 'lucide-react'
+import CharacterSelector from '../components/chat/CharacterSelector'
+import { MessageSquare, AlertCircle, Sparkles, Zap, Brain, FolderOpen, UserCircle, Users } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 export default function ChatPage() {
@@ -24,11 +25,17 @@ export default function ChatPage() {
     setCurrentMode
   } = useChatStore()
   
-  const { currentPersona, fetchDefaultPersona } = usePersonaStore()
+  const { 
+    currentPersona, 
+    fetchDefaultPersona,
+    activeCharacter,
+    activeRelationship
+  } = usePersonaStore()
   const { actualTheme } = useThemeStore()
   
   const [showModeSelector, setShowModeSelector] = useState(false)
   const [showFileManager, setShowFileManager] = useState(false)
+  const [showCharacterSelector, setShowCharacterSelector] = useState(false)
   
   // Mock conversation ID - In real app, this would come from chat store
   const conversationId = 'default-conversation-id'
@@ -59,9 +66,10 @@ export default function ChatPage() {
     sendMessage(prompt, undefined, currentMode)
   }
   
-  // Handle send with mode
+  // Handle send with mode and character
   const handleSendMessage = (content: string) => {
-    sendMessage(content, undefined, currentMode)
+    const characterId = activeCharacter?.id
+    sendMessage(content, undefined, currentMode, characterId)
   }
   
   return (
@@ -75,13 +83,78 @@ export default function ChatPage() {
     >
         {/* Top Bar - Fixed */}
         <div className="flex-shrink-0 px-4 py-3 flex items-center justify-between">
-          {/* Agent Info Badge - Top Left */}
-          <div>
+          {/* Left Side - Agent Info & Active Character */}
+          <div className="flex items-center gap-3">
             <AgentInfoBadge />
+            
+            {/* Active Character Display */}
+            {activeCharacter && (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-full border",
+                  actualTheme === 'dark'
+                    ? "bg-purple-900/30 border-purple-500/50"
+                    : "bg-purple-50 border-purple-200"
+                )}
+              >
+                <Users className="w-4 h-4 text-purple-500" />
+                <span className={cn(
+                  "text-sm font-medium",
+                  actualTheme === 'dark' ? 'text-white' : 'text-gray-900'
+                )}>
+                  {activeCharacter.name}
+                </span>
+                {activeRelationship && (
+                  <>
+                    <span className={cn(
+                      "text-xs",
+                      actualTheme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+                    )}>
+                      •
+                    </span>
+                    <span className={cn(
+                      "text-xs px-2 py-0.5 rounded-full",
+                      actualTheme === 'dark'
+                        ? 'bg-purple-900/50 text-purple-300'
+                        : 'bg-purple-100 text-purple-700'
+                    )}>
+                      {activeRelationship.relationship_type}
+                    </span>
+                  </>
+                )}
+              </motion.div>
+            )}
           </div>
 
           {/* Right Side Controls */}
           <div className="flex items-center gap-2">
+            {/* Character Selector Button */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowCharacterSelector(true)}
+              className={cn(
+                "p-2 rounded-full border shadow-md hover:shadow-lg transition-all",
+                activeCharacter
+                  ? actualTheme === 'dark'
+                    ? "bg-purple-900/50 border-purple-500 hover:bg-purple-900/70"
+                    : "bg-purple-100 border-purple-300 hover:bg-purple-200"
+                  : actualTheme === 'dark'
+                    ? "bg-dark-surface border-gray-700 hover:bg-dark-surface-hover"
+                    : "bg-white border-gray-200 hover:border-gray-300"
+              )}
+              title="Pilih Karakter"
+              data-testid="character-selector-button"
+            >
+              <Users className={cn(
+                "w-5 h-5",
+                activeCharacter
+                  ? 'text-purple-500'
+                  : actualTheme === 'dark' ? 'text-white' : 'text-gray-700'
+              )} />
+            </motion.button>
             {/* Personal Settings Button */}
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -383,6 +456,11 @@ export default function ChatPage() {
         isOpen={showFileManager}
         onClose={() => setShowFileManager(false)}
         conversationId={conversationId}
+      />
+      
+      <CharacterSelector
+        isOpen={showCharacterSelector}
+        onClose={() => setShowCharacterSelector(false)}
       />
     </div>
   )

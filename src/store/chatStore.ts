@@ -61,7 +61,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   currentMode: 'flash',  // Default mode
   
   // Send message action
-  sendMessage: async (content: string, personaId?: string, mode?: 'flash' | 'pro') => {
+  sendMessage: async (content: string, personaId?: string, mode?: 'flash' | 'pro', characterId?: string) => {
     if (!content.trim()) return
     
     set({ loading: true, error: null })
@@ -81,13 +81,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         throw new Error('Backend is not ready. Please wait a moment and try again.')
       }
       
-      // Call backend API with persona_id and mode
+      // Call backend API with persona_id, mode, and character_id
       const response = await axios.post(`${API_BASE_URL}/api/chat/message`, {
         conversation_id: currentConversation?.id || null,
         content: content.trim(),
         role: 'user',
         persona_id: effectivePersonaId,  // Send persona_id to backend
-        mode: effectiveMode  // Send mode to backend
+        mode: effectiveMode,  // Send mode to backend
+        character_id: characterId || null  // Send character_id for relationship context
       })
       
       const aiMessage: Message = response.data

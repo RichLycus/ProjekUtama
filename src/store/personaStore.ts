@@ -27,10 +27,44 @@ export interface Persona {
   updated_at: string
 }
 
+export interface UserCharacter {
+  id: string
+  name: string
+  bio: string
+  preferences: {
+    hobi?: string[]
+    kesukaan?: {
+      warna?: string
+      makanan?: string
+      musik?: string
+    }
+    [key: string]: any
+  }
+  created_at: string
+  updated_at: string
+}
+
+export interface PersonaRelationship {
+  id: string
+  persona_id: string
+  user_character_id: string
+  relationship_type: string
+  primary_nickname: string
+  alternate_nicknames: string[]
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
 interface PersonaStore {
   personas: Persona[]
   currentPersona: Persona | null
   loading: boolean
+  
+  // Character & Relationship state
+  characters: UserCharacter[]
+  activeCharacter: UserCharacter | null
+  activeRelationship: PersonaRelationship | null
   
   // Actions
   fetchPersonas: () => Promise<void>
@@ -40,6 +74,12 @@ interface PersonaStore {
   deletePersona: (id: string) => Promise<boolean>
   setDefaultPersona: (id: string) => Promise<boolean>
   setCurrentPersona: (persona: Persona) => void
+  
+  // Character actions
+  fetchCharacters: () => Promise<void>
+  setActiveCharacter: (character: UserCharacter | null) => void
+  fetchActiveRelationship: (personaId: string, characterId: string) => Promise<void>
+  clearActiveCharacter: () => void
 }
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001'
@@ -48,6 +88,11 @@ export const usePersonaStore = create<PersonaStore>((set, get) => ({
   personas: [],
   currentPersona: null,
   loading: false,
+  
+  // Character & Relationship state
+  characters: [],
+  activeCharacter: null,
+  activeRelationship: null,
 
   fetchPersonas: async () => {
     set({ loading: true })
@@ -203,5 +248,63 @@ export const usePersonaStore = create<PersonaStore>((set, get) => ({
 
   setCurrentPersona: (persona) => {
     set({ currentPersona: persona })
+  },
+
+  fetchCharacters: async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/personas/characters/all`)
+      const data = await response.json()
+      
+      if (data.success) {
+        set({ characters: data.characters })
+      }
+    } catch (error) {
+      console.error('Failed to fetch characters:', error)
+      toast.error('Failed to load characters')
+    }
+  },
+
+  setActiveCharacter: (character) => {
+    set({ activeCharacter: character })
+    
+    // Fetch relationship if both character and persona are set
+    if (character) {
+      const { currentPersona } = get()
+      if (currentPersona) {
+        get().fetchActiveRelationship(currentPersona.id, character.id)
+      }
+    } else {
+      set({ activeRelationship: null })
+    }
+  },
+
+  fetchActiveRelationship: async (personaId: string, characterId: string) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/personas/${personaId}/relationships`)
+      const data = await response.json()
+      
+      if (data.success) {
+        // Find relationship for this specific character
+        const relationship = data.relationships.find(
+          (rel: PersonaRelationship) => rel.user_character_id === characterId
+        )
+        
+        if (relationship) {
+          set({ activeRelationship: relationship })
+        } else {
+          set({ activeRelationship: null })
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch relationship:', error)
+      set({ activeRelationship: null })
+    }
+  },
+
+  clearActiveCharacter: () => {
+    set({ 
+      activeCharacter: null,
+      activeRelationship: null
+    })
   }
 }))

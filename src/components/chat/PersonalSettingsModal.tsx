@@ -15,7 +15,13 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001'
 
 export default function PersonalSettingsModal({ isOpen, onClose }: PersonalSettingsModalProps) {
   const { actualTheme } = useThemeStore()
-  const { currentPersona, updatePersona, fetchDefaultPersona } = usePersonaStore()
+  const { 
+    currentPersona, 
+    updatePersona, 
+    fetchDefaultPersona,
+    activeCharacter,
+    activeRelationship 
+  } = usePersonaStore()
   
   const [aiName, setAiName] = useState('')
   const [userName, setUserName] = useState('')
@@ -26,11 +32,20 @@ export default function PersonalSettingsModal({ isOpen, onClose }: PersonalSetti
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  // Initialize form with current persona data
+  // Initialize form with current persona data and active relationship
   useEffect(() => {
     if (currentPersona) {
-      setAiName(currentPersona.ai_name || '')
-      setUserName(currentPersona.user_display_name || 'Friend')
+      // Nama AI langsung dari persona database
+      setAiName(currentPersona.name || currentPersona.ai_name || '')
+      
+      // Nama panggilan dari relasi jika ada active character
+      if (activeCharacter && activeRelationship) {
+        // Gunakan primary nickname dari relationship
+        setUserName(activeRelationship.primary_nickname || 'Friend')
+      } else {
+        // Fallback ke user_greeting jika tidak ada relasi
+        setUserName(currentPersona.user_greeting || 'Friend')
+      }
       
       // Load avatar if exists
       if (currentPersona.avatar_url) {
@@ -39,7 +54,7 @@ export default function PersonalSettingsModal({ isOpen, onClose }: PersonalSetti
         setAvatarPreview(null)
       }
     }
-  }, [currentPersona])
+  }, [currentPersona, activeCharacter, activeRelationship])
   
   // Handle avatar file selection
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,7 +147,7 @@ export default function PersonalSettingsModal({ isOpen, onClose }: PersonalSetti
     }
   }
   
-  // Save settings
+  // Save settings (hanya avatar, nama dari relasi)
   const handleSave = async () => {
     if (!currentPersona) return
     
@@ -142,33 +157,13 @@ export default function PersonalSettingsModal({ isOpen, onClose }: PersonalSetti
       // Upload avatar if selected
       if (avatarFile) {
         await handleAvatarUpload()
-      }
-      
-      // Update persona names
-      const updates: Partial<Persona> = {}
-      
-      if (aiName !== currentPersona.ai_name) {
-        updates.ai_name = aiName
-      }
-      
-      if (userName !== currentPersona.user_display_name) {
-        updates.user_display_name = userName
-      }
-      
-      if (Object.keys(updates).length > 0) {
-        const success = await updatePersona(currentPersona.id, updates)
-        
-        if (success) {
-          await fetchDefaultPersona()
-          toast.success('✅ Pengaturan berhasil disimpan!')
-          onClose()
-        }
-      } else if (!avatarFile) {
-        toast.success('✅ Tidak ada perubahan')
-        onClose()
+        toast.success('✅ Avatar berhasil disimpan!')
       } else {
-        onClose()
+        toast.success('✅ Tidak ada perubahan')
       }
+      
+      await fetchDefaultPersona()
+      onClose()
     } catch (error) {
       console.error('Save error:', error)
       toast.error('Gagal menyimpan pengaturan')
@@ -311,7 +306,7 @@ export default function PersonalSettingsModal({ isOpen, onClose }: PersonalSetti
                 </p>
               </div>
               
-              {/* AI Name Input */}
+              {/* AI Name Display (Read-only dari database) */}
               <div className="space-y-2">
                 <label className={cn(
                   "flex items-center gap-2 text-sm font-medium",
@@ -320,29 +315,23 @@ export default function PersonalSettingsModal({ isOpen, onClose }: PersonalSetti
                   <Bot className="w-4 h-4" />
                   Nama AI (Persona)
                 </label>
-                <input
-                  type="text"
-                  value={aiName}
-                  onChange={(e) => setAiName(e.target.value)}
-                  placeholder="Salma, Polar, dll"
-                  className={cn(
-                    "w-full px-4 py-3 rounded-lg border transition-colors",
-                    "focus:outline-none focus:ring-2 focus:ring-primary",
-                    actualTheme === 'dark'
-                      ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-                  )}
-                  data-testid="ai-name-input"
-                />
+                <div className={cn(
+                  "w-full px-4 py-3 rounded-lg border",
+                  actualTheme === 'dark'
+                    ? "bg-gray-700/50 border-gray-600 text-white"
+                    : "bg-gray-50 border-gray-300 text-gray-900"
+                )}>
+                  {aiName}
+                </div>
                 <p className={cn(
                   "text-xs",
                   actualTheme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                 )}>
-                  Nama yang akan ditampilkan sebagai AI/Agent
+                  Nama persona dari database (tidak bisa diubah di sini)
                 </p>
               </div>
               
-              {/* User Display Name Input */}
+              {/* User Display Name (Dari Relationship atau Default) */}
               <div className="space-y-2">
                 <label className={cn(
                   "flex items-center gap-2 text-sm font-medium",
@@ -351,50 +340,76 @@ export default function PersonalSettingsModal({ isOpen, onClose }: PersonalSetti
                   <User className="w-4 h-4" />
                   Nama Panggilan Anda
                 </label>
-                <input
-                  type="text"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  placeholder="Lycus, Affif, dll"
-                  className={cn(
-                    "w-full px-4 py-3 rounded-lg border transition-colors",
-                    "focus:outline-none focus:ring-2 focus:ring-primary",
-                    actualTheme === 'dark'
-                      ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+                <div className={cn(
+                  "w-full px-4 py-3 rounded-lg border",
+                  actualTheme === 'dark'
+                    ? "bg-gray-700/50 border-gray-600 text-white"
+                    : "bg-gray-50 border-gray-300 text-gray-900"
+                )}>
+                  {userName}
+                  {activeCharacter && activeRelationship && (
+                    <span className={cn(
+                      "ml-2 text-xs px-2 py-0.5 rounded-full",
+                      actualTheme === 'dark'
+                        ? 'bg-purple-900/50 text-purple-300'
+                        : 'bg-purple-100 text-purple-700'
+                    )}>
+                      dari relasi dengan {activeCharacter.name}
+                    </span>
                   )}
-                  data-testid="user-name-input"
-                />
+                </div>
                 <p className={cn(
                   "text-xs",
                   actualTheme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                 )}>
-                  Nama yang akan digunakan {currentPersona.name} untuk memanggil Anda
+                  {activeCharacter && activeRelationship
+                    ? `Panggilan dari relasi "${activeRelationship.relationship_type}" (ubah di Persona Manager)`
+                    : 'Pilih karakter di chat untuk menggunakan panggilan dari relasi'}
                 </p>
               </div>
               
-              {/* Example Preview */}
+              {/* Example Preview (Sesuai Relasi) */}
               <div className={cn(
                 "p-4 rounded-lg border-l-4 border-primary",
                 actualTheme === 'dark' ? 'bg-gray-700/50' : 'bg-blue-50'
               )}>
                 <p className={cn(
-                  "text-sm font-medium mb-2",
+                  "text-sm font-medium mb-2 flex items-center gap-2",
                   actualTheme === 'dark' ? 'text-white' : 'text-gray-900'
                 )}>
                   Preview Chat:
+                  {activeCharacter && activeRelationship && (
+                    <span className={cn(
+                      "text-xs px-2 py-0.5 rounded-full",
+                      actualTheme === 'dark'
+                        ? 'bg-purple-900/50 text-purple-300'
+                        : 'bg-purple-100 text-purple-700'
+                    )}>
+                      {activeRelationship.relationship_type}
+                    </span>
+                  )}
                 </p>
                 <div className="space-y-2 text-sm">
                   <p className={cn(
                     actualTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'
                   )}>
-                    <span className="font-semibold">{userName || 'Friend'}</span>: Halo!
+                    <span className="font-semibold">
+                      {activeCharacter ? activeCharacter.name : (userName || 'Friend')}
+                    </span>: Halo!
                   </p>
                   <p className={cn(
                     actualTheme === 'dark' ? 'text-gray-300' : 'text-gray-700'
                   )}>
                     <span className="font-semibold">{aiName || currentPersona.name}</span>: Hai {userName || 'Friend'}, ada yang bisa saya bantu?
                   </p>
+                  {activeRelationship && activeRelationship.alternate_nicknames?.length > 0 && (
+                    <p className={cn(
+                      "text-xs italic pt-2 border-t",
+                      actualTheme === 'dark' ? 'text-gray-400 border-gray-600' : 'text-gray-600 border-gray-300'
+                    )}>
+                      Alternatif panggilan: {activeRelationship.alternate_nicknames.join(', ')}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

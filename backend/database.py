@@ -1058,3 +1058,247 @@ class SQLiteDB:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM games WHERE id = ?", (game_id,))
             return cursor.rowcount > 0
+
+
+    # ============================================
+    # USER CHARACTERS METHODS
+    # ============================================
+    
+    def insert_user_character(self, character_data: Dict[str, Any]) -> str:
+        """Insert a new user character"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Convert preferences to JSON if it's a dict
+            preferences = character_data.get('preferences')
+            if isinstance(preferences, dict):
+                preferences = json.dumps(preferences)
+            
+            cursor.execute("""
+                INSERT INTO user_characters (
+                    id, name, bio, preferences, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                character_data['id'],
+                character_data['name'],
+                character_data.get('bio', ''),
+                preferences,
+                character_data['created_at'],
+                character_data['updated_at']
+            ))
+            return character_data['id']
+    
+    def get_user_characters(self) -> List[Dict[str, Any]]:
+        """Get all user characters"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user_characters ORDER BY name ASC")
+            rows = cursor.fetchall()
+            characters = []
+            for row in rows:
+                character = dict(row)
+                # Parse preferences JSON
+                if character.get('preferences'):
+                    try:
+                        character['preferences'] = json.loads(character['preferences'])
+                    except:
+                        character['preferences'] = {}
+                characters.append(character)
+            return characters
+    
+    def get_user_character(self, character_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific user character by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user_characters WHERE id = ?", (character_id,))
+            row = cursor.fetchone()
+            if row:
+                character = dict(row)
+                # Parse preferences JSON
+                if character.get('preferences'):
+                    try:
+                        character['preferences'] = json.loads(character['preferences'])
+                    except:
+                        character['preferences'] = {}
+                return character
+            return None
+    
+    def update_user_character(self, character_id: str, updates: Dict[str, Any]) -> bool:
+        """Update a user character"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Convert preferences to JSON if present
+            if 'preferences' in updates and isinstance(updates['preferences'], dict):
+                updates['preferences'] = json.dumps(updates['preferences'])
+            
+            # Add updated_at
+            updates['updated_at'] = datetime.now().isoformat()
+            
+            # Build UPDATE query dynamically
+            set_clause = ", ".join([f"{k} = ?" for k in updates.keys()])
+            values = list(updates.values()) + [character_id]
+            
+            cursor.execute(f"""
+                UPDATE user_characters 
+                SET {set_clause}
+                WHERE id = ?
+            """, values)
+            
+            return cursor.rowcount > 0
+    
+    def delete_user_character(self, character_id: str) -> bool:
+        """Delete a user character (cascades to relationships)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM user_characters WHERE id = ?", (character_id,))
+            return cursor.rowcount > 0
+
+    # ============================================
+    # PERSONA-USER RELATIONSHIPS METHODS
+    # ============================================
+    
+    def insert_persona_relationship(self, relationship_data: Dict[str, Any]) -> str:
+        """Insert a new persona-user relationship"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Convert alternate_nicknames to JSON if it's a list
+            alt_nicknames = relationship_data.get('alternate_nicknames')
+            if isinstance(alt_nicknames, list):
+                alt_nicknames = json.dumps(alt_nicknames)
+            
+            cursor.execute("""
+                INSERT INTO persona_user_relationships (
+                    id, persona_id, user_character_id, relationship_type,
+                    primary_nickname, alternate_nicknames, notes,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                relationship_data['id'],
+                relationship_data['persona_id'],
+                relationship_data['user_character_id'],
+                relationship_data['relationship_type'],
+                relationship_data['primary_nickname'],
+                alt_nicknames,
+                relationship_data.get('notes', ''),
+                relationship_data['created_at'],
+                relationship_data['updated_at']
+            ))
+            return relationship_data['id']
+    
+    def get_persona_relationships(self, persona_id: str) -> List[Dict[str, Any]]:
+        """Get all relationships for a specific persona"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT r.*, c.name as character_name, c.bio as character_bio
+                FROM persona_user_relationships r
+                LEFT JOIN user_characters c ON r.user_character_id = c.id
+                WHERE r.persona_id = ?
+                ORDER BY r.created_at DESC
+            """, (persona_id,))
+            rows = cursor.fetchall()
+            relationships = []
+            for row in rows:
+                rel = dict(row)
+                # Parse alternate_nicknames JSON
+                if rel.get('alternate_nicknames'):
+                    try:
+                        rel['alternate_nicknames'] = json.loads(rel['alternate_nicknames'])
+                    except:
+                        rel['alternate_nicknames'] = []
+                relationships.append(rel)
+            return relationships
+    
+    def get_character_relationships(self, character_id: str) -> List[Dict[str, Any]]:
+        """Get all relationships for a specific character"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT r.*, p.name as persona_name, p.ai_name as persona_ai_name
+                FROM persona_user_relationships r
+                LEFT JOIN personas p ON r.persona_id = p.id
+                WHERE r.user_character_id = ?
+                ORDER BY r.created_at DESC
+            """, (character_id,))
+            rows = cursor.fetchall()
+            relationships = []
+            for row in rows:
+                rel = dict(row)
+                # Parse alternate_nicknames JSON
+                if rel.get('alternate_nicknames'):
+                    try:
+                        rel['alternate_nicknames'] = json.loads(rel['alternate_nicknames'])
+                    except:
+                        rel['alternate_nicknames'] = []
+                relationships.append(rel)
+            return relationships
+    
+    def get_relationship(self, relationship_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific relationship by ID"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM persona_user_relationships WHERE id = ?", (relationship_id,))
+            row = cursor.fetchone()
+            if row:
+                rel = dict(row)
+                # Parse alternate_nicknames JSON
+                if rel.get('alternate_nicknames'):
+                    try:
+                        rel['alternate_nicknames'] = json.loads(rel['alternate_nicknames'])
+                    except:
+                        rel['alternate_nicknames'] = []
+                return rel
+            return None
+    
+    def update_persona_relationship(self, relationship_id: str, updates: Dict[str, Any]) -> bool:
+        """Update a persona-user relationship"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Convert alternate_nicknames to JSON if present
+            if 'alternate_nicknames' in updates and isinstance(updates['alternate_nicknames'], list):
+                updates['alternate_nicknames'] = json.dumps(updates['alternate_nicknames'])
+            
+            # Add updated_at
+            updates['updated_at'] = datetime.now().isoformat()
+            
+            # Build UPDATE query dynamically
+            set_clause = ", ".join([f"{k} = ?" for k in updates.keys()])
+            values = list(updates.values()) + [relationship_id]
+            
+            cursor.execute(f"""
+                UPDATE persona_user_relationships 
+                SET {set_clause}
+                WHERE id = ?
+            """, values)
+            
+            return cursor.rowcount > 0
+    
+    def delete_persona_relationship(self, relationship_id: str) -> bool:
+        """Delete a persona-user relationship"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM persona_user_relationships WHERE id = ?", (relationship_id,))
+            return cursor.rowcount > 0
+    
+    def get_relationship_by_persona_character(self, persona_id: str, character_id: str) -> Optional[Dict[str, Any]]:
+        """Get relationship between specific persona and character"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM persona_user_relationships 
+                WHERE persona_id = ? AND user_character_id = ?
+            """, (persona_id, character_id))
+            row = cursor.fetchone()
+            if row:
+                rel = dict(row)
+                # Parse alternate_nicknames JSON
+                if rel.get('alternate_nicknames'):
+                    try:
+                        rel['alternate_nicknames'] = json.loads(rel['alternate_nicknames'])
+                    except:
+                        rel['alternate_nicknames'] = []
+                return rel
+            return None

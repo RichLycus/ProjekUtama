@@ -19,6 +19,7 @@ from database import SQLiteDB
 from ai.multi_model_orchestrator import MultiModelOrchestrator
 from ai.config_manager import AIConfigManager
 from ai.rag import get_rag_system
+from ai.prompts.persona_system_prompts import build_persona_prompt_with_relationship
 
 db = SQLiteDB()
 config_manager = AIConfigManager()
@@ -53,6 +54,7 @@ class MessageRequest(BaseModel):
     role: str = "user"  # user | assistant | system
     persona_id: Optional[str] = None  # Optional persona override
     mode: Optional[str] = "flash"  # Chat mode: flash | pro
+    character_id: Optional[str] = None  # Optional user character for relationship context
 
 class MessageResponse(BaseModel):
     id: str
@@ -142,6 +144,45 @@ async def send_message(request: MessageRequest):
                 if conv_persona:
                     persona_obj = conv_persona
         
+        # Get relationship and character if character_id provided
+        relationship = None
+        character = None
+        enhanced_persona = persona_obj  # Will be enhanced with relationship context
+        
+        if request.character_id:
+            try:
+                # Fetch character details
+                character = db.get_user_character(request.character_id)
+                
+                if character:
+                    # Fetch relationship between persona and character
+                    relationship = db.get_relationship_by_persona_character(
+                        persona_obj['id'],
+                        request.character_id
+                    )
+                    
+                    if relationship:
+                        logger.info(f"✅ Relationship found: {relationship['relationship_type']} - {relationship['primary_nickname']}")
+                        
+                        # Build enhanced system prompt with relationship context
+                        enhanced_system_prompt = build_persona_prompt_with_relationship(
+                            persona_obj,
+                            relationship,
+                            character
+                        )
+                        
+                        # Create enhanced persona object with new system prompt
+                        enhanced_persona = persona_obj.copy()
+                        enhanced_persona['system_prompt'] = enhanced_system_prompt
+                        
+                        logger.info(f"🔗 Enhanced persona with relationship context for {character['name']}")
+                    else:
+                        logger.warning(f"⚠️ No relationship found between {persona_obj['name']} and {character['name']}")
+                else:
+                    logger.warning(f"⚠️ Character not found: {request.character_id}")
+            except Exception as e:
+                logger.error(f"❌ Error fetching relationship context: {str(e)}")
+        
         # Save user message
         user_message_data = {
             'id': message_id,
@@ -164,10 +205,10 @@ async def send_message(request: MessageRequest):
             # Get conversation history (last 5 messages for context)
             history = db.get_messages(conversation_id, limit=5)
             
-            # Process through agents
+            # Process through agents with enhanced persona (includes relationship context)
             result = orchestrator.process_message(
                 user_input=request.content,
-                persona=persona_obj,  # Pass full persona object, not string
+                persona=enhanced_persona,  # Pass enhanced persona with relationship context
                 conversation_history=history
             )
             

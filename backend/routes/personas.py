@@ -383,3 +383,266 @@ async def delete_persona_avatar(persona_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete avatar: {str(e)}")
+
+
+
+# ============================================
+# USER CHARACTERS ROUTES
+# ============================================
+
+class UserCharacterCreate(BaseModel):
+    name: str
+    bio: Optional[str] = ""
+    preferences: Optional[Dict[str, Any]] = {}
+
+
+class UserCharacterUpdate(BaseModel):
+    name: Optional[str] = None
+    bio: Optional[str] = None
+    preferences: Optional[Dict[str, Any]] = None
+
+
+@router.get("/characters/all")
+async def get_user_characters():
+    """Get all user characters"""
+    try:
+        characters = db.get_user_characters()
+        return {
+            "success": True,
+            "characters": characters,
+            "count": len(characters)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/characters/{character_id}")
+async def get_user_character(character_id: str):
+    """Get a specific user character"""
+    try:
+        character = db.get_user_character(character_id)
+        if not character:
+            raise HTTPException(status_code=404, detail="Character not found")
+        
+        return {
+            "success": True,
+            "character": character
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/characters")
+async def create_user_character(character: UserCharacterCreate):
+    """Create a new user character"""
+    try:
+        character_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+        
+        character_data = {
+            "id": character_id,
+            "name": character.name,
+            "bio": character.bio,
+            "preferences": character.preferences,
+            "created_at": now,
+            "updated_at": now
+        }
+        
+        db.insert_user_character(character_data)
+        
+        return {
+            "success": True,
+            "message": "Character created successfully",
+            "character_id": character_id,
+            "character": character_data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/characters/{character_id}")
+async def update_user_character(character_id: str, updates: UserCharacterUpdate):
+    """Update a user character"""
+    try:
+        # Check if character exists
+        existing = db.get_user_character(character_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Character not found")
+        
+        # Prepare updates
+        update_data = {k: v for k, v in updates.dict().items() if v is not None}
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No updates provided")
+        
+        success = db.update_user_character(character_id, update_data)
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Character updated successfully"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update character")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/characters/{character_id}")
+async def delete_user_character(character_id: str):
+    """Delete a user character"""
+    try:
+        success = db.delete_user_character(character_id)
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Character deleted successfully"
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Character not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================
+# PERSONA-USER RELATIONSHIPS ROUTES
+# ============================================
+
+class PersonaRelationshipCreate(BaseModel):
+    persona_id: str
+    user_character_id: str
+    relationship_type: str
+    primary_nickname: str
+    alternate_nicknames: Optional[list] = []
+    notes: Optional[str] = ""
+
+
+class PersonaRelationshipUpdate(BaseModel):
+    relationship_type: Optional[str] = None
+    primary_nickname: Optional[str] = None
+    alternate_nicknames: Optional[list] = None
+    notes: Optional[str] = None
+
+
+@router.get("/{persona_id}/relationships")
+async def get_persona_relationships(persona_id: str):
+    """Get all relationships for a persona"""
+    try:
+        relationships = db.get_persona_relationships(persona_id)
+        return {
+            "success": True,
+            "relationships": relationships,
+            "count": len(relationships)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/characters/{character_id}/relationships")
+async def get_character_relationships(character_id: str):
+    """Get all relationships for a character"""
+    try:
+        relationships = db.get_character_relationships(character_id)
+        return {
+            "success": True,
+            "relationships": relationships,
+            "count": len(relationships)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/relationships")
+async def create_relationship(relationship: PersonaRelationshipCreate):
+    """Create a new persona-character relationship"""
+    try:
+        # Check if relationship already exists
+        existing = db.get_relationship_by_persona_character(
+            relationship.persona_id,
+            relationship.user_character_id
+        )
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="Relationship between this persona and character already exists"
+            )
+        
+        relationship_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
+        
+        relationship_data = {
+            "id": relationship_id,
+            "persona_id": relationship.persona_id,
+            "user_character_id": relationship.user_character_id,
+            "relationship_type": relationship.relationship_type,
+            "primary_nickname": relationship.primary_nickname,
+            "alternate_nicknames": relationship.alternate_nicknames,
+            "notes": relationship.notes,
+            "created_at": now,
+            "updated_at": now
+        }
+        
+        db.insert_persona_relationship(relationship_data)
+        
+        return {
+            "success": True,
+            "message": "Relationship created successfully",
+            "relationship_id": relationship_id,
+            "relationship": relationship_data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/relationships/{relationship_id}")
+async def update_relationship(relationship_id: str, updates: PersonaRelationshipUpdate):
+    """Update a persona-character relationship"""
+    try:
+        # Check if relationship exists
+        existing = db.get_relationship(relationship_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Relationship not found")
+        
+        # Prepare updates
+        update_data = {k: v for k, v in updates.dict().items() if v is not None}
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No updates provided")
+        
+        success = db.update_persona_relationship(relationship_id, update_data)
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Relationship updated successfully"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update relationship")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/relationships/{relationship_id}")
+async def delete_relationship(relationship_id: str):
+    """Delete a persona-character relationship"""
+    try:
+        success = db.delete_persona_relationship(relationship_id)
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Relationship deleted successfully"
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Relationship not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
