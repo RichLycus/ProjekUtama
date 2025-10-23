@@ -2,15 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useChatStore } from '../store/chatStore'
 import { usePersonaStore } from '../store/personaStore'
-import { useBackgroundStore } from '../store/backgroundStore'
 import { useThemeStore } from '../store/themeStore'
 import ChatMessage from '../components/chat/ChatMessage'
 import ChatInput from '../components/chat/ChatInput'
-import BackgroundSettingsModal from '../components/chat/BackgroundSettingsModal'
 import AgentInfoBadge from '../components/chat/AgentInfoBadge'
 import ChatModeSelector from '../components/chat/ChatModeSelector'
 import ActionCards from '../components/chat/ActionCards'
-import { MessageSquare, AlertCircle, Settings, Sparkles, Zap, Brain } from 'lucide-react'
+import { MessageSquare, AlertCircle, Sparkles, Zap, Brain } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 export default function ChatPage() {
@@ -26,10 +24,8 @@ export default function ChatPage() {
   } = useChatStore()
   
   const { currentPersona, fetchDefaultPersona } = usePersonaStore()
-  const { backgroundType, backgroundValue } = useBackgroundStore()
   const { actualTheme } = useThemeStore()
   
-  const [showBackgroundSettings, setShowBackgroundSettings] = useState(false)
   const [showModeSelector, setShowModeSelector] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -51,25 +47,6 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
   
-  // Get background style
-  const getBackgroundStyle = () => {
-    if (backgroundType === 'image') {
-      return {
-        backgroundImage: `url(${backgroundValue})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backgroundAttachment: 'fixed'
-      }
-    } else if (backgroundType === 'gradient') {
-      return { background: backgroundValue }
-    } else if (backgroundType === 'color') {
-      return { backgroundColor: backgroundValue }
-    } else {
-      return { background: backgroundValue }
-    }
-  }
-  
   // Handle action card click (currently not pre-filling input)
   const handleActionClick = (prompt: string) => {
     // For now, just send the prompt directly
@@ -84,19 +61,13 @@ export default function ChatPage() {
   
   return (
     <div 
-      className="h-[calc(100vh-2rem)] flex flex-col relative"
-      style={getBackgroundStyle()}
-    >
-      {/* Background Overlay for better readability */}
-      <div className={cn(
-        "absolute inset-0 backdrop-blur-[2px]",
+      className={cn(
+        "h-[calc(100vh-2rem)] flex flex-col",
         actualTheme === 'dark' 
-          ? "bg-black/40" 
-          : "bg-white/30"
-      )} />
-      
-      {/* Content */}
-      <div className="relative z-10 h-full flex flex-col">
+          ? "bg-dark-background" 
+          : "bg-white"
+      )}
+    >
         {/* Top Bar - Fixed */}
         <div className="flex-shrink-0 px-4 py-3 flex items-center justify-between">
           {/* Agent Info Badge - Top Left */}
@@ -112,10 +83,10 @@ export default function ChatPage() {
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowModeSelector(true)}
               className={cn(
-                "px-4 py-2 rounded-full border shadow-lg hover:shadow-xl transition-all flex items-center gap-2",
+                "px-4 py-2 rounded-full border shadow-md hover:shadow-lg transition-all flex items-center gap-2",
                 actualTheme === 'dark'
-                  ? "glass-strong border-white/20 hover:border-white/40"
-                  : "bg-white/90 border-gray-200 hover:border-gray-300"
+                  ? "bg-dark-surface border-gray-700 hover:bg-dark-surface-hover"
+                  : "bg-white border-gray-200 hover:border-gray-300"
               )}
               title="Change mode"
             >
@@ -140,25 +111,6 @@ export default function ChatPage() {
                   </span>
                 </>
               )}
-            </motion.button>
-
-            {/* Settings Button */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowBackgroundSettings(true)}
-              className={cn(
-                "p-3 rounded-full border shadow-lg hover:shadow-xl transition-all group",
-                actualTheme === 'dark'
-                  ? "glass-strong border-white/20 hover:border-white/40"
-                  : "bg-white/90 border-gray-200 hover:border-gray-300"
-              )}
-              title="Background Settings"
-            >
-              <Settings className={cn(
-                "w-5 h-5 group-hover:rotate-90 transition-transform duration-300",
-                actualTheme === 'dark' ? 'text-white' : 'text-gray-700'
-              )} />
             </motion.button>
           </div>
         </div>
@@ -212,10 +164,10 @@ export default function ChatPage() {
 
                   {/* Feature Badge */}
                   <div className={cn(
-                    "flex items-center gap-2 rounded-full px-4 py-2 border",
+                    "flex items-center gap-2 rounded-full px-4 py-2 border shadow-sm",
                     actualTheme === 'dark'
-                      ? "glass-strong border-white/20"
-                      : "bg-white/80 border-gray-200"
+                      ? "bg-dark-surface border-gray-700"
+                      : "bg-white border-gray-200"
                   )}>
                     <Sparkles className="w-4 h-4 text-yellow-300" />
                     <span className={cn(
@@ -229,10 +181,10 @@ export default function ChatPage() {
               ) : (
                 /* Flash Mode - Simpler UI */
                 <div className={cn(
-                  "flex items-center gap-2 rounded-full px-4 py-2 border",
+                  "flex items-center gap-2 rounded-full px-4 py-2 border shadow-sm",
                   actualTheme === 'dark'
-                    ? "glass-strong border-white/20"
-                    : "bg-white/80 border-gray-200"
+                    ? "bg-dark-surface border-gray-700"
+                    : "bg-white border-gray-200"
                 )}>
                   <Zap className="w-4 h-4 text-yellow-400" />
                   <span className={cn(
@@ -274,8 +226,8 @@ export default function ChatPage() {
               <div className={cn(
                 "rounded-2xl px-4 py-3 max-w-[80%]",
                 actualTheme === 'dark'
-                  ? "glass-strong border border-white/20"
-                  : "bg-white/90 border border-gray-200 shadow-sm"
+                  ? "bg-dark-surface border border-gray-700"
+                  : "bg-white border border-gray-200 shadow-sm"
               )}>
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1">
@@ -323,7 +275,7 @@ export default function ChatPage() {
               className={cn(
                 "mb-4 p-4 border rounded-xl max-w-xl mx-auto",
                 actualTheme === 'dark'
-                  ? "glass-strong border-red-400/50"
+                  ? "bg-red-900/20 border-red-700"
                   : "bg-red-50 border-red-300"
               )}
             >
@@ -367,14 +319,9 @@ export default function ChatPage() {
             loading={loading}
           />
         </div>
-      </div>
+      {/* </div> <-- TAG INI HILANG */}
 
       {/* Modals */}
-      <BackgroundSettingsModal
-        isOpen={showBackgroundSettings}
-        onClose={() => setShowBackgroundSettings(false)}
-      />
-      
       <ChatModeSelector
         isOpen={showModeSelector}
         onClose={() => setShowModeSelector(false)}
