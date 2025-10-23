@@ -205,10 +205,14 @@ export default function SystemHealthMonitor() {
             <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
               <p className="text-xs font-medium text-gray-500 uppercase mb-2">Agent Models</p>
               <div className="space-y-1">
-                {Object.entries(status.chatStatus.agent_models).map(([agent, model]: [string, any]) => (
+                {Object.entries(status.chatStatus.agent_models).map(([agent, modelConfig]: [string, any]) => (
                   <div key={agent} className="flex items-center justify-between text-xs">
                     <span className="capitalize text-gray-600">{agent}</span>
-                    <span className="font-mono text-gray-500">{model}</span>
+                    <span className="font-mono text-gray-500">
+                      {typeof modelConfig === 'object' && modelConfig !== null 
+                        ? modelConfig.model || JSON.stringify(modelConfig)
+                        : String(modelConfig)}
+                    </span>
                   </div>
                 ))}
               </div>

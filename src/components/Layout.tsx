@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import TitleBar from './TitleBar'
 import Sidebar from './Sidebar'
 import { useThemeStore } from '@/store/themeStore'
+import { useChatStore } from '@/store/chatStore'
 import { Toaster } from 'react-hot-toast'
 
 interface LayoutProps {
@@ -11,6 +12,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const initTheme = useThemeStore((state) => state.initTheme)
+  const { loadHistory, createNewConversation } = useChatStore()
   const location = useLocation()
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>()
 
@@ -20,14 +22,16 @@ export default function Layout({ children }: LayoutProps) {
 
   const isChatPage = location.pathname === '/chat'
 
-  const handleSelectConversation = (id: string) => {
+  const handleSelectConversation = async (id: string) => {
     setCurrentConversationId(id)
-    // This will be used by ChatPage
+    // Load conversation history from backend
+    await loadHistory(id)
   }
 
   const handleNewChat = () => {
     setCurrentConversationId(undefined)
-    // This will be used by ChatPage
+    // Create new conversation
+    createNewConversation()
   }
 
   return (
