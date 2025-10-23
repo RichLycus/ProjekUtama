@@ -114,6 +114,177 @@ LOGS_DIR=${PROJECT_ROOT}/logs
 
 ---
 
+## 🐳 **RULE #0.5: Container & Web Preview Environment (CRITICAL)**
+
+### **Running ChimeraAI in Container/Preview Mode**
+
+**PENTING untuk Development di Container/Cloud:**
+
+ChimeraAI adalah Electron desktop app, tapi untuk development di Docker/container atau cloud preview, kita perlu run dalam **Web Mode** (tanpa Electron wrapper).
+
+### **📁 Konfigurasi Files**
+
+**1. Vite Configs:**
+```
+vite.config.ts          ← Electron mode (local development)
+vite.config.web.ts      ← Web mode (container/preview) ⭐
+```
+
+**2. Startup Scripts:**
+```
+start_web.sh            ← Quick start untuk web mode ⭐
+```
+
+### **🚀 Running App di Container**
+
+**Quick Start:**
+```bash
+# Method 1: Using startup script (RECOMMENDED)
+./start_web.sh
+
+# Method 2: Manual vite
+cd /app
+npx vite --config vite.config.web.ts --host 0.0.0.0 --port 3000
+```
+
+**Services:**
+- ✅ Frontend: Port **3000** (Vite web mode)
+- ✅ Backend: Port **8001** (FastAPI via supervisor)
+- ✅ MongoDB: Port **27017** (via supervisor)
+
+### **⚙️ Vite Web Config Details**
+
+**File**: `vite.config.web.ts`
+
+**Key Features:**
+```typescript
+{
+  server: {
+    host: '0.0.0.0',      // Allow external connections
+    port: 5173,            // Default vite port (or 3000)
+    fs: {
+      deny: ['**/backend/**'],  // Exclude backend dari scan
+      allow: ['.', 'src', 'public', 'node_modules']
+    }
+  },
+  optimizeDeps: {
+    exclude: ['electron']  // Skip electron di web mode
+  }
+}
+```
+
+**Why exclude backend?**
+- Backend folder punya HTML files dengan TypeScript type assertions
+- Vite will error jika scan file-file ini
+- Example error: `Expected ")" but found "as"` in HTML script tags
+
+### **🔧 Environment Variables**
+
+**File**: `.env` (root level)
+```bash
+VITE_API_URL=http://localhost:8001
+VITE_BACKEND_URL=http://localhost:8001
+```
+
+**Usage in code:**
+```typescript
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
+```
+
+### **📝 Startup Script Structure**
+
+**File**: `start_web.sh`
+
+**What it does:**
+1. Kill existing vite processes
+2. Start Vite dengan vite.config.web.ts
+3. Check frontend health
+4. Check/start backend via supervisor
+5. Display status & URLs
+
+**Usage:**
+```bash
+chmod +x start_web.sh
+./start_web.sh
+```
+
+### **🐛 Common Issues & Solutions**
+
+**Issue 1: "vite: not found"**
+```bash
+# Solution: Install dependencies
+cd /app && yarn install
+```
+
+**Issue 2: Vite scanning backend folder**
+```bash
+# Solution: Already fixed in vite.config.web.ts
+# Check fs.deny includes '**/backend/**'
+```
+
+**Issue 3: Frontend not accessible**
+```bash
+# Check if vite running:
+ps aux | grep vite
+
+# Check logs:
+tail -f /tmp/vite-web.log
+
+# Restart:
+pkill -f vite
+./start_web.sh
+```
+
+**Issue 4: Backend not running**
+```bash
+# Check status:
+sudo supervisorctl status backend
+
+# Start if stopped:
+sudo supervisorctl start backend
+
+# Check logs:
+tail -f /var/log/supervisor/backend.err.log
+```
+
+### **🎯 Development Workflow**
+
+**Local Desktop Development:**
+```bash
+# Use Electron mode
+yarn dev           # or npm run dev
+```
+
+**Container/Preview Development:**
+```bash
+# Use Web mode
+./start_web.sh     # or npx vite --config vite.config.web.ts
+```
+
+### **📊 Port Reference**
+
+| Service | Port | Config |
+|---------|------|--------|
+| Vite Dev Server | 3000 atau 5173 | vite.config.web.ts |
+| FastAPI Backend | 8001 | backend/server.py |
+| MongoDB | 27017 | supervisor |
+| Electron (local) | 5173 | vite.config.ts |
+
+### **✅ Checklist Setup Container**
+
+Sebelum mulai development di container:
+```
+□ Dependencies installed (yarn install)
+□ vite.config.web.ts exists
+□ start_web.sh exists & executable
+□ .env file configured
+□ Backend running (supervisorctl status)
+□ MongoDB running
+□ Port 3000 accessible
+```
+
+---
+
 ## 🗂️ **RULE #1: File Organization (WAJIB)**
 
 ### 📁 Struktur Folder yang HARUS Diikuti:
@@ -526,6 +697,17 @@ ChimeraAI Architecture:
   - ✅ Moved LAUNCHER_QUICKSTART.md → docs/quick-start.md
   - ✅ Added path verification commands
 
+- **v2.1** (Chat UI Enhancement) - Container & Web Preview Setup
+  - ✅ **RULE #0.5 added**: Container & web preview environment
+  - ✅ **Vite web config**: vite.config.web.ts untuk container mode
+  - ✅ **Startup script**: start_web.sh untuk quick start
+  - ✅ **Port configuration**: Frontend 3000, Backend 8001
+  - ✅ **Environment variables**: .env setup untuk web mode
+  - ✅ **Troubleshooting guide**: Common issues & solutions
+  - ✅ **Development workflow**: Local vs Container development
+  - ✅ Enhanced upload preview dengan bingkai khusus
+  - ✅ Fixed welcome screen hiding behavior
+
 ---
 
 **⚠️ PENTING: Aturan ini WAJIB diikuti oleh SEMUA developer tanpa exception!**
@@ -534,6 +716,6 @@ ChimeraAI Architecture:
 
 ---
 
-**Last Updated**: Phase 2 Complete  
+**Last Updated**: Chat UI Enhancement (Upload Preview & Container Setup)  
 **Maintained By**: ChimeraAI Team  
 **Status**: ✅ Active & Enforced

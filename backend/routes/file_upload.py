@@ -378,6 +378,49 @@ async def view_file(file_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to view file: {str(e)}")
 
 
+@router.get("/api/chat/conversations/{conversation_id}/files")
+async def get_conversation_files(conversation_id: str):
+    """
+    Get all files uploaded in a specific conversation
+    
+    Returns list of files with metadata sorted by upload time (newest first)
+    """
+    try:
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, filename, file_type, file_size, file_path, uploaded_at, parsed
+                FROM uploaded_files 
+                WHERE conversation_id = ?
+                ORDER BY uploaded_at DESC
+            """, (conversation_id,))
+            
+            files = cursor.fetchall()
+            
+            file_list = []
+            for file_record in files:
+                file_list.append({
+                    'file_id': file_record[0],
+                    'filename': file_record[1],
+                    'file_type': file_record[2],
+                    'file_size': file_record[3],
+                    'file_size_mb': round(file_record[3] / (1024*1024), 2),
+                    'file_path': file_record[4],
+                    'uploaded_at': file_record[5],
+                    'parsed': bool(file_record[6])
+                })
+            
+            return {
+                'success': True,
+                'conversation_id': conversation_id,
+                'files': file_list,
+                'count': len(file_list)
+            }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get conversation files: {str(e)}")
+
+
 @router.delete("/api/chat/files/{file_id}")
 async def delete_file(file_id: str):
     """Delete file by ID"""

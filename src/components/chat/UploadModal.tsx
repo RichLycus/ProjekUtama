@@ -10,13 +10,15 @@ interface UploadModalProps {
   onClose: () => void
   type: 'file' | 'image'
   onUploadComplete?: (files: (UploadedFile | UploadedImage)[]) => void
+  conversationId?: string
 }
 
 export default function UploadModal({
   isOpen,
   onClose,
   type,
-  onUploadComplete
+  onUploadComplete,
+  conversationId
 }: UploadModalProps) {
   const [uploadedItems, setUploadedItems] = useState<(UploadedFile | UploadedImage)[]>([])
 
@@ -102,11 +104,13 @@ export default function UploadModal({
                   <FileUploader
                     onFileUploaded={handleFileUploaded}
                     multiple={true}
+                    conversationId={conversationId}
                   />
                 ) : (
                   <ImageUploader
                     onImageUploaded={handleFileUploaded}
                     multiple={true}
+                    conversationId={conversationId}
                   />
                 )}
               </div>

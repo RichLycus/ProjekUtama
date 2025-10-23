@@ -8,6 +8,7 @@ import { UploadedImage } from './ImageUploader'
 
 interface UploadDropdownProps {
   onUploadComplete?: (files: (UploadedFile | UploadedImage)[]) => void
+  conversationId?: string
 }
 
 const uploadOptions = [
@@ -41,7 +42,7 @@ const uploadOptions = [
   }
 ]
 
-export default function UploadDropdown({ onUploadComplete }: UploadDropdownProps) {
+export default function UploadDropdown({ onUploadComplete, conversationId }: UploadDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [uploadType, setUploadType] = useState<'file' | 'image'>('file')
@@ -172,6 +173,7 @@ export default function UploadDropdown({ onUploadComplete }: UploadDropdownProps
         onClose={() => setShowUploadModal(false)}
         type={uploadType}
         onUploadComplete={onUploadComplete}
+        conversationId={conversationId}
       />
     </>
   )

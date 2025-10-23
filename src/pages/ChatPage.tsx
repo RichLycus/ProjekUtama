@@ -8,7 +8,8 @@ import ChatInput from '../components/chat/ChatInput'
 import AgentInfoBadge from '../components/chat/AgentInfoBadge'
 import ChatModeSelector from '../components/chat/ChatModeSelector'
 import ActionCards from '../components/chat/ActionCards'
-import { MessageSquare, AlertCircle, Sparkles, Zap, Brain } from 'lucide-react'
+import FileManagerModal from '../components/chat/FileManagerModal'
+import { MessageSquare, AlertCircle, Sparkles, Zap, Brain, FolderOpen } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 export default function ChatPage() {
@@ -27,6 +28,10 @@ export default function ChatPage() {
   const { actualTheme } = useThemeStore()
   
   const [showModeSelector, setShowModeSelector] = useState(false)
+  const [showFileManager, setShowFileManager] = useState(false)
+  
+  // Mock conversation ID - In real app, this would come from chat store
+  const conversationId = 'default-conversation-id'
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
@@ -77,6 +82,26 @@ export default function ChatPage() {
 
           {/* Right Side Controls */}
           <div className="flex items-center gap-2">
+            {/* File Manager Button */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowFileManager(true)}
+              className={cn(
+                "p-2 rounded-full border shadow-md hover:shadow-lg transition-all",
+                actualTheme === 'dark'
+                  ? "bg-dark-surface border-gray-700 hover:bg-dark-surface-hover"
+                  : "bg-white border-gray-200 hover:border-gray-300"
+              )}
+              title="File Manager"
+              data-testid="file-manager-button"
+            >
+              <FolderOpen className={cn(
+                "w-5 h-5",
+                actualTheme === 'dark' ? 'text-white' : 'text-gray-700'
+              )} />
+            </motion.button>
+            
             {/* Mode Indicator */}
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -118,10 +143,12 @@ export default function ChatPage() {
         {/* Messages Area - Scrollable */}
         <div className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar">
           {/* Empty State - Centered Welcome */}
-          {messages.length === 0 && (
+          {messages.length === 0 && !loading && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
               className="h-full flex flex-col items-center justify-center max-w-3xl mx-auto px-4 py-8"
             >
               {/* Logo/Avatar - Large & Centered */}
@@ -317,6 +344,7 @@ export default function ChatPage() {
           <ChatInput 
             onSend={handleSendMessage}
             loading={loading}
+            conversationId={conversationId}
           />
         </div>
       {/* </div> <-- TAG INI HILANG */}
@@ -327,6 +355,12 @@ export default function ChatPage() {
         onClose={() => setShowModeSelector(false)}
         onSelectMode={setCurrentMode}
         currentMode={currentMode}
+      />
+      
+      <FileManagerModal
+        isOpen={showFileManager}
+        onClose={() => setShowFileManager(false)}
+        conversationId={conversationId}
       />
     </div>
   )

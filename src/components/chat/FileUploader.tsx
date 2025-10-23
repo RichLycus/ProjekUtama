@@ -3,12 +3,14 @@ import { useDropzone } from 'react-dropzone'
 import { Upload, FileText, X, Loader2, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from 'axios'
+import { motion } from 'framer-motion'
 
 interface FileUploaderProps {
   onFileUploaded?: (file: UploadedFile) => void
   accept?: string // Dibiarkan di interface kalau mau dipakai nanti
   maxSize?: number
   multiple?: boolean
+  conversationId?: string
 }
 
 export interface UploadedFile {
@@ -26,7 +28,8 @@ export default function FileUploader({
   onFileUploaded,
   // accept = '.pdf,.docx,.doc,.txt,.md,.csv', // <--- Dihapus untuk menghilangkan error TS6133
   maxSize = 10 * 1024 * 1024, // 10MB
-  multiple = false
+  multiple = false,
+  conversationId
 }: FileUploaderProps) {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
@@ -51,6 +54,9 @@ export default function FileUploader({
       try {
         const formData = new FormData()
         formData.append('file', file)
+        if (conversationId) {
+          formData.append('conversation_id', conversationId)
+        }
 
         const response = await axios.post<{ success: boolean } & UploadedFile>(
           `${BACKEND_URL}/api/chat/upload-file`,
@@ -163,33 +169,77 @@ export default function FileUploader({
         </div>
       )}
 
-      {/* Uploaded Files List */}
+      {/* Uploaded Files List - Enhanced Preview */}
       {uploadedFiles.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {uploadedFiles.map((file) => (
-            <div
+            <motion.div
               key={file.file_id}
-              className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="group relative overflow-hidden rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all"
             >
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <FileText className="w-4 h-4 text-primary" />
+              {/* Gradient Background Accent */}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-purple-500/5" />
+              
+              <div className="relative flex items-start gap-4 p-4">
+                {/* Large Colorful Icon */}
+                <div className="flex-shrink-0">
+                  <div className="relative w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                    <FileText className="w-8 h-8 text-white" />
+                    {/* File type badge */}
+                    <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-900 rounded-full px-2 py-0.5 border border-gray-200 dark:border-gray-700">
+                      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">
+                        {file.file_type.split('/').pop()?.slice(0, 3)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* File Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      {file.filename}
+                    </h4>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Check className="w-5 h-5 text-green-500" />
+                      <button
+                        onClick={() => removeFile(file.file_id)}
+                        className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors group"
+                      >
+                        <X className="w-4 h-4 text-gray-400 group-hover:text-red-500 transition-colors" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* File Metadata */}
+                  <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    <span className="flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      {file.file_size_mb.toFixed(2)}MB
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      {file.file_type}
+                    </span>
+                  </div>
+
+                  {/* Content Preview */}
+                  {file.parsed_content && (
+                    <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed">
+                        {file.parsed_content.slice(0, 200)}
+                        {file.parsed_content.length > 200 && '...'}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                  {file.filename}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {file.file_size_mb}MB • {file.file_type}
-                </p>
-              </div>
-              <Check className="w-5 h-5 text-green-500" />
-              <button
-                onClick={() => removeFile(file.file_id)}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-              >
-                <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              </button>
-            </div>
+
+              {/* Success Indicator Line */}
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500 to-emerald-500" />
+            </motion.div>
           ))}
         </div>
       )}

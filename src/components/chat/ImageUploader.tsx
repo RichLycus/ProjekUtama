@@ -9,6 +9,7 @@ interface ImageUploaderProps {
   onImageUploaded?: (image: UploadedImage) => void
   maxSize?: number
   multiple?: boolean
+  conversationId?: string
 }
 
 export interface UploadedImage {
@@ -18,6 +19,7 @@ export interface UploadedImage {
   file_size: number
   file_size_mb: number
   image_url: string
+  preview_url?: string  // Local blob URL for preview
   metadata?: {
     width: number
     height: number
@@ -29,7 +31,8 @@ export interface UploadedImage {
 export default function ImageUploader({
   onImageUploaded,
   maxSize = 5 * 1024 * 1024, // 5MB
-  multiple = false
+  multiple = false,
+  conversationId
 }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
@@ -60,6 +63,9 @@ export default function ImageUploader({
       try {
         const formData = new FormData()
         formData.append('file', file)
+        if (conversationId) {
+          formData.append('conversation_id', conversationId)
+        }
 
         const response = await axios.post<{ success: boolean } & UploadedImage>(
           `${BACKEND_URL}/api/chat/upload-image`,
@@ -78,13 +84,16 @@ export default function ImageUploader({
         )
 
         if (response.data.success) {
-          const uploadedImage = response.data
+          const uploadedImage = {
+            ...response.data,
+            preview_url: previewUrl  // Include blob URL for preview
+          }
           setUploadedImages(prev => [...prev, uploadedImage])
           
           // Move preview URL to actual file_id
           setPreviewUrls(prev => {
             const newPreviews = { ...prev }
-            newPreviews[uploadedImage.file_id] = newPreviews[tempId]
+            newPreviews[uploadedImage.file_id] = previewUrl
             delete newPreviews[tempId]
             return newPreviews
           })
@@ -197,44 +206,72 @@ export default function ImageUploader({
         </motion.div>
       )}
 
-      {/* Uploaded Images Grid */}
+      {/* Uploaded Images Grid - Enhanced Preview dengan Bingkai Khusus */}
       {uploadedImages.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <AnimatePresence>
             {uploadedImages.map((image) => (
               <motion.div
                 key={image.file_id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="relative group aspect-square rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800"
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                transition={{ type: 'spring', damping: 20 }}
+                className="group relative"
               >
-                {/* Image Preview */}
-                <img
-                  src={previewUrls[image.file_id]}
-                  alt={image.filename}
-                  className="w-full h-full object-cover"
-                />
-                
-                {/* Overlay with info */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-2 gap-2">
-                  <p className="text-white text-xs font-medium text-center truncate w-full px-2">
-                    {image.filename}
-                  </p>
-                  <p className="text-white/80 text-xs">
-                    {image.metadata?.width} × {image.metadata?.height}
-                  </p>
-                  <p className="text-white/80 text-xs">
-                    {image.file_size_mb}MB
-                  </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Check className="w-4 h-4 text-green-400" />
+                {/* Bingkai Khusus dengan Shadow dan Border */}
+                <div className="relative aspect-square rounded-2xl overflow-hidden border-4 border-white dark:border-gray-700 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02]">
+                  {/* Success Indicator Badge */}
+                  <div className="absolute top-2 right-2 z-10 bg-green-500 rounded-full p-1.5 shadow-lg">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+
+                  {/* Image Preview dengan Inner Border */}
+                  <div className="absolute inset-2 rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800">
+                    <img
+                      src={previewUrls[image.file_id]}
+                      alt={image.filename}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  
+                  {/* Gradient Overlay on Hover */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-end p-4 gap-2">
+                    {/* File Info */}
+                    <div className="w-full space-y-1 mb-2">
+                      <p className="text-white text-xs font-semibold text-center truncate px-2">
+                        {image.filename}
+                      </p>
+                      <div className="flex items-center justify-center gap-2 text-white/90 text-[10px]">
+                        <span>{image.metadata?.width} × {image.metadata?.height}</span>
+                        <span>•</span>
+                        <span>{image.file_size_mb.toFixed(2)}MB</span>
+                      </div>
+                    </div>
+                    
+                    {/* Remove Button */}
                     <button
                       onClick={() => removeImage(image.file_id)}
-                      className="p-1.5 bg-red-500 hover:bg-red-600 rounded-full transition-colors"
+                      className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors shadow-lg flex items-center gap-2"
                     >
                       <X className="w-3 h-3 text-white" />
+                      <span className="text-white text-xs font-medium">Remove</span>
                     </button>
+                  </div>
+
+                  {/* Decorative Corner Accents */}
+                  <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-primary rounded-tl-lg" />
+                  <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-primary rounded-tr-lg" />
+                  <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-primary rounded-bl-lg" />
+                  <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-primary rounded-br-lg" />
+                </div>
+
+                {/* File Type Badge di Bawah Bingkai */}
+                <div className="mt-2 flex items-center justify-center">
+                  <div className="px-3 py-1 bg-gradient-to-r from-primary to-secondary rounded-full shadow-md">
+                    <span className="text-white text-[10px] font-bold uppercase">
+                      {image.file_type.split('/').pop()}
+                    </span>
                   </div>
                 </div>
               </motion.div>
