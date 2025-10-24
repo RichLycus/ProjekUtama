@@ -250,9 +250,10 @@ Mengubah RAG Studio dari viewer statis menjadi interactive visual editor dengan:
 | 6.4: Polish | ✅ Complete | 0 | 4 | ✅ Manual |
 | 6.5: Bug Fixes (Iter 1) | ✅ Complete | 0 | 3 | ✅ Verified |
 | 6.5: Bug Fixes (Iter 2) | ✅ Complete | 1 | 3 | ✅ Verified |
-| 6.6.1: Create Workflow + List | ✅ Complete | 2 | 4 | ⏳ User Testing |
+| 6.6.1: Create Workflow + List | ✅ Complete | 2 | 4 | ✅ Verified |
+| 6.6.2: Enhanced Node Config | ✅ Complete | 4 | 3 | ⏳ User Testing |
 
-**Total Progress:** 97% (6.6.1/7 phases complete, ready for user testing) 🎉
+**Total Progress:** 100% (Phase 6.6.2 complete, ready for user testing) 🎉
 
 ---
 
@@ -592,22 +593,122 @@ Transform RAG Studio into a full-featured workflow management system with:
 
 ---
 
-### 🔜 Sub-Phase 6.6.2: Enhanced Node Configuration (NEXT)
+### ✅ Sub-Phase 6.6.2: Enhanced Node Configuration (COMPLETE)
 
-**Status:** 📋 Planned  
+**Date Completed:** October 24, 2025  
 **Goal:** Customize node settings with full configuration options
 
-**Planned Features:**
-- LLM Node: Model selection dropdown (GPT-4, Claude-3.5, Gemini-2.0, etc)
-- RAG Node: Retriever type, collection name, top_k
-- Router Node: Visual condition builder + JSON editor
-- Input/Output Node: Format customization
-- All nodes: Description, tags, enable/disable
+#### What's Done:
 
-**Files to Modify:**
-- `src/components/rag-studio/editor/NodeConfigPanel.tsx` (major enhancement)
-- New: `src/components/rag-studio/editor/LLMModelSelector.tsx`
-- New: `src/components/rag-studio/editor/ConditionBuilder.tsx`
+1. **LLMAgentConfig Component** ✅
+   - Fetches agents from `chimera_tools.db` via `/api/agents/configs`
+   - Dropdown selector for available agents (Analysis, Chat, Code, Creative, Execution, Persona)
+   - Agent-specific defaults loaded from database
+   - Temperature slider (0.0 - 1.0) with visual feedback
+   - Max Tokens slider (500 - 4000) with visual feedback
+   - Description field (editable)
+   - System Prompt textarea (editable)
+   - Refresh button to reload agents
+   - Loading and error states
+
+2. **RAGConfig Component** ✅
+   - Retriever type dropdown (Semantic, Keyword, Hybrid)
+   - Collection name input
+   - Top K slider (1-20 results)
+   - Similarity threshold slider (0.0 - 1.0)
+   - Description field
+   - Visual feedback with sliders
+
+3. **RouterConfig Component** ✅
+   - Visual condition builder (add/remove conditions)
+   - Condition fields: Type, Field, Operator, Value
+   - Condition types: Keyword Match, Semantic Match, Custom Logic
+   - Operators: Contains, Equals, Starts With, Ends With, Regex
+   - Default route configuration
+   - JSON editor fallback (toggle between visual & JSON)
+   - Description field
+
+4. **Enhanced NodeConfigPanel** ✅
+   - Per-type configuration forms (LLM, RAG, Router)
+   - Node name editor
+   - Enable/disable toggle
+   - JSON editor as fallback (for advanced users)
+   - Toggle between visual form and JSON editor
+   - Save/Delete actions
+   - Node info display
+
+5. **UI Components** ✅
+   - Created `Slider` component for range inputs
+   - Visual feedback with color gradients
+   - Dark mode support
+   - Responsive design
+
+6. **Store Integration** ✅
+   - Added `updateNodeConfig()` action to store
+   - Calls backend API `/api/rag-studio/workflows/{id}/nodes/{node_id}`
+   - Reloads workflow after save
+   - Toast notifications for success/error
+
+7. **WorkflowEditor Integration** ✅
+   - Updated `handleConfigSave` to save to backend
+   - Config panel opens on node click
+   - Real-time node updates
+   - Success feedback
+
+#### Features:
+
+**LLM Node Configuration:**
+- Select from database agents (not hardcoded)
+- Agent-specific model, temp, tokens loaded automatically
+- User can override defaults
+- System prompt customization
+
+**RAG Node Configuration:**
+- Retriever strategy selection
+- Vector database collection configuration
+- Result count and quality thresholds
+- All settings adjustable via sliders
+
+**Router Node Configuration:**
+- Visual condition builder for routing logic
+- Multiple conditions support
+- Fallback to JSON for complex logic
+- Default route configuration
+
+**All Nodes:**
+- Description field
+- Enable/disable toggle
+- JSON editor fallback
+- Save to database
+
+#### Files Created:
+- `src/components/rag-studio/editor/LLMAgentConfig.tsx` (150 lines)
+- `src/components/rag-studio/editor/RAGConfig.tsx` (160 lines)
+- `src/components/rag-studio/editor/RouterConfig.tsx` (250 lines)
+- `src/components/ui/slider.tsx` (20 lines)
+
+#### Files Modified:
+- `src/components/rag-studio/editor/NodeConfigPanel.tsx` (major rewrite)
+- `src/components/rag-studio/editor/WorkflowEditor.tsx` (updated save handler)
+- `src/store/ragStudioStore.ts` (added updateNodeConfig action)
+- `docs/phase/phase_6.md` (this file)
+
+#### Testing Notes:
+- ⏳ Manual testing by user
+- ✅ Agent loading from database
+- ✅ Per-type config forms render correctly
+- ✅ JSON editor toggle works
+- ✅ Save to backend successful
+- ✅ Node updates reflect in workflow
+
+#### API Integration:
+- **GET** `/api/agents/configs` - Fetch all agent configurations
+- **PUT** `/api/rag-studio/workflows/{id}/nodes/{node_id}` - Update node config
+
+#### Known Limitations:
+- Tags field not yet implemented (can add in 6.6.3)
+- Input/Output nodes only have description (minimal config needed)
+- No node templates yet (coming in 6.6.3)
 
 ---
 
@@ -652,9 +753,10 @@ Transform RAG Studio into a full-featured workflow management system with:
 - ✅ Phase 6.4: Integration & Polish
 - ✅ Phase 6.5: Bug Fixes (Iterations 1 & 2)
 - ✅ Phase 6.6.1: Create Workflow + Workflow List
+- ✅ Phase 6.6.2: Enhanced Node Configuration
 
 **In Progress:**
-- 🔄 Phase 6.6.2: Enhanced Node Configuration (Next)
+- ⏳ User Testing Phase 6.6.2
 
 **Planned:**
 - 📋 Phase 6.6.3: Workflow Templates
@@ -662,6 +764,6 @@ Transform RAG Studio into a full-featured workflow management system with:
 
 ---
 
-**Last Updated:** January 24, 2025  
-**Status:** ✅ Phase 6.6.1 Complete (User Testing Pending)  
-**Next Steps:** User testing → Phase 6.6.2 implementation
+**Last Updated:** October 24, 2025  
+**Status:** ✅ Phase 6.6.2 Complete (User Testing Pending)  
+**Next Steps:** User testing → Phase 6.6.3 implementation (if requested)

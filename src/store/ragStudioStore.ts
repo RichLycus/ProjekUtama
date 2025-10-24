@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { Workflow, getWorkflows, getWorkflow, batchUpdatePositions, deleteConnection, getAllWorkflows, createWorkflow, deleteWorkflow } from '@/lib/rag-studio-api'
+import { Workflow, getWorkflows, getWorkflow, batchUpdatePositions, deleteConnection, getAllWorkflows, createWorkflow, deleteWorkflow, updateNode } from '@/lib/rag-studio-api'
 import toast from 'react-hot-toast'
 
 interface RAGStudioStore {
@@ -23,6 +23,7 @@ interface RAGStudioStore {
   removeConnection: (connectionId: string) => Promise<boolean>
   createNewWorkflow: (data: { name: string; description?: string; mode: string }) => Promise<string | null>
   deleteWorkflowById: (workflowId: string) => Promise<boolean>
+  updateNodeConfig: (nodeId: string, config: any) => Promise<boolean>
 }
 
 export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
@@ -249,6 +250,32 @@ export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
     } catch (error) {
       console.error('Failed to delete workflow:', error)
       toast.error('Failed to delete workflow')
+      return false
+    }
+  },
+  
+  updateNodeConfig: async (nodeId: string, config: any) => {
+    const workflow = get().currentWorkflow
+    if (!workflow) {
+      toast.error('No workflow loaded')
+      return false
+    }
+    
+    try {
+      const result = await updateNode(workflow.id, nodeId, config)
+      
+      if (result.success) {
+        toast.success('Node configuration saved')
+        // Reload workflow to get updated node
+        await get().loadWorkflowById(workflow.id)
+        return true
+      } else {
+        toast.error('Failed to save node: ' + (result.error || 'Unknown error'))
+        return false
+      }
+    } catch (error) {
+      console.error('Failed to update node:', error)
+      toast.error('Failed to save node')
       return false
     }
   }

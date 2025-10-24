@@ -1,6 +1,9 @@
-import { X, Save, Trash2, Power, PowerOff } from 'lucide-react'
+import { X, Save, Trash2, Power, PowerOff, Code } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Node } from 'reactflow'
+import LLMAgentConfig from './LLMAgentConfig'
+import RAGConfig from './RAGConfig'
+import RouterConfig from './RouterConfig'
 
 interface NodeConfigPanelProps {
   node: Node | null
@@ -18,24 +21,34 @@ export default function NodeConfigPanel({
   onToggleEnabled,
 }: NodeConfigPanelProps) {
   const [nodeName, setNodeName] = useState('')
-  const [nodeConfig, setNodeConfig] = useState<string>('{}')
+  const [nodeConfig, setNodeConfig] = useState<any>({})
   const [isEnabled, setIsEnabled] = useState(true)
   const [hasChanges, setHasChanges] = useState(false)
+  const [showJsonEditor, setShowJsonEditor] = useState(false)
+  const [jsonText, setJsonText] = useState('{}')
 
   useEffect(() => {
     if (node) {
       setNodeName(node.data.nodeName || node.data.label || '')
       setIsEnabled(node.data.isEnabled ?? true)
       
-      // Parse config if it's a string, otherwise stringify it
+      // Parse config if it's a string, otherwise use as-is
       const config = node.data.config
       if (typeof config === 'string') {
-        setNodeConfig(config)
+        try {
+          setNodeConfig(JSON.parse(config))
+          setJsonText(config)
+        } catch {
+          setNodeConfig({})
+          setJsonText('{}')
+        }
       } else {
-        setNodeConfig(JSON.stringify(config || {}, null, 2))
+        setNodeConfig(config || {})
+        setJsonText(JSON.stringify(config || {}, null, 2))
       }
       
       setHasChanges(false)
+      setShowJsonEditor(false)
     }
   }, [node])
 
@@ -43,17 +56,29 @@ export default function NodeConfigPanel({
 
   const handleSave = () => {
     if (onSave) {
-      try {
-        const parsedConfig = JSON.parse(nodeConfig)
-        onSave(node.id, {
-          nodeName,
-          config: parsedConfig,
-          isEnabled,
-        })
-        setHasChanges(false)
-      } catch (error) {
-        alert('Invalid JSON configuration')
-      }
+      onSave(node.id, {
+        nodeName,
+        config: nodeConfig,
+        isEnabled,
+      })
+      setHasChanges(false)
+    }
+  }
+
+  const handleConfigChange = (newConfig: any) => {
+    setNodeConfig(newConfig)
+    setJsonText(JSON.stringify(newConfig, null, 2))
+    setHasChanges(true)
+  }
+
+  const handleJsonSave = () => {
+    try {
+      const parsed = JSON.parse(jsonText)
+      setNodeConfig(parsed)
+      setShowJsonEditor(false)
+      setHasChanges(true)
+    } catch (error) {
+      alert('Invalid JSON configuration')
     }
   }
 
@@ -149,31 +174,116 @@ export default function NodeConfigPanel({
           </button>
         </div>
 
-        {/* Node configuration (JSON) */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Configuration (JSON)
-          </label>
-          <textarea
-            value={nodeConfig}
-            onChange={(e) => {
-              setNodeConfig(e.target.value)
-              setHasChanges(true)
-            }}
-            rows={12}
-            className="
-              w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
-              bg-white dark:bg-dark-surface
-              text-gray-900 dark:text-white font-mono text-sm
-              focus:ring-2 focus:ring-primary focus:border-transparent
-              transition-colors resize-none
-            "
-            placeholder='{"key": "value"}'
-          />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            Enter valid JSON configuration for this node
-          </p>
-        </div>
+        {/* Divider */}
+        <div className="border-t border-gray-200 dark:border-dark-border"></div>
+
+        {/* Per-type Configuration Form */}
+        {!showJsonEditor && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Configuration
+              </h3>
+              <button
+                onClick={() => {
+                  setJsonText(JSON.stringify(nodeConfig, null, 2))
+                  setShowJsonEditor(true)
+                }}
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                <Code className="w-3 h-3" />
+                JSON Editor
+              </button>
+            </div>
+
+            {/* Render config form based on node type */}
+            {node.data.nodeType === 'llm' && (
+              <LLMAgentConfig
+                config={nodeConfig}
+                onChange={handleConfigChange}
+              />
+            )}
+
+            {node.data.nodeType === 'rag_retriever' && (
+              <RAGConfig
+                config={nodeConfig}
+                onChange={handleConfigChange}
+              />
+            )}
+
+            {node.data.nodeType === 'router' && (
+              <RouterConfig
+                config={nodeConfig}
+                onChange={handleConfigChange}
+              />
+            )}
+
+            {/* For other node types (input, output, tool) - simple description */}
+            {!['llm', 'rag_retriever', 'router'].includes(node.data.nodeType) && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={nodeConfig.description || ''}
+                  onChange={(e) => handleConfigChange({ ...nodeConfig, description: e.target.value })}
+                  className="
+                    w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                    bg-white dark:bg-dark-surface
+                    text-gray-900 dark:text-white
+                    focus:ring-2 focus:ring-primary focus:border-transparent
+                    transition-colors
+                  "
+                  placeholder="Enter node description"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* JSON Editor (fallback) */}
+        {showJsonEditor && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Configuration (JSON)
+              </label>
+              <button
+                onClick={() => setShowJsonEditor(false)}
+                className="text-xs text-primary hover:underline"
+              >
+                ← Back to Form
+              </button>
+            </div>
+            <textarea
+              value={jsonText}
+              onChange={(e) => setJsonText(e.target.value)}
+              rows={12}
+              className="
+                w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                bg-white dark:bg-dark-surface
+                text-gray-900 dark:text-white font-mono text-sm
+                focus:ring-2 focus:ring-primary focus:border-transparent
+                transition-colors resize-none
+              "
+              placeholder='{"key": "value"}'
+            />
+            <button
+              onClick={handleJsonSave}
+              className="
+                mt-2 w-full px-4 py-2 rounded-lg
+                bg-primary hover:bg-secondary text-white
+                transition-colors font-medium text-sm
+              "
+            >
+              Apply JSON Changes
+            </button>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Enter valid JSON configuration for this node
+            </p>
+          </div>
+        )}
 
         {/* Node info */}
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">

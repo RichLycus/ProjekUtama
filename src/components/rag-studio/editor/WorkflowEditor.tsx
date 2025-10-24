@@ -81,7 +81,7 @@ function convertToReactFlow(workflow: Workflow) {
 
 export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange }: WorkflowEditorProps) {
   const { zoomIn, zoomOut, fitView } = useReactFlow()
-  const { saveNodePositions, setHasUnsavedChanges, removeConnection } = useRAGStudioStore()
+  const { saveNodePositions, setHasUnsavedChanges, removeConnection, updateNodeConfig } = useRAGStudioStore()
   const [showSidebar, setShowSidebar] = useState(true)
   const [showGrid, setShowGrid] = useState(true)
   const [deleteMode, setDeleteMode] = useState(false)
@@ -306,25 +306,31 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
   }, [nodes, saveNodePositions])
 
   // Config panel handlers
-  const handleConfigSave = useCallback((nodeId: string, config: any) => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === nodeId) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              ...config,
+  const handleConfigSave = useCallback(async (nodeId: string, config: any) => {
+    // Update node config via store (saves to backend)
+    const success = await updateNodeConfig(nodeId, config)
+    
+    if (success) {
+      // Update local state
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.id === nodeId) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                nodeName: config.nodeName,
+                config: config.config,
+                isEnabled: config.isEnabled,
+              }
             }
           }
-        }
-        return node
-      })
-    )
-    setHasUnsavedChanges(true)
-    setShowConfigPanel(false)
-    toast.success('Node updated')
-  }, [setNodes, setHasUnsavedChanges])
+          return node
+        })
+      )
+      setShowConfigPanel(false)
+    }
+  }, [setNodes, updateNodeConfig])
 
   const handleNodeDelete = useCallback((nodeId: string) => {
     setNodes((nds) => nds.filter((node) => node.id !== nodeId))
