@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { Workflow, getWorkflows, getWorkflow, batchUpdatePositions } from '@/lib/rag-studio-api'
+import { Workflow, getWorkflows, getWorkflow, batchUpdatePositions, deleteConnection } from '@/lib/rag-studio-api'
 import toast from 'react-hot-toast'
 
 interface RAGStudioStore {
@@ -17,6 +17,7 @@ interface RAGStudioStore {
   resetWorkflow: (mode: 'flash' | 'pro' | 'code_rag') => Promise<void>
   saveNodePositions: (positions: Array<{ node_id: string; position_x: number; position_y: number }>) => Promise<boolean>
   setHasUnsavedChanges: (value: boolean) => void
+  removeConnection: (connectionId: string) => Promise<boolean>
 }
 
 export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
@@ -117,5 +118,29 @@ export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
   
   setHasUnsavedChanges: (value: boolean) => {
     set({ hasUnsavedChanges: value })
+  },
+  
+  removeConnection: async (connectionId: string) => {
+    const workflow = get().currentWorkflow
+    if (!workflow) {
+      toast.error('No workflow loaded')
+      return false
+    }
+    
+    try {
+      const result = await deleteConnection(workflow.id, connectionId)
+      
+      if (result.success) {
+        toast.success('Connection deleted')
+        return true
+      } else {
+        toast.error('Failed to delete connection: ' + (result.error || 'Unknown error'))
+        return false
+      }
+    } catch (error) {
+      console.error('Failed to delete connection:', error)
+      toast.error('Failed to delete connection')
+      return false
+    }
   }
 }))

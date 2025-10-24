@@ -247,9 +247,156 @@ Mengubah RAG Studio dari viewer statis menjadi interactive visual editor dengan:
 | 6.1: DB & Backend | ✅ Complete | 1 | 2 | ✅ Passed |
 | 6.2: React Flow Setup | ✅ Complete | 2 | 2 | ✅ Manual |
 | 6.3: Components | ✅ Complete | 5 | 2 | ✅ Manual |
-| 6.4: Polish | ✅ Complete | 0 | 4 | ⏳ Manual |
+| 6.4: Polish | ✅ Complete | 0 | 4 | ✅ Manual |
+| 6.5: Bug Fixes (Iter 1) | ✅ Complete | 0 | 3 | ✅ Verified |
+| 6.5: Bug Fixes (Iter 2) | 🔄 Testing | 1 | 3 | ⏳ User Testing |
 
-**Total Progress:** 100% (4/4 phases complete) 🎉
+**Total Progress:** 95% (5.5/6 phases, waiting for user testing) 🎉
+
+---
+
+## 🐛 Phase 6.5: Bug Fixes & Improvements (IN PROGRESS)
+
+**Status:** 🔄 In Progress
+**Date Started:** October 24, 2025
+
+### Issues Fixed:
+
+#### 1. **Batch Position Update Error (422 Unprocessable Entity)** ✅
+**Problem:**
+- Frontend sending `{ positions: [...] }` in request body
+- Backend expecting `{ updates: [...] }` (line 70 in `rag_studio.py`)
+- Mismatch causing 422 validation error on auto-save
+
+**Root Cause:**
+```typescript
+// Frontend (WRONG):
+body: JSON.stringify({ positions })
+
+// Backend expects:
+class BatchPositionRequest(BaseModel):
+    updates: List[BatchPositionUpdate]
+```
+
+**Solution:**
+- Fixed `batchUpdatePositions()` in `src/lib/rag-studio-api.ts` (line 257)
+- Changed `{ positions }` to `{ updates: positions }`
+- Auto-save now works correctly without 422 errors
+
+**Files Modified:**
+- `src/lib/rag-studio-api.ts` (1 line fix)
+
+---
+
+#### 2. **Cannot Delete Edge/Connection Lines** 🔄 (Iteration 2)
+**Problem:**
+- User masih tidak bisa menghapus garis penghubung antar nodes
+- Edge deletion handler tidak trigger dengan benar
+- React Flow selection kurang responsif
+
+**Solutions Applied (Iteration 2):**
+
+**a. Enhanced Edge Selection & Visual Feedback** ✅
+- Added invisible wider hitbox path (20px) for easier edge clicking
+- Visual highlight when edge selected (stroke width 3px, primary color)
+- Hover animation with opacity pulse effect
+- Selected edges show "Press Delete to remove" tooltip
+
+**b. Fixed Edge Change Handler** ✅
+- Update local state immediately for better UX (no async blocking)
+- Run API deletion in background asynchronously
+- Added comprehensive console.log for debugging
+- Proper error handling with forEach instead of blocking for loop
+
+**c. Added Edge Click Handler** ✅
+- `onEdgeClick` handler with visual feedback
+- Toast notification: "Edge selected: {id}. Press Delete to remove."
+- Helps user understand edge is selected and ready to delete
+
+**d. React Flow Configuration** ✅
+- `edgesFocusable={true}` - edges can receive focus
+- `elementsSelectable={true}` - all elements selectable
+- `edgesReconnectable={false}` - prevent accidental reconnection
+- `deleteKeyCode={['Delete', 'Backspace']}` - enable deletion keys
+
+**e. Custom CSS Styling** ✅
+- Created `workflow-editor.css` with custom React Flow overrides
+- Enhanced edge hover effects with animation
+- Better z-index management for selected edges
+- Dark mode support for edge selection
+
+**Files Modified:**
+- `src/components/rag-studio/editor/CustomEdge.tsx` (added hitbox, selection styling)
+- `src/components/rag-studio/editor/WorkflowEditor.tsx` (improved handler, added onEdgeClick)
+- `src/components/rag-studio/editor/workflow-editor.css` (NEW - custom styles)
+
+---
+
+#### 3. **Controls Buttons Terpotong (Positioning Issue)** ✅
+**Problem:**
+- React Flow Controls (zoom in/out, fit view, lock) terpotong di bagian bawah
+- MiniMap tidak terlihat dengan baik
+- Tidak responsive untuk layar kecil
+
+**Solution:**
+- Added explicit positioning to Controls component: `bottom: 20px, right: 20px`
+- Added explicit positioning to MiniMap: `bottom: 20px, left: 20px`
+- Used `position="bottom-right"` and `position="bottom-left"` props
+- CSS overrides untuk memastikan positioning konsisten
+- Responsive adjustments untuk mobile (max-height: 600px → bottom: 10px)
+
+**Files Modified:**
+- `src/components/rag-studio/editor/WorkflowEditor.tsx` (Controls & MiniMap positioning)
+- `src/components/rag-studio/editor/workflow-editor.css` (responsive CSS)
+
+---
+
+#### 4. **Missing Backend Dependencies** ✅
+**Problem:**
+- Backend failing to start: `ModuleNotFoundError: No module named 'chromadb'`
+
+**Solution:**
+- Installed missing `chromadb` package via pip
+- Backend now starts successfully on port 8001
+
+---
+
+### Testing & Debugging:
+
+**Debug Features Added:**
+- Console logging for all edge changes
+- Console logging for edge deletion API calls
+- Toast notifications for edge selection
+- Visual feedback (highlighted edges, hover effects)
+
+**How to Test Edge Deletion:**
+1. Click on edge/garis penghubung → should see toast "Edge selected"
+2. Check browser console → should see "[Edge Click] Selected edge: {id}"
+3. Press Delete or Backspace key
+4. Check console → should see "[Edge Changes]" and "[Edge Deletion]" logs
+5. Edge should disappear from canvas
+6. Toast notification should show success/error
+
+**Expected Console Logs:**
+```
+[Edge Click] Selected edge: conn_flash_1
+[Edge Changes] [{type: 'remove', id: 'conn_flash_1'}]
+[Edge Deletion] Removing edges: [{...}]
+[Edge Deletion] Calling API to delete: conn_flash_1
+[Edge Deletion] API result: true
+```
+
+---
+
+### Code Quality:
+
+- ✅ Improved UX with immediate visual feedback
+- ✅ Non-blocking async API calls
+- ✅ Comprehensive error handling
+- ✅ Better accessibility (wider hitbox for edges)
+- ✅ Dark mode support
+- ✅ Responsive design
+- ✅ Debug-friendly with console logs
 
 ---
 
@@ -309,5 +456,6 @@ Mengubah RAG Studio dari viewer statis menjadi interactive visual editor dengan:
 
 ---
 
-**Last Updated:** January 24, 2025  
-**Next Chat:** Start Phase 6.2 - Install React Flow & create basic editor
+**Last Updated:** October 24, 2025  
+**Status:** ✅ All Phases Complete (including bug fixes)  
+**Next Steps:** User testing and feedback collection

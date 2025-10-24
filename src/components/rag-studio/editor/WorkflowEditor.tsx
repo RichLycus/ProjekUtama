@@ -17,6 +17,7 @@ import ReactFlow, {
   EdgeChange,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
+import './workflow-editor.css'
 import { Workflow } from '@/lib/rag-studio-api'
 import { useRAGStudioStore } from '@/store/ragStudioStore'
 import CustomNode from './CustomNode'
@@ -79,7 +80,7 @@ function convertToReactFlow(workflow: Workflow) {
 
 export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange }: WorkflowEditorProps) {
   const { zoomIn, zoomOut, fitView } = useReactFlow()
-  const { saveNodePositions, setHasUnsavedChanges } = useRAGStudioStore()
+  const { saveNodePositions, setHasUnsavedChanges, removeConnection } = useRAGStudioStore()
   const [showSidebar, setShowSidebar] = useState(true)
   const [showGrid, setShowGrid] = useState(true)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
@@ -164,20 +165,47 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
 
   const onEdgesChangeHandler = useCallback(
     (changes: EdgeChange[]) => {
+      console.log('[Edge Changes]', changes)
+      
+      // First update local state immediately for better UX
       handleEdgesChange(changes)
-      setHasUnsavedChanges(true)
+      
+      // Check if any edge is being removed
+      const removeChanges = changes.filter(change => change.type === 'remove')
+      
+      // Handle edge deletion via API (async in background)
+      if (removeChanges.length > 0) {
+        console.log('[Edge Deletion] Removing edges:', removeChanges)
+        removeChanges.forEach(async (change) => {
+          if ('id' in change) {
+            const edgeId = change.id
+            console.log('[Edge Deletion] Calling API to delete:', edgeId)
+            // Call API to delete connection
+            const success = await removeConnection(edgeId)
+            console.log('[Edge Deletion] API result:', success)
+          }
+        })
+      } else {
+        setHasUnsavedChanges(true)
+      }
       
       if (onEdgesChange) {
         onEdgesChange(edges)
       }
     },
-    [handleEdgesChange, edges, onEdgesChange, setHasUnsavedChanges]
+    [handleEdgesChange, edges, onEdgesChange, setHasUnsavedChanges, removeConnection]
   )
 
   // Node selection handler
   const onNodeClick = useCallback((_event: any, node: Node) => {
     setSelectedNode(node)
     setShowConfigPanel(true)
+  }, [])
+
+  // Edge click handler (for debugging)
+  const onEdgeClick = useCallback((_event: any, edge: Edge) => {
+    console.log('[Edge Click] Selected edge:', edge.id)
+    toast.info(`Edge selected: ${edge.id}. Press Delete to remove.`, { duration: 2000 })
   }, [])
 
   // Drag & drop from sidebar
@@ -307,7 +335,7 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
         handleSave()
       }
       
-      // Delete / Backspace: Delete selected node
+      // Delete / Backspace: Delete selected node (when config panel is open)
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNode && showConfigPanel) {
         event.preventDefault()
         handleNodeDelete(selectedNode.id)
@@ -358,6 +386,7 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
             onEdgesChange={onEdgesChangeHandler}
             onConnect={onConnect}
             onNodeClick={onNodeClick}
+            onEdgeClick={onEdgeClick}
             onDragOver={onDragOver}
             onDrop={onDrop}
             nodeTypes={nodeTypes}
@@ -365,11 +394,23 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
             fitView
             fitViewOptions={{ padding: 0.2 }}
             className="bg-gray-50 dark:bg-dark-surface"
-            deleteKeyCode={null}
+            deleteKeyCode={['Delete', 'Backspace']}
+            edgesReconnectable={false}
+            edgesFocusable={true}
+            elementsSelectable={true}
           >
-            <Controls className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg" />
+            <Controls 
+              className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg" 
+              position="bottom-right"
+              style={{ bottom: 20, right: 20 }}
+              showZoom={true}
+              showFitView={true}
+              showInteractive={true}
+            />
             <MiniMap 
               className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg"
+              position="bottom-left"
+              style={{ bottom: 20, left: 20 }}
               nodeColor={(node) => {
                 const colorMap = {
                   input: '#3b82f6',

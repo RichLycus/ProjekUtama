@@ -253,7 +253,7 @@ export async function batchUpdatePositions(
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ positions })
+      body: JSON.stringify({ updates: positions })
     })
     
     const data = await response.json()
@@ -265,6 +265,34 @@ export async function batchUpdatePositions(
     return { success: true }
   } catch (error) {
     console.error('Failed to batch update positions:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Delete a connection between nodes
+ */
+export async function deleteConnection(
+  workflowId: string,
+  connectionId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/workflows/${workflowId}/connections/${connectionId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to delete connection' }
+    }
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to delete connection:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
