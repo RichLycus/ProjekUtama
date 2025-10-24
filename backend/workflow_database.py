@@ -409,6 +409,58 @@ class WorkflowDB:
             cursor.execute("DELETE FROM rag_workflow_nodes WHERE id = ?", (node_id,))
             return cursor.rowcount > 0
     
+    def update_node_position(self, node_id: str, position_x: float, position_y: float, width: float = None, height: float = None) -> bool:
+        """Update node position on canvas"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            if width is not None and height is not None:
+                cursor.execute("""
+                    UPDATE rag_workflow_nodes 
+                    SET position_x = ?, position_y = ?, width = ?, height = ?
+                    WHERE id = ?
+                """, (position_x, position_y, width, height, node_id))
+            else:
+                cursor.execute("""
+                    UPDATE rag_workflow_nodes 
+                    SET position_x = ?, position_y = ?
+                    WHERE id = ?
+                """, (position_x, position_y, node_id))
+            
+            return cursor.rowcount > 0
+    
+    def batch_update_positions(self, updates: List[Dict[str, Any]]) -> int:
+        """Batch update multiple node positions for performance"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            updated_count = 0
+            
+            for update in updates:
+                node_id = update.get('node_id')
+                position_x = update.get('position_x')
+                position_y = update.get('position_y')
+                width = update.get('width')
+                height = update.get('height')
+                
+                if node_id and position_x is not None and position_y is not None:
+                    if width is not None and height is not None:
+                        cursor.execute("""
+                            UPDATE rag_workflow_nodes 
+                            SET position_x = ?, position_y = ?, width = ?, height = ?
+                            WHERE id = ?
+                        """, (position_x, position_y, width, height, node_id))
+                    else:
+                        cursor.execute("""
+                            UPDATE rag_workflow_nodes 
+                            SET position_x = ?, position_y = ?
+                            WHERE id = ?
+                        """, (position_x, position_y, node_id))
+                    
+                    if cursor.rowcount > 0:
+                        updated_count += 1
+            
+            return updated_count
+    
     # ============================================
     # CONNECTION METHODS
     # ============================================

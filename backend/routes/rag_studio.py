@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -52,6 +52,22 @@ class ConnectionCreate(BaseModel):
     from_node_id: str
     to_node_id: str
     condition: Optional[Dict[str, Any]] = None
+
+class NodePositionUpdate(BaseModel):
+    position_x: float
+    position_y: float
+    width: Optional[float] = None
+    height: Optional[float] = None
+
+class BatchPositionUpdate(BaseModel):
+    node_id: str
+    position_x: float
+    position_y: float
+    width: Optional[float] = None
+    height: Optional[float] = None
+
+class BatchPositionRequest(BaseModel):
+    updates: List[BatchPositionUpdate]
 
 class WorkflowCreate(BaseModel):
     mode: str
@@ -579,3 +595,208 @@ async def test_workflow(request: WorkflowTestRequest):
         import traceback
         logger.error(traceback.format_exc())
         raise HTTPException(500, f"Workflow execution failed: {str(e)}")
+
+
+# ============================================
+# NODE POSITION ENDPOINTS (Phase 6)
+# ============================================
+
+@router.put("/api/rag-studio/workflows/{workflow_id}/batch-positions")
+async def batch_update_node_positions(
+    workflow_id: str,
+    request: BatchPositionRequest
+):
+    """
+    Batch update multiple node positions at once
+    
+    Body: {
+        "updates": [
+            {
+                "node_id": "node1",
+                "position_x": 100,
+                "position_y": 50,
+                "width": 200,
+                "height": 80
+            },
+            {
+                "node_id": "node2",
+                "position_x": 300,
+                "position_y": 50
+            }
+        ]
+    }
+    """
+    try:
+        updates = request.updates
+        logger.info(f"📐 Batch updating {len(updates)} node positions")
+        
+        # Verify all nodes exist and belong to workflow
+        for update in updates:
+            node = workflow_db.get_node(update.node_id)
+            if not node:
+                raise HTTPException(404, f"Node not found: {update.node_id}")
+            if node['workflow_id'] != workflow_id:
+                raise HTTPException(400, f"Node {update.node_id} does not belong to this workflow")
+        
+        # Batch update positions
+        update_data = [
+            {
+                'node_id': u.node_id,
+                'position_x': u.position_x,
+                'position_y': u.position_y,
+                'width': u.width,
+                'height': u.height
+            }
+            for u in updates
+        ]
+        
+        updated_count = workflow_db.batch_update_positions(update_data)
+        
+        logger.info(f"✅ Batch update complete: {updated_count} nodes updated")
+        
+        return {
+            "success": True,
+            "message": f"Updated {updated_count} node positions",
+            "updated_count": updated_count
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Batch position update failed: {str(e)}")
+        raise HTTPException(500, f"Batch position update failed: {str(e)}")
+
+@router.put("/api/rag-studio/workflows/{workflow_id}/nodes/{node_id}/position")
+async def update_node_position(
+    workflow_id: str,
+    node_id: str,
+    position_update: NodePositionUpdate
+):
+    """
+    Update node position on canvas
+    
+    Body: {
+        "position_x": 250.0,
+        "position_y": 100.0,
+        "width": 200.0,  // optional
+        "height": 80.0   // optional
+    }
+    """
+    try:
+        logger.info(f"📐 Updating position for node: {node_id}")
+        
+        # Verify node exists and belongs to workflow
+        node = workflow_db.get_node(node_id)
+        if not node:
+            raise HTTPException(404, f"Node not found: {node_id}")
+        
+        if node['workflow_id'] != workflow_id:
+            raise HTTPException(400, "Node does not belong to this workflow")
+        
+        # Update position
+        success = workflow_db.update_node_position(
+            node_id=node_id,
+            position_x=position_update.position_x,
+            position_y=position_update.position_y,
+            width=position_update.width,
+            height=position_update.height
+        )
+        
+        if not success:
+            raise HTTPException(500, "Failed to update node position")
+        
+        logger.info(f"✅ Node position updated: ({position_update.position_x}, {position_update.position_y})")
+        
+        return {
+            "success": True,
+            "message": "Node position updated",
+            "node_id": node_id,
+            "position": {
+                "x": position_update.position_x,
+                "y": position_update.position_y,
+                "width": position_update.width,
+                "height": position_update.height
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to update node position: {str(e)}")
+        raise HTTPException(500, f"Failed to update node position: {str(e)}")
+
+@router.post("/api/rag-studio/workflows/{workflow_id}/auto-layout")
+async def auto_layout_workflow(
+    workflow_id: str,
+    layout_type: str = "vertical"
+):
+    """
+    Auto-arrange nodes using layout algorithm
+    
+    Query params:
+    - layout_type: "vertical", "horizontal", or "dagre"
+    
+    Returns updated node positions
+    """
+    try:
+        logger.info(f"🎨 Auto-layout workflow: {workflow_id} ({layout_type})")
+        
+        # Get workflow with nodes
+        workflow = workflow_db.get_workflow_with_nodes(workflow_id)
+        if not workflow:
+            raise HTTPException(404, "Workflow not found")
+        
+        nodes = workflow.get('nodes', [])
+        if not nodes:
+            raise HTTPException(400, "No nodes to layout")
+        
+        # Calculate positions based on layout type
+        updates = []
+        
+        if layout_type == "vertical":
+            # Vertical layout: center x, incremental y
+            center_x = 400
+            start_y = 50
+            spacing = 130
+            
+            for i, node in enumerate(sorted(nodes, key=lambda n: n['position'])):
+                updates.append({
+                    'node_id': node['id'],
+                    'position_x': center_x,
+                    'position_y': start_y + (i * spacing),
+                    'width': 200,
+                    'height': 80
+                })
+        
+        elif layout_type == "horizontal":
+            # Horizontal layout: incremental x, center y
+            start_x = 50
+            center_y = 300
+            spacing = 250
+            
+            for i, node in enumerate(sorted(nodes, key=lambda n: n['position'])):
+                updates.append({
+                    'node_id': node['id'],
+                    'position_x': start_x + (i * spacing),
+                    'position_y': center_y,
+                    'width': 200,
+                    'height': 80
+                })
+        
+        else:
+            raise HTTPException(400, f"Unsupported layout type: {layout_type}")
+        
+        # Batch update
+        updated_count = workflow_db.batch_update_positions(updates)
+        
+        logger.info(f"✅ Auto-layout complete: {updated_count} nodes positioned")
+        
+        return {
+            "success": True,
+            "message": f"Auto-layout applied: {layout_type}",
+            "updated_count": updated_count,
+            "positions": updates
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Auto-layout failed: {str(e)}")
+        raise HTTPException(500, f"Auto-layout failed: {str(e)}")
