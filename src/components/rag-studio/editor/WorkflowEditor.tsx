@@ -81,16 +81,13 @@ function convertToReactFlow(workflow: Workflow) {
 
 export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange }: WorkflowEditorProps) {
   const { zoomIn, zoomOut, fitView } = useReactFlow()
-  const { saveNodePositions, setHasUnsavedChanges, removeConnection, updateNodeConfig } = useRAGStudioStore()
+  const { saveNodePositions, setHasUnsavedChanges, removeConnection, updateNodeConfig, hasUnsavedChanges } = useRAGStudioStore()
   const [showSidebar, setShowSidebar] = useState(true)
   const [showGrid, setShowGrid] = useState(true)
   const [deleteMode, setDeleteMode] = useState(false)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [showConfigPanel, setShowConfigPanel] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  
-  // Debounced auto-save ref
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
     () => convertToReactFlow(workflow),
@@ -119,33 +116,7 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
     [setEdges, setHasUnsavedChanges]
   )
 
-  // Debounced auto-save function
-  const scheduleAutoSave = useCallback(() => {
-    // Clear existing timeout
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current)
-    }
-    
-    // Schedule new auto-save
-    autoSaveTimeoutRef.current = setTimeout(async () => {
-      const positions = nodes.map(node => ({
-        node_id: node.id,
-        position_x: Math.round(node.position.x),
-        position_y: Math.round(node.position.y),
-      }))
-      
-      console.log('[Auto-save] Saving positions:', positions)
-      setIsSaving(true)
-      const success = await saveNodePositions(positions)
-      setIsSaving(false)
-      
-      if (success) {
-        console.log('[Auto-save] Positions saved successfully')
-      }
-    }, 300) // 300ms debounce
-  }, [nodes, saveNodePositions])
-
-  // Notify parent of changes & trigger auto-save
+  // Notify parent of changes (NO auto-save - manual only)
   const onNodesChangeHandler = useCallback(
     (changes: NodeChange[]) => {
       handleNodesChange(changes)
@@ -155,14 +126,13 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
       
       if (hasPositionChange) {
         setHasUnsavedChanges(true)
-        scheduleAutoSave()
       }
       
       if (onNodesChange) {
         onNodesChange(nodes)
       }
     },
-    [handleNodesChange, nodes, onNodesChange, setHasUnsavedChanges, scheduleAutoSave]
+    [handleNodesChange, nodes, onNodesChange, setHasUnsavedChanges]
   )
 
   const onEdgesChangeHandler = useCallback(
@@ -276,9 +246,8 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
     }))
     setNodes(layoutedNodes)
     setHasUnsavedChanges(true)
-    scheduleAutoSave()
-    toast.success('Auto-layout applied')
-  }, [nodes, setNodes, setHasUnsavedChanges, scheduleAutoSave])
+    toast.success('Auto-layout applied. Press Ctrl+S to save.')
+  }, [nodes, setNodes, setHasUnsavedChanges])
 
   // Toggle delete mode handler
   const handleToggleDeleteMode = useCallback(() => {
@@ -337,9 +306,8 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
     setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId))
     setHasUnsavedChanges(true)
     setShowConfigPanel(false)
-    scheduleAutoSave()
-    toast.success('Node deleted')
-  }, [setNodes, setEdges, setHasUnsavedChanges, scheduleAutoSave])
+    toast.success('Node deleted. Press Ctrl+S to save.')
+  }, [setNodes, setEdges, setHasUnsavedChanges])
 
   const handleToggleEnabled = useCallback((nodeId: string, enabled: boolean) => {
     setNodes((nds) =>
@@ -362,6 +330,12 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Check if user is typing in an input/textarea (CRITICAL: prevent accidental deletion)
+      const target = event.target as HTMLElement
+      const isTyping = target.tagName === 'INPUT' || 
+                       target.tagName === 'TEXTAREA' || 
+                       target.contentEditable === 'true'
+      
       // ESC: Exit delete mode
       if (event.key === 'Escape' && deleteMode) {
         setDeleteMode(false)
@@ -385,8 +359,9 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
         toast.success('🔗 Connection removed')
       }
       
-      // Delete / Backspace: Delete selected node (when config panel is open)
-      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNode && showConfigPanel) {
+      // Delete ONLY (NOT Backspace): Delete selected node when config panel is open
+      // IMPORTANT: Only Delete key, and only when NOT typing in input fields
+      if (event.key === 'Delete' && selectedNode && showConfigPanel && !isTyping) {
         event.preventDefault()
         handleNodeDelete(selectedNode.id)
       }
@@ -395,15 +370,6 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleSave, handleNodeDelete, selectedNode, showConfigPanel, selectedEdge, setEdges, removeConnection, deleteMode])
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current)
-      }
-    }
-  }, [])
 
   return (
     <div className="w-full h-full flex">
@@ -426,7 +392,7 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
           onToggleDeleteMode={handleToggleDeleteMode}
           showGrid={showGrid}
           deleteMode={deleteMode}
-          hasUnsavedChanges={isSaving}
+          hasUnsavedChanges={hasUnsavedChanges || isSaving}
         />
 
         {/* Delete Mode Banner */}
@@ -466,7 +432,7 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
             fitView
             fitViewOptions={{ padding: 0.2 }}
             className={`bg-gray-50 dark:bg-dark-surface ${deleteMode ? 'cursor-crosshair' : ''}`}
-            deleteKeyCode={['Delete', 'Backspace']}
+            deleteKeyCode="Delete"
             edgesReconnectable={false}
             edgesFocusable={true}
             elementsSelectable={true}
@@ -505,11 +471,20 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
           </ReactFlow>
         </div>
         
-        {/* Auto-save indicator */}
-        {isSaving && (
+        {/* Unsaved changes & save indicator */}
+        {(hasUnsavedChanges || isSaving) && (
           <div className="absolute bottom-4 right-4 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg px-4 py-2 shadow-lg flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Saving...</span>
+            {isSaving ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Saving...</span>
+              </>
+            ) : (
+              <>
+                <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Unsaved changes • Press Ctrl+S to save</span>
+              </>
+            )}
           </div>
         )}
       </div>

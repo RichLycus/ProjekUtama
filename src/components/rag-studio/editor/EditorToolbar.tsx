@@ -53,17 +53,20 @@ export default function EditorToolbar({
         {onSave && (
           <button
             onClick={onSave}
-            disabled={!hasUnsavedChanges}
-            className="
+            className={`
               flex items-center gap-2 px-3 py-2 rounded-lg
-              bg-primary hover:bg-secondary text-white
-              disabled:opacity-50 disabled:cursor-not-allowed
               transition-colors text-sm font-medium
-            "
+              ${hasUnsavedChanges 
+                ? 'bg-primary hover:bg-secondary text-white'
+                : 'bg-gray-100 dark:bg-dark-surface hover:bg-gray-200 dark:hover:bg-dark-border text-gray-700 dark:text-gray-300'
+              }
+            `}
             title="Save workflow (Ctrl+S)"
           >
             <Save className="w-4 h-4" />
-            <span className="hidden sm:inline">Save</span>
+            <span className="hidden sm:inline">
+              {hasUnsavedChanges ? 'Save*' : 'Save'}
+            </span>
           </button>
         )}
         

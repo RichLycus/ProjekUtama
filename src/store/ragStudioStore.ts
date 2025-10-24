@@ -262,7 +262,12 @@ export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
     }
     
     try {
-      const result = await updateNode(workflow.id, nodeId, config)
+      // Send all node updates including node_name and is_enabled
+      const result = await updateNode(workflow.id, nodeId, {
+        node_name: config.nodeName,
+        config: config.config,
+        is_enabled: config.isEnabled
+      })
       
       if (result.success) {
         toast.success('Node configuration saved')

@@ -164,7 +164,8 @@ Mengubah RAG Studio dari viewer statis menjadi interactive visual editor dengan:
 ## ✅ Phase 6.4: Integration & Polish (COMPLETE)
 
 **Status:** ✅ Complete  
-**Date Completed:** January 24, 2025
+**Date Completed:** January 24, 2025  
+**Updated:** October 24, 2025 (Auto-save disabled, manual save only)
 
 ### What's Done:
 1. **API Position Update Functions** ✅
@@ -179,42 +180,84 @@ Mengubah RAG Studio dari viewer statis menjadi interactive visual editor dengan:
    - Added `setHasUnsavedChanges()` action for state management
    - Toast notifications for save success/failure
 
-3. **Debounced Auto-Save** ✅
-   - 300ms debounce delay after position changes
-   - Automatic batch save to backend API
-   - Visual "Saving..." indicator
-   - Console logging for debugging
-   - Position rounding for consistency
+3. **Manual Save Only (Updated)** ✅
+   - ❌ Auto-save DISABLED (was causing bugs during rename/add operations)
+   - ✅ Manual save via button click or Ctrl+S keyboard shortcut
+   - ✅ Visual "Unsaved changes" indicator (yellow dot)
+   - ✅ Save button always enabled, highlighted when changes present
+   - ✅ Clear feedback with toast notifications
 
 4. **Keyboard Shortcuts** ✅
    - **Ctrl+S / Cmd+S**: Manual save positions
-   - **Delete / Backspace**: Delete selected node (with confirmation)
+   - **Delete ONLY**: Delete selected node (NOT Backspace - to prevent accidents while typing)
+   - **Ctrl+D**: Delete selected edge
    - Event listeners with cleanup on unmount
+   - Safe typing: Shortcuts disabled when typing in input/textarea fields
 
 5. **Unsaved Changes Warning** ✅
    - Browser `beforeunload` event handler
    - Warning dialog on navigation with unsaved changes
    - Auto-reset on confirmed navigation
-   - Visual indicator in header ("Auto-saving...")
+   - Visual indicator in toolbar (yellow dot + text)
+   - Bottom-right floating indicator with save reminder
 
 6. **Editor Enhancements** ✅
-   - Manual save button in toolbar
-   - Auto-save trigger on drag end
+   - Manual save button in toolbar (prominent primary color)
    - Position change detection
    - Toast notifications for all actions
    - Disabled React Flow delete key (using custom handler)
+   - Clear user feedback: "Press Ctrl+S to save"
 
 7. **Performance Optimizations** ✅
-   - Debounced auto-save prevents excessive API calls
-   - Position rounding reduces unnecessary updates
-   - Ref-based timeout management
-   - Proper cleanup on unmount
+   - No auto-save = no unnecessary API calls
+   - Position rounding for consistency
+   - User controls when to save (prevents conflicts)
 
 ### Files Modified:
 - `src/lib/rag-studio-api.ts` (+90 lines, 3 new functions)
 - `src/store/ragStudioStore.ts` (+35 lines, added save logic)
-- `src/components/rag-studio/editor/WorkflowEditor.tsx` (complete rewrite with auto-save)
+- `src/components/rag-studio/editor/WorkflowEditor.tsx` (removed auto-save, manual only)
+- `src/components/rag-studio/editor/EditorToolbar.tsx` (enhanced save button UX)
 - `src/pages/RAGStudioEditorPage.tsx` (added unsaved changes warning)
+
+### Bug Fix (October 24, 2025):
+**Issue 1: Auto-save too aggressive**
+- Auto-save was too aggressive (300ms debounce), causing bugs when:
+  - Dragging/moving nodes
+  - Renaming workflow name
+  - Adding new flows/nodes
+  - User operations were interrupted by auto-save API calls
+
+**Solution:** Disabled auto-save completely, switched to manual save only:
+- Removed `scheduleAutoSave()` function
+- Removed auto-save timeout ref
+- Removed auto-save triggers from handlers
+- Enhanced visual feedback for unsaved changes
+- Save button always available (not disabled)
+
+**Issue 2: Backspace deleting nodes while typing (CRITICAL)** 🚨
+- **Problem:** When editing node config in input/textarea, pressing Backspace would accidentally DELETE the entire node!
+- **Root Cause:** Keyboard shortcut listener was catching Backspace globally without checking if user was typing
+- **Impact:** Users lost work accidentally when editing text
+
+**Solution:** Fixed keyboard shortcut handler:
+- ✅ Only use **Delete key** for node deletion (NOT Backspace)
+- ✅ Check if user is typing in INPUT/TEXTAREA/contentEditable before triggering shortcuts
+- ✅ Backspace now safely works for text editing only
+- ✅ Updated React Flow config: `deleteKeyCode="Delete"` (removed Backspace)
+- ✅ Added safety check: `isTyping` detection before any destructive action
+
+**Issue 3: Node name/config not saving to database** 🐛
+- **Problem:** When editing node name or config in NodeConfigPanel, changes were not persisted to database
+- **Root Cause:** Frontend API call only sent `{ config }` instead of full node update data
+- **Impact:** User changes lost after page reload, very confusing UX
+
+**Solution:** Fixed API call to include all fields:
+- ✅ Updated `updateNode()` API function signature to accept full node updates
+- ✅ Now sends: `node_name`, `config`, `is_enabled` (not just config)
+- ✅ Backend already supported these fields, was frontend bug
+- ✅ Store now passes complete update data to API
+- ✅ Changes now persist correctly to database
 
 ---
 
@@ -712,9 +755,191 @@ Transform RAG Studio into a full-featured workflow management system with:
 
 ---
 
-### 🔜 Sub-Phase 6.6.3: Workflow Templates (FUTURE)
+## 🔜 Phase 6.6.3: Fix Workflow Execution & UI (CRITICAL) ⚠️
 
-**Status:** 📋 Planned  
+**Status:** 📋 Planned - PRIORITY HIGH  
+**Goal:** Fix workflow execution to use real agents & improve test result UI
+
+### 🐛 Critical Issues Identified:
+
+**Issue 1: Workflow Engine Uses Mock Data Only**
+- **Problem:** `WorkflowEngine` in `backend/ai/workflow_engine.py` only returns mock/dummy responses
+- **Impact:** Testing workflow tidak memanggil Ollama agents yang sebenarnya
+- **Root Cause:** 
+  - `_execute_llm_node()` calls `_generate_mock_response()` instead of real agent
+  - `_execute_rag_node()` uses `_get_mock_rag_results()` when RAG system not available
+  - `_execute_router_node()` uses simple keyword matching, not `EnhancedRouterAgent`
+
+**Issue 2: Test Result UI Too Verbose**
+- **Problem:** Execution flow display cluttered with full JSON data
+- **Expected:** Clean bullet-point display like Chat page:
+  ```
+  • Router: Intent classified as 'general'
+  • RAG: Retrieved 3 sources
+  • Execution: No tool execution needed
+  • Reasoning: Generated response (37 chars)
+  • Persona: Applied lycus persona
+  ```
+- **Current:** Raw JSON with full input/output objects
+
+### 🎯 Solution Architecture:
+
+**Backend Changes Needed:**
+
+1. **Integrate Real Agents into WorkflowEngine:**
+   - Import `MultiModelOrchestrator` or `AgentOrchestrator`
+   - Replace mock functions with real agent calls
+   - Key files to study:
+     - `/app/backend/ai/agent_orchestrator.py` (5-agent pipeline)
+     - `/app/backend/ai/multi_model_orchestrator.py` (specialized agents)
+     - `/app/backend/ai/enhanced_router.py` (router with validation)
+     - `/app/backend/ai/specialized_agents.py` (chat/code/analysis/creative/tool)
+   
+2. **Agent System Architecture:**
+   ```
+   AgentOrchestrator (Simple):
+   User Input → Router → RAG → Execution → Reasoning → Persona → Output
+   
+   MultiModelOrchestrator (Advanced):
+   User Input → EnhancedRouter (validation + improvement)
+              → Specialized Agent (chat/code/analysis/creative/tool)
+              → RAG (if needed)
+              → Persona
+              → Output
+   ```
+
+3. **Agent Configuration:**
+   - All agents load config from database: `chimera_tools.db` → `agents_configs` table
+   - Each agent has dedicated model, temperature, max_tokens, system_prompt
+   - Router: `phi3:mini` (T=0.3)
+   - Chat: `gemma2:2b` (T=0.7)
+   - Code: `qwen2.5-coder:7b` (T=0.5)
+   - Analysis: `qwen2.5:7b` (T=0.6)
+   - Creative: `llama3:8b` (T=0.8)
+   - Persona: `gemma2:2b` (T=0.6)
+
+4. **Workflow Node Type Mapping:**
+   ```python
+   # Node Type → Agent Mapping
+   "router" → EnhancedRouterAgent.route_request()
+   "rag_retriever" → RAGAgent.retrieve_context()
+   "llm" → Use node config to determine:
+             - If config.agent_type == 'chat' → ChatAgent.process()
+             - If config.agent_type == 'code' → CodeAgent.process()
+             - If config.agent_type == 'analysis' → AnalysisAgent.process()
+             - If config.agent_type == 'creative' → CreativeAgent.process()
+   "output" → PersonaAgent.format_response()
+   ```
+
+5. **Required Changes in `workflow_engine.py`:**
+   ```python
+   # Add to __init__:
+   self.orchestrator = MultiModelOrchestrator(db_manager, config_manager)
+   
+   # Update _execute_router_node:
+   routing_result = self.orchestrator.router.route_request(message)
+   return {
+       "message": message,
+       "intent": routing_result["intent"],
+       "confidence": routing_result["confidence"],
+       "was_improved": routing_result["was_improved"],
+       ...
+   }
+   
+   # Update _execute_rag_node:
+   rag_result = self.orchestrator.rag.retrieve_context(message, intent)
+   return {
+       "message": message,
+       "retrieved_documents": rag_result["documents"],
+       "num_results": len(rag_result["documents"]),
+       ...
+   }
+   
+   # Update _execute_llm_node:
+   agent_type = config.get('agent_type', 'chat')
+   agent = self.orchestrator.specialized_agents[agent_type]
+   result = agent.process(message, context=context_str, rag_context=rag_context)
+   return {
+       "message": message,
+       "response": result["response"],
+       "agent": agent_type,
+       ...
+   }
+   ```
+
+**Frontend Changes Needed:**
+
+1. **Clean Execution Log Display:**
+   - Create new component: `ExecutionStepSummary.tsx`
+   - Display format:
+     ```
+     ✅ User Input (0.2ms)
+     ✅ Intent Router (0.1ms) → classified as 'general'
+     ✅ Chimepaedia Search (0.2ms) → 3 documents
+     ✅ Persona LLM (0.1ms) → response generated
+     ✅ Response Output (0.1ms)
+     ```
+   - Collapsible sections for detailed view
+
+2. **Enhanced Test Panel UI:**
+   - Status badges with icons (✅ success, ⏭️ skipped, ❌ error)
+   - Visual flow diagram (nodes connected with arrows)
+   - Timing breakdown chart
+   - Key metrics summary (total time, nodes executed, documents retrieved)
+
+### 📋 Implementation Plan:
+
+**Phase 6.6.3.1: Backend Agent Integration**
+1. Import orchestrator in `workflow_engine.py`
+2. Replace `_execute_router_node()` with real router
+3. Replace `_execute_rag_node()` with real RAG
+4. Replace `_execute_llm_node()` with specialized agents
+5. Test with curl to verify real Ollama calls
+
+**Phase 6.6.3.2: Frontend UI Improvements**
+1. Create `ExecutionStepSummary` component
+2. Update `TestPanel` to use new component
+3. Add collapsible detailed view
+4. Visual polish (icons, colors, animations)
+
+**Phase 6.6.3.3: Testing & Verification**
+1. Test all node types (input, router, RAG, LLM, output)
+2. Verify Ollama calls in logs
+3. Compare with Chat page execution
+4. User acceptance testing
+
+### 📁 Files to Modify:
+
+**Backend:**
+- `backend/ai/workflow_engine.py` (main changes)
+- `backend/routes/rag_studio.py` (pass orchestrator to engine)
+
+**Frontend:**
+- `src/components/rag-studio/ExecutionStepSummary.tsx` (new)
+- `src/components/rag-studio/TestPanel.tsx` (update display)
+- `src/pages/RAGStudioPage.tsx` (integrate new component)
+
+### 🔗 Reference Files:
+
+Study these for understanding real agent usage:
+- `/app/backend/ai/agent_orchestrator.py` - 5-agent pipeline
+- `/app/backend/ai/multi_model_orchestrator.py` - Multi-model routing
+- `/app/backend/ai/enhanced_router.py` - Router with validation
+- `/app/backend/ai/specialized_agents.py` - All specialized agents
+- `/app/backend/ai/agents.py` - Base agent classes
+- `/app/backend/routes/chat_routes.py` - How Chat uses orchestrator
+
+### ⏱️ Estimated Timeline:
+- Backend Integration: 2-3 hours
+- Frontend UI: 1-2 hours  
+- Testing: 1 hour
+- **Total: 4-6 hours**
+
+---
+
+## 🔜 Phase 6.6.4: Workflow Templates (MOVED FROM 6.6.3)
+
+**Status:** 📋 Planned - AFTER 6.6.3 Complete
 **Goal:** Quick start with pre-built workflow templates
 
 **Planned Features:**
@@ -730,7 +955,7 @@ Transform RAG Studio into a full-featured workflow management system with:
 
 ---
 
-### 🔜 Sub-Phase 6.6.4: Import/Export & History (FUTURE)
+## 🔜 Phase 6.6.5: Import/Export & History (FUTURE)
 
 **Status:** 📋 Planned  
 **Goal:** Backup and version control
@@ -750,20 +975,31 @@ Transform RAG Studio into a full-featured workflow management system with:
 - ✅ Phase 6.1: Database & Backend API
 - ✅ Phase 6.2: React Flow Setup
 - ✅ Phase 6.3: Visual Editor Components
-- ✅ Phase 6.4: Integration & Polish
+- ✅ Phase 6.4: Integration & Polish (Manual Save - Auto-save disabled)
 - ✅ Phase 6.5: Bug Fixes (Iterations 1 & 2)
+  - Fixed batch position update API
+  - Fixed edge deletion
+  - Fixed Controls positioning
+  - Fixed Backspace deleting nodes while typing
+  - Fixed node name/config not persisting to database
 - ✅ Phase 6.6.1: Create Workflow + Workflow List
 - ✅ Phase 6.6.2: Enhanced Node Configuration
 
 **In Progress:**
 - ⏳ User Testing Phase 6.6.2
 
+**Next Priority:**
+- 🚨 **Phase 6.6.3: Fix Workflow Execution & UI (CRITICAL)**
+  - Workflow currently uses mock data
+  - Need to integrate real Ollama agents
+  - Improve test result UI display
+
 **Planned:**
-- 📋 Phase 6.6.3: Workflow Templates
-- 📋 Phase 6.6.4: Import/Export & History
+- 📋 Phase 6.6.4: Workflow Templates (moved from 6.6.3)
+- 📋 Phase 6.6.5: Import/Export & History
 
 ---
 
 **Last Updated:** October 24, 2025  
-**Status:** ✅ Phase 6.6.2 Complete (User Testing Pending)  
-**Next Steps:** User testing → Phase 6.6.3 implementation (if requested)
+**Status:** ✅ Phase 6.6.2 Complete | 🚨 Phase 6.6.3 Analysis Complete (Ready for Implementation)  
+**Next Steps:** Implement Phase 6.6.3 - integrate real agents into workflow execution

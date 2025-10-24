@@ -168,14 +168,23 @@ export async function testWorkflow(request: TestWorkflowRequest): Promise<TestWo
 /**
  * Update node configuration
  */
-export async function updateNode(workflowId: string, nodeId: string, config: Record<string, any>): Promise<{ success: boolean; error?: string }> {
+export async function updateNode(
+  workflowId: string, 
+  nodeId: string, 
+  updates: {
+    node_name?: string
+    config?: Record<string, any>
+    is_enabled?: boolean
+    position?: number
+  }
+): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`${BACKEND_URL}/api/rag-studio/workflows/${workflowId}/nodes/${nodeId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ config })
+      body: JSON.stringify(updates)
     })
     
     const data = await response.json()
