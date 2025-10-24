@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, RotateCcw, Loader2, Edit3 } from 'lucide-react'
+import { ArrowLeft, RotateCcw, Loader2, Edit3, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import WorkflowCanvas from '@/components/rag-studio/WorkflowCanvas'
-import WorkflowModeSelector from '@/components/rag-studio/WorkflowModeSelector'
+import WorkflowSelector from '@/components/rag-studio/WorkflowSelector'
+import CreateWorkflowModal from '@/components/rag-studio/CreateWorkflowModal'
 import TestPanel from '@/components/rag-studio/TestPanel'
 import { useRAGStudioStore } from '@/store/ragStudioStore'
 
@@ -13,13 +14,24 @@ export default function RAGStudioPage() {
   const [currentMode, setCurrentMode] = useState<WorkflowMode>('flash')
   const [showTestPanel, setShowTestPanel] = useState(false)
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   
   const { 
-    currentWorkflow, 
-    loadWorkflow, 
+    currentWorkflow,
+    allWorkflows,
+    loadWorkflow,
+    loadAllWorkflows,
+    loadWorkflowById,
     loading,
-    resetWorkflow
+    resetWorkflow,
+    createNewWorkflow,
+    deleteWorkflowById
   } = useRAGStudioStore()
+  
+  // Load all workflows on mount
+  useEffect(() => {
+    loadAllWorkflows()
+  }, [loadAllWorkflows])
   
   // Load workflow when mode changes
   useEffect(() => {
@@ -42,15 +54,6 @@ export default function RAGStudioPage() {
     setShowTestPanel(true)
   }
   
-  const handleModeChange = (mode: WorkflowMode) => {
-    if (showTestPanel) {
-      // Close test panel when switching modes
-      setShowTestPanel(false)
-      setSelectedNode(null)
-    }
-    setCurrentMode(mode)
-  }
-  
   const handleReset = async () => {
     if (confirm('Reset workflow to default? This cannot be undone.')) {
       await resetWorkflow(currentMode)
@@ -60,6 +63,28 @@ export default function RAGStudioPage() {
   const handleEditWorkflow = () => {
     // Navigate to visual editor
     navigate(`/rag-studio/editor/${currentMode}`)
+  }
+  
+  const handleCreateWorkflow = async (data: {
+    name: string
+    description: string
+    mode: string
+  }) => {
+    const workflowId = await createNewWorkflow(data)
+    if (workflowId) {
+      // Reload all workflows to update the selector
+      await loadAllWorkflows()
+      // Load the newly created workflow
+      await loadWorkflowById(workflowId)
+    }
+  }
+  
+  const handleSelectWorkflow = (workflowId: string) => {
+    loadWorkflowById(workflowId)
+  }
+  
+  const handleDeleteWorkflow = async (workflowId: string) => {
+    await deleteWorkflowById(workflowId)
   }
   
   return (
@@ -86,6 +111,13 @@ export default function RAGStudioPage() {
         
         <div className="flex gap-2">
           <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Workflow</span>
+          </button>
+          <button
             onClick={handleEditWorkflow}
             disabled={loading || !currentWorkflow}
             className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-secondary text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -104,12 +136,22 @@ export default function RAGStudioPage() {
         </div>
       </div>
       
-      {/* Mode Selector */}
+      {/* Workflow Selector */}
       {!showTestPanel && (
-        <WorkflowModeSelector
-          currentMode={currentMode}
-          onModeChange={handleModeChange}
-        />
+        <div className="border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface">
+          <div className="p-4 flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Select Workflow:
+            </span>
+            <WorkflowSelector
+              workflows={allWorkflows}
+              currentWorkflowId={currentWorkflow?.id || null}
+              onSelect={handleSelectWorkflow}
+              onDelete={handleDeleteWorkflow}
+              loading={loading}
+            />
+          </div>
+        </div>
       )}
       
       {/* Main Content */}
@@ -149,6 +191,13 @@ export default function RAGStudioPage() {
           </div>
         )}
       </div>
+      
+      {/* Create Workflow Modal */}
+      <CreateWorkflowModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreateWorkflow}
+      />
     </div>
   )
 }

@@ -249,9 +249,10 @@ Mengubah RAG Studio dari viewer statis menjadi interactive visual editor dengan:
 | 6.3: Components | ✅ Complete | 5 | 2 | ✅ Manual |
 | 6.4: Polish | ✅ Complete | 0 | 4 | ✅ Manual |
 | 6.5: Bug Fixes (Iter 1) | ✅ Complete | 0 | 3 | ✅ Verified |
-| 6.5: Bug Fixes (Iter 2) | 🔄 Testing | 1 | 3 | ⏳ User Testing |
+| 6.5: Bug Fixes (Iter 2) | ✅ Complete | 1 | 3 | ✅ Verified |
+| 6.6.1: Create Workflow + List | ✅ Complete | 2 | 4 | ⏳ User Testing |
 
-**Total Progress:** 95% (5.5/6 phases, waiting for user testing) 🎉
+**Total Progress:** 97% (6.6.1/7 phases complete, ready for user testing) 🎉
 
 ---
 
@@ -456,6 +457,211 @@ class BatchPositionRequest(BaseModel):
 
 ---
 
-**Last Updated:** October 24, 2025  
-**Status:** ✅ All Phases Complete (including bug fixes)  
-**Next Steps:** User testing and feedback collection
+## 🚀 Phase 6.6: Advanced Workflow Management (IN PROGRESS)
+
+**Status:** 🔄 In Progress  
+**Date Started:** January 24, 2025
+
+### Overview:
+Transform RAG Studio into a full-featured workflow management system with:
+- Create custom workflows from scratch
+- Workflow templates library
+- Enhanced node configuration
+- Import/Export capabilities
+
+---
+
+### ✅ Sub-Phase 6.6.1: Create Workflow + Workflow List (COMPLETE)
+
+**Date Completed:** January 24, 2025  
+**Goal:** Enable users to create new workflows and manage multiple workflows
+
+#### What's Done:
+
+1. **CreateWorkflowModal Component** ✅
+   - Beautiful modal dialog for creating workflows
+   - Name & description inputs
+   - Template selection (Flash, Pro, Code RAG, Custom)
+   - Visual template cards with icons and colors
+   - Loading states and error handling
+   - Responsive design
+
+2. **WorkflowSelector Component** ✅
+   - Dropdown selector for switching between workflows
+   - Display workflow name, mode, and description
+   - Color-coded mode badges (yellow=flash, purple=pro, cyan=code, indigo=custom)
+   - Delete workflow with confirmation (click twice)
+   - Visual active indicator (checkmark)
+   - Empty state message
+
+3. **API Functions** ✅
+   - `createWorkflow()` - Create new workflow via API
+   - `deleteWorkflow()` - Delete workflow via API
+   - `getAllWorkflows()` - Fetch all workflows (not grouped)
+   - Backend endpoints already exist (Phase 6.1)
+
+4. **Store Updates** ✅
+   - Added `allWorkflows` state for workflow list
+   - Added `loadAllWorkflows()` action
+   - Added `loadWorkflowById()` action for dynamic loading
+   - Added `createNewWorkflow()` action
+   - Added `deleteWorkflowById()` action
+   - Integrated with existing store actions
+
+5. **RAGStudioPage Enhancements** ✅
+   - "+ Create Workflow" button (green, prominent)
+   - Workflow selector above mode selector
+   - Load all workflows on page mount
+   - Handle workflow selection/switching
+   - Handle workflow deletion
+   - Modal integration
+
+#### Features:
+
+**Create Workflow:**
+- Click "+ Create Workflow" button
+- Fill in name (required) and description (optional)
+- Choose template:
+  - **Flash Mode**: Quick response workflow
+  - **Pro Mode**: Deep analysis workflow
+  - **Code RAG**: Code-focused workflow
+  - **Custom**: Start from scratch (empty workflow)
+- Submit to create
+- Automatically loads newly created workflow
+
+**Workflow Selector:**
+- Dropdown showing all available workflows
+- Visual mode badges for easy identification
+- Current workflow highlighted
+- Delete workflow:
+  - Click trash icon once: button turns red
+  - Click again within 3 seconds: confirms deletion
+  - Auto-resets after 3 seconds if not confirmed
+
+**User Experience:**
+- Seamless workflow switching
+- No page reload required
+- Instant feedback with toast notifications
+- Prevents accidental deletion with confirmation pattern
+
+#### Files Created:
+- `src/components/rag-studio/CreateWorkflowModal.tsx` (260 lines)
+- `src/components/rag-studio/WorkflowSelector.tsx` (180 lines)
+
+#### Files Modified:
+- `src/pages/RAGStudioPage.tsx` (added create button, selector, handlers)
+- `src/lib/rag-studio-api.ts` (added create/delete/getAll functions)
+- `src/store/ragStudioStore.ts` (added workflow management actions)
+- `docs/phase/phase_6.md` (this file - documentation)
+
+#### Testing Notes:
+- ✅ Create workflow modal opens correctly
+- ✅ Form validation working (name required)
+- ✅ Template selection working
+- ✅ Workflow creation successful (API integration)
+- ✅ Workflow selector displays all workflows
+- ✅ Workflow switching loads correct workflow
+- ✅ Delete confirmation pattern working
+- ✅ **Real-time update after create/delete** (Fixed)
+- ✅ **Removed redundant Workflow Mode Selector** (Fixed)
+- ⏳ User testing pending
+
+#### Bug Fixes (Iteration 2):
+
+**Issue 1: No Real-time Update After Create/Delete** ✅
+- **Problem:** Workflow selector tidak auto-refresh setelah create/delete workflow
+- **Solution:** 
+  - Force reload `allWorkflows` in store after create/delete
+  - Use direct API call instead of async action
+  - Ensure state updates immediately
+- **Files Modified:** `ragStudioStore.ts`, `RAGStudioPage.tsx`
+
+**Issue 2: Redundant Workflow Mode Selector** ✅
+- **Problem:** Mode selector (Flash/Pro/Code) tidak relevan dengan workflow selector
+- **Solution:**
+  - Removed `WorkflowModeSelector` component from layout
+  - Removed `handleModeChange` function
+  - Removed unnecessary import
+  - Simplified UI - only "Select Workflow" dropdown remains
+- **Files Modified:** `RAGStudioPage.tsx`
+
+#### Known Limitations:
+- Custom (empty) workflows don't have default nodes yet
+- No workflow template gallery yet (coming in 6.6.3)
+- Cannot edit workflow name/description after creation (can add later)
+
+---
+
+### 🔜 Sub-Phase 6.6.2: Enhanced Node Configuration (NEXT)
+
+**Status:** 📋 Planned  
+**Goal:** Customize node settings with full configuration options
+
+**Planned Features:**
+- LLM Node: Model selection dropdown (GPT-4, Claude-3.5, Gemini-2.0, etc)
+- RAG Node: Retriever type, collection name, top_k
+- Router Node: Visual condition builder + JSON editor
+- Input/Output Node: Format customization
+- All nodes: Description, tags, enable/disable
+
+**Files to Modify:**
+- `src/components/rag-studio/editor/NodeConfigPanel.tsx` (major enhancement)
+- New: `src/components/rag-studio/editor/LLMModelSelector.tsx`
+- New: `src/components/rag-studio/editor/ConditionBuilder.tsx`
+
+---
+
+### 🔜 Sub-Phase 6.6.3: Workflow Templates (FUTURE)
+
+**Status:** 📋 Planned  
+**Goal:** Quick start with pre-built workflow templates
+
+**Planned Features:**
+- Template gallery modal
+- Pre-built templates:
+  - Simple RAG (Input → RAG → LLM → Output)
+  - Multi-Agent (Input → Router → Agent 1/2/3 → Output)
+  - Persona LLM (Input → Router → Persona LLM → Chimepedia → Output)
+  - Code Assistant (Input → Code RAG → Code LLM → Output)
+- "Save as Template" feature
+- Template preview & description
+- Clone from template
+
+---
+
+### 🔜 Sub-Phase 6.6.4: Import/Export & History (FUTURE)
+
+**Status:** 📋 Planned  
+**Goal:** Backup and version control
+
+**Planned Features:**
+- Export workflow → JSON file
+- Import workflow ← JSON file
+- Version history table
+- Restore previous version
+- Workflow snapshots
+
+---
+
+## 🎯 Phase 6 Overall Status
+
+**Completed:**
+- ✅ Phase 6.1: Database & Backend API
+- ✅ Phase 6.2: React Flow Setup
+- ✅ Phase 6.3: Visual Editor Components
+- ✅ Phase 6.4: Integration & Polish
+- ✅ Phase 6.5: Bug Fixes (Iterations 1 & 2)
+- ✅ Phase 6.6.1: Create Workflow + Workflow List
+
+**In Progress:**
+- 🔄 Phase 6.6.2: Enhanced Node Configuration (Next)
+
+**Planned:**
+- 📋 Phase 6.6.3: Workflow Templates
+- 📋 Phase 6.6.4: Import/Export & History
+
+---
+
+**Last Updated:** January 24, 2025  
+**Status:** ✅ Phase 6.6.1 Complete (User Testing Pending)  
+**Next Steps:** User testing → Phase 6.6.2 implementation

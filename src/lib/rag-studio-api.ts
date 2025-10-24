@@ -298,6 +298,96 @@ export async function deleteConnection(
 }
 
 /**
+ * Create a new workflow
+ */
+export async function createWorkflow(data: {
+  name: string
+  description?: string
+  mode: string
+}): Promise<{ success: boolean; workflow?: Workflow; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/workflows`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        mode: data.mode,
+        name: data.name,
+        description: data.description || '',
+        version: 1
+      })
+    })
+    
+    const result = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: result.message || 'Failed to create workflow' }
+    }
+    
+    return { success: true, workflow: result.workflow }
+  } catch (error) {
+    console.error('Failed to create workflow:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Delete a workflow
+ */
+export async function deleteWorkflow(workflowId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/workflows/${workflowId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to delete workflow' }
+    }
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to delete workflow:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Get all workflows (not grouped by mode)
+ */
+export async function getAllWorkflows(): Promise<{ success: boolean; workflows?: Workflow[]; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/workflows`)
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to fetch workflows' }
+    }
+    
+    // If data.workflows is grouped object, flatten it
+    let workflowsList: Workflow[] = []
+    if (data.workflows) {
+      if (Array.isArray(data.workflows)) {
+        workflowsList = data.workflows
+      } else if (typeof data.workflows === 'object') {
+        // Flatten grouped workflows
+        workflowsList = Object.values(data.workflows).flat() as Workflow[]
+      }
+    }
+    
+    return { success: true, workflows: workflowsList }
+  } catch (error) {
+    console.error('Failed to fetch workflows:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
  * Trigger auto-layout for workflow
  */
 export async function autoLayoutWorkflow(
