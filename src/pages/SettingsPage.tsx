@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare, Edit2, Trash2, Star, TestTube, Users, Power, RefreshCw, Info as InfoIcon, Gamepad2 } from 'lucide-react'
+import { Settings as SettingsIcon, Wrench, Palette, Info, Plus, Search, Sun, Moon, HelpCircle, MessageSquare, Edit2, Trash2, Star, TestTube, Users, Power, RefreshCw, Info as InfoIcon, Gamepad2, Workflow } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useToolsStore } from '@/store/toolsStore'
 import { useThemeStore } from '@/store/themeStore'
 import { useAIConfigStore } from '@/store/aiConfigStore'
@@ -17,9 +18,10 @@ import EditRAGAgentModal from '@/components/EditRAGAgentModal'
 import SystemHealthMonitor from '@/components/SystemHealthMonitor'
 import toast from 'react-hot-toast'
 
-type TabType = 'tools' | 'appearance' | 'ai-chat' | 'personas' | 'games' | 'about'
+type TabType = 'tools' | 'appearance' | 'ai-chat' | 'personas' | 'games' | 'rag-studio' | 'about'
 
 export default function SettingsPage() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<TabType>('tools')
   
   // Games state
@@ -361,6 +363,7 @@ export default function SettingsPage() {
     { id: 'ai-chat' as TabType, label: 'AI Chat', icon: MessageSquare },
     { id: 'personas' as TabType, label: 'Personas', icon: Users },
     { id: 'games' as TabType, label: 'Games', icon: Gamepad2 },
+    { id: 'rag-studio' as TabType, label: 'RAG Studio', icon: Workflow },
     { id: 'about' as TabType, label: 'About', icon: Info },
   ]
 
@@ -1199,6 +1202,123 @@ export default function SettingsPage() {
                   <p className="text-sm text-purple-800 dark:text-purple-300">
                     🎮 <strong>Play:</strong> Launch games from the Games page. The launcher will minimize automatically when you start playing.
                   </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* RAG Studio Tab */}
+          {activeTab === 'rag-studio' && (
+            <div className="space-y-6">
+              <div className="glass rounded-xl p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                    <Workflow className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">RAG Studio</h2>
+                    <p className="text-sm text-secondary">Visual Workflow Management System</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Description */}
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                      🎨 <strong>RAG Studio</strong> allows you to visualize and test your RAG workflows in real-time. 
+                      See how data flows through each node, test partial executions, and debug your RAG pipeline with ease.
+                    </p>
+                  </div>
+
+                  {/* Features */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-lg bg-gray-50 dark:bg-dark-surface-hover border border-gray-200 dark:border-dark-border">
+                      <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">✨ Visual Workflow</h4>
+                      <p className="text-sm text-secondary">
+                        See your RAG pipeline as a visual graph with nodes and connections
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-gray-50 dark:bg-dark-surface-hover border border-gray-200 dark:border-dark-border">
+                      <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">🧪 Real-time Testing</h4>
+                      <p className="text-sm text-secondary">
+                        Test your workflow with live input and see execution results instantly
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-gray-50 dark:bg-dark-surface-hover border border-gray-200 dark:border-dark-border">
+                      <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">🔍 Data Flow Inspection</h4>
+                      <p className="text-sm text-secondary">
+                        View input/output data at each node to understand data transformations
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-gray-50 dark:bg-dark-surface-hover border border-gray-200 dark:border-dark-border">
+                      <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">⚡ Partial Execution</h4>
+                      <p className="text-sm text-secondary">
+                        Test specific nodes or sequences without running the entire workflow
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Workflow Modes */}
+                  <div>
+                    <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">Available Workflow Modes:</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+                        <span className="text-2xl">⚡</span>
+                        <div>
+                          <p className="font-medium text-yellow-800 dark:text-yellow-300">Flash Mode</p>
+                          <p className="text-xs text-yellow-700 dark:text-yellow-400">Fast response workflow for quick queries</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                        <span className="text-2xl">🧠</span>
+                        <div>
+                          <p className="font-medium text-purple-800 dark:text-purple-300">Pro Mode</p>
+                          <p className="text-xs text-purple-700 dark:text-purple-400">Deep analysis workflow with comprehensive retrieval</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-800">
+                        <span className="text-2xl">💻</span>
+                        <div>
+                          <p className="font-medium text-cyan-800 dark:text-cyan-300">Code RAG</p>
+                          <p className="text-xs text-cyan-700 dark:text-cyan-400">Code-focused workflow for programming questions</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Launch Button */}
+                  <div className="flex justify-center pt-4">
+                    <button
+                      onClick={() => navigate('/rag-studio')}
+                      className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-primary to-secondary hover:from-secondary hover:to-primary text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+                    >
+                      <Workflow className="w-5 h-5" />
+                      Open RAG Studio
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Help Card */}
+              <div className="glass rounded-xl p-6">
+                <h3 className="text-lg font-bold mb-4">How to Use RAG Studio</h3>
+                <div className="space-y-3 text-sm text-secondary">
+                  <div className="flex gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">1</span>
+                    <p>Select a workflow mode (Flash, Pro, or Code RAG)</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">2</span>
+                    <p>Click on any node or connection to test up to that point</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">3</span>
+                    <p>Enter your test input and run the workflow</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">4</span>
+                    <p>View the execution flow and inspect data at each node</p>
+                  </div>
                 </div>
               </div>
             </div>
