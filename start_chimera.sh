@@ -410,6 +410,44 @@ setup_docker_environment() {
 # Main Function
 #############################################
 
+build_electron_preload() {
+    log_step "Building Electron preload script..."
+    
+    cd "$PROJECT_DIR"
+    
+    # Check if electron directory exists
+    if [ ! -d "electron" ]; then
+        log_warning "Electron directory not found, skipping preload build"
+        return 0
+    fi
+    
+    # Build TypeScript files for Electron (main + preload)
+    log_info "Compiling TypeScript (main.ts + preload.ts)..."
+    
+    if npx tsc --project electron/tsconfig.json 2>&1 | tee -a "$LOG_FILE"; then
+        log_success "Electron scripts compiled successfully!"
+    else
+        # Fallback: try compiling with default tsconfig
+        log_warning "Electron tsconfig not found, trying default compilation..."
+        if npx tsc electron/main.ts electron/preload.ts --outDir dist-electron --esModuleInterop --skipLibCheck 2>&1 | tee -a "$LOG_FILE"; then
+            log_success "Electron scripts compiled (fallback)!"
+        else
+            log_error "Failed to compile Electron scripts"
+            log_error "Please check TypeScript configuration"
+            exit 1
+        fi
+    fi
+    
+    # Verify output files exist
+    if [ -f "dist-electron/preload.js" ] && [ -f "dist-electron/main.js" ]; then
+        log_success "Preload & Main scripts ready: dist-electron/"
+    else
+        log_error "Compiled files not found in dist-electron/"
+        log_info "Expected: dist-electron/preload.js & dist-electron/main.js"
+        exit 1
+    fi
+}
+
 start_dev_server() {
     log_step "Starting development environment..."
     
@@ -424,6 +462,11 @@ start_dev_server() {
     
     # Start Backend API (Phase 2)
     start_backend
+    
+    echo ""
+    
+    # Build Electron preload script (Phase 6+)
+    build_electron_preload
     
     echo ""
     log_step "Starting Electron + Vite..."
