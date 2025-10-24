@@ -22,6 +22,7 @@ from routes.agent_routes import router as agent_router
 from routes.embedding_routes import router as embedding_router
 from routes.games_routes import router as games_router
 from routes.file_upload import router as file_upload_router
+from routes.rag_studio import router as rag_studio_router
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -59,6 +60,7 @@ app.include_router(agent_router)
 app.include_router(embedding_router)
 app.include_router(games_router)
 app.include_router(file_upload_router)
+app.include_router(rag_studio_router)
 
 # CORS Configuration for Electron Desktop App
 # Allow localhost (development) and electron:// protocol
