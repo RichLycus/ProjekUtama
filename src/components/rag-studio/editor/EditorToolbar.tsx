@@ -7,7 +7,8 @@ import {
   Undo,
   Redo,
   Grid3x3,
-  Layout
+  Layout,
+  Scissors
 } from 'lucide-react'
 
 interface EditorToolbarProps {
@@ -20,10 +21,12 @@ interface EditorToolbarProps {
   onRedo?: () => void
   onAutoLayout?: () => void
   onToggleGrid?: () => void
+  onToggleDeleteMode?: () => void
   hasUnsavedChanges?: boolean
   canUndo?: boolean
   canRedo?: boolean
   showGrid?: boolean
+  deleteMode?: boolean
 }
 
 export default function EditorToolbar({
@@ -36,10 +39,12 @@ export default function EditorToolbar({
   onRedo,
   onAutoLayout,
   onToggleGrid,
+  onToggleDeleteMode,
   hasUnsavedChanges = false,
   canUndo = false,
   canRedo = false,
   showGrid = true,
+  deleteMode = false,
 }: EditorToolbarProps) {
   return (
     <div className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-dark-card border-b border-gray-200 dark:border-dark-border shadow-sm">
@@ -189,6 +194,23 @@ export default function EditorToolbar({
             title="Toggle grid"
           >
             <Grid3x3 className="w-4 h-4" />
+          </button>
+        )}
+        
+        {onToggleDeleteMode && (
+          <button
+            onClick={onToggleDeleteMode}
+            className={`
+              flex items-center gap-2 px-3 py-2 rounded-lg transition-colors
+              ${deleteMode
+                ? 'bg-red-500 hover:bg-red-600 text-white' 
+                : 'hover:bg-gray-100 dark:hover:bg-dark-surface text-gray-700 dark:text-gray-300'
+              }
+            `}
+            title={deleteMode ? "Exit delete mode" : "Delete mode: Click edges to remove (or use Ctrl+D)"}
+          >
+            <Scissors className="w-4 h-4" />
+            <span className="hidden sm:inline">{deleteMode ? 'Delete Mode ON' : 'Delete Mode'}</span>
           </button>
         )}
       </div>

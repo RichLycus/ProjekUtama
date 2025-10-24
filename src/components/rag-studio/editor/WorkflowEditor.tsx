@@ -26,6 +26,7 @@ import NodePaletteSidebar from './NodePaletteSidebar'
 import EditorToolbar from './EditorToolbar'
 import NodeConfigPanel from './NodeConfigPanel'
 import toast from 'react-hot-toast'
+import { Scissors } from 'lucide-react'
 
 interface WorkflowEditorProps {
   workflow: Workflow
@@ -83,6 +84,7 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
   const { saveNodePositions, setHasUnsavedChanges, removeConnection } = useRAGStudioStore()
   const [showSidebar, setShowSidebar] = useState(true)
   const [showGrid, setShowGrid] = useState(true)
+  const [deleteMode, setDeleteMode] = useState(false)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [showConfigPanel, setShowConfigPanel] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -202,11 +204,28 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
     setShowConfigPanel(true)
   }, [])
 
-  // Edge click handler (for debugging)
+  // Edge click handler (with selection state + delete mode)
+  const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null)
+  
   const onEdgeClick = useCallback((_event: any, edge: Edge) => {
     console.log('[Edge Click] Selected edge:', edge.id)
-    toast.info(`Edge selected: ${edge.id}. Press Delete to remove.`, { duration: 2000 })
-  }, [])
+    setSelectedEdge(edge)
+    
+    // If delete mode is active, delete immediately
+    if (deleteMode) {
+      console.log('[Delete Mode] Immediately deleting edge:', edge.id)
+      setEdges((eds) => eds.filter((e) => e.id !== edge.id))
+      removeConnection(edge.id)
+      toast.success('✂️ Connection removed')
+      setSelectedEdge(null)
+    } else {
+      // Otherwise, just show selection toast
+      toast.success(`📌 Edge selected. Press Delete, Backspace, or Ctrl+D to remove.`, { 
+        duration: 3000,
+        icon: 'ℹ️'
+      })
+    }
+  }, [deleteMode, setEdges, removeConnection])
 
   // Drag & drop from sidebar
   const onDragOver = useCallback((event: DragEvent) => {
@@ -261,7 +280,15 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
     toast.success('Auto-layout applied')
   }, [nodes, setNodes, setHasUnsavedChanges, scheduleAutoSave])
 
-  // Manual save handler
+  // Toggle delete mode handler
+  const handleToggleDeleteMode = useCallback(() => {
+    setDeleteMode(!deleteMode)
+    if (!deleteMode) {
+      toast.success('✂️ Delete Mode ON: Click any edge to remove it', { duration: 2000, icon: '✂️' })
+    } else {
+      toast.success('Delete Mode OFF', { duration: 1500 })
+    }
+  }, [deleteMode])
   const handleSave = useCallback(async () => {
     const positions = nodes.map(node => ({
       node_id: node.id,
@@ -329,10 +356,27 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // ESC: Exit delete mode
+      if (event.key === 'Escape' && deleteMode) {
+        setDeleteMode(false)
+        toast.success('Delete Mode OFF', { duration: 1500 })
+        return
+      }
+      
       // Ctrl+S / Cmd+S: Save
       if ((event.ctrlKey || event.metaKey) && event.key === 's') {
         event.preventDefault()
         handleSave()
+      }
+      
+      // Ctrl+D: Delete selected edge
+      if ((event.ctrlKey || event.metaKey) && event.key === 'd' && selectedEdge) {
+        event.preventDefault()
+        console.log('[Keyboard] Ctrl+D pressed, deleting edge:', selectedEdge.id)
+        setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id))
+        removeConnection(selectedEdge.id)
+        setSelectedEdge(null)
+        toast.success('🔗 Connection removed')
       }
       
       // Delete / Backspace: Delete selected node (when config panel is open)
@@ -344,7 +388,7 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleSave, handleNodeDelete, selectedNode, showConfigPanel])
+  }, [handleSave, handleNodeDelete, selectedNode, showConfigPanel, selectedEdge, setEdges, removeConnection, deleteMode])
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -373,9 +417,31 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
           onFitView={() => fitView({ padding: 0.2 })}
           onAutoLayout={handleAutoLayout}
           onToggleGrid={() => setShowGrid(!showGrid)}
+          onToggleDeleteMode={handleToggleDeleteMode}
           showGrid={showGrid}
+          deleteMode={deleteMode}
           hasUnsavedChanges={isSaving}
         />
+
+        {/* Delete Mode Banner */}
+        {deleteMode && (
+          <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800 px-4 py-2">
+            <div className="flex items-center justify-between max-w-7xl mx-auto">
+              <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                <Scissors className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  ✂️ Delete Mode Active: Click any edge to remove it, or press ESC to exit
+                </span>
+              </div>
+              <button
+                onClick={handleToggleDeleteMode}
+                className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium"
+              >
+                Exit (ESC)
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* React Flow Canvas */}
         <div className="flex-1">
@@ -393,7 +459,7 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
             edgeTypes={edgeTypes}
             fitView
             fitViewOptions={{ padding: 0.2 }}
-            className="bg-gray-50 dark:bg-dark-surface"
+            className={`bg-gray-50 dark:bg-dark-surface ${deleteMode ? 'cursor-crosshair' : ''}`}
             deleteKeyCode={['Delete', 'Backspace']}
             edgesReconnectable={false}
             edgesFocusable={true}
