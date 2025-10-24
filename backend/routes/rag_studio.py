@@ -544,7 +544,7 @@ async def get_test_result(result_id: str):
 @router.post("/api/rag-studio/test")
 async def test_workflow(request: WorkflowTestRequest):
     """
-    Test workflow execution
+    Test workflow execution with real Ollama agents
     
     Request body:
     {
@@ -573,8 +573,14 @@ async def test_workflow(request: WorkflowTestRequest):
         if request.stop_at_node:
             logger.info(f"   Stop at: {request.stop_at_node}")
         
-        # Create workflow engine
-        engine = WorkflowEngine(request.workflow_id, rag_system=_rag_system)
+        # Get database manager for agents (import from server context)
+        from database import SQLiteDB
+        from pathlib import Path
+        db_path = Path(__file__).parent.parent / "data" / "chimera_tools.db"
+        db_manager = SQLiteDB(str(db_path))
+        
+        # Create workflow engine with db_manager for real agent access
+        engine = WorkflowEngine(request.workflow_id, db_manager=db_manager, rag_system=_rag_system)
         
         # Execute workflow
         result = await engine.execute(

@@ -1,13 +1,16 @@
 import { motion } from 'framer-motion'
-import { Check, X, Clock, ChevronDown, ChevronUp, Zap } from 'lucide-react'
+import { Check, X, Clock, ChevronDown, ChevronUp, Zap, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { TestWorkflowResponse, NodeExecution } from '@/lib/rag-studio-api'
+import ExecutionStepSummary from './ExecutionStepSummary'
 
 interface ExecutionFlowProps {
   result: TestWorkflowResponse
 }
 
 export default function ExecutionFlow({ result }: ExecutionFlowProps) {
+  const [showVerboseLog, setShowVerboseLog] = useState(false)
+  
   const getStatusColor = () => {
     switch (result.status) {
       case 'success':
@@ -23,10 +26,20 @@ export default function ExecutionFlow({ result }: ExecutionFlowProps) {
   
   return (
     <div className="glass rounded-xl p-6">
-      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-        <Zap className="w-5 h-5 text-primary" />
-        Execution Flow
-      </h3>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-white">
+          <Sparkles className="w-5 h-5 text-primary" />
+          Execution Flow
+        </h3>
+        
+        {/* Toggle Verbose Log */}
+        <button
+          onClick={() => setShowVerboseLog(!showVerboseLog)}
+          className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-surface hover:bg-gray-200 dark:hover:bg-dark-surface-hover transition-colors text-secondary"
+        >
+          {showVerboseLog ? 'Hide Details' : 'Show Details'}
+        </button>
+      </div>
       
       {/* Status Summary */}
       <div className={`px-4 py-3 rounded-lg mb-6 inline-flex items-center gap-3 border ${getStatusColor()}`}>
@@ -41,17 +54,28 @@ export default function ExecutionFlow({ result }: ExecutionFlowProps) {
         </div>
       </div>
       
-      {/* Execution Nodes */}
-      <div className="space-y-4">
-        {result.execution_flow.map((nodeExec, index) => (
-          <NodeExecutionCard
-            key={nodeExec.node_id}
-            nodeExec={nodeExec}
-            index={index}
-            isLast={index === result.execution_flow.length - 1}
-          />
-        ))}
-      </div>
+      {/* Clean Step Summary (Default View) */}
+      {!showVerboseLog && (
+        <ExecutionStepSummary 
+          execution_flow={result.execution_flow}
+          status={result.status}
+          total_time={result.total_time}
+        />
+      )}
+      
+      {/* Verbose Execution Nodes (Toggle View) */}
+      {showVerboseLog && (
+        <div className="space-y-4">
+          {result.execution_flow.map((nodeExec, index) => (
+            <NodeExecutionCard
+              key={nodeExec.node_id}
+              nodeExec={nodeExec}
+              index={index}
+              isLast={index === result.execution_flow.length - 1}
+            />
+          ))}
+        </div>
+      )}
       
       {/* Final Output */}
       {result.status === 'success' && result.final_output && (

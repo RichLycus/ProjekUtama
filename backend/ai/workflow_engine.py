@@ -1,6 +1,7 @@
 """
 Workflow Engine for RAG Studio
 Executes RAG workflows node by node with support for partial execution
+Integrated with real Ollama agents (Phase 6.6.3)
 """
 
 import time
@@ -12,6 +13,8 @@ from datetime import datetime
 import logging
 
 from workflow_database import WorkflowDB
+from ai.multi_model_orchestrator import MultiModelOrchestrator
+from ai.config_manager import AIConfigManager
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -21,19 +24,37 @@ class WorkflowEngine:
     """
     Executes RAG workflows node by node
     Supports partial execution for testing
+    Integrated with real Ollama agents (Phase 6.6.3)
     """
     
-    def __init__(self, workflow_id: str, rag_system=None):
+    def __init__(self, workflow_id: str, db_manager=None, rag_system=None):
         """
         Initialize workflow engine
         
         Args:
             workflow_id: ID of the workflow to execute
-            rag_system: Optional RAG system instance for retrieval
+            db_manager: Database manager for agent configs
+            rag_system: Optional RAG system instance (deprecated, use orchestrator.rag)
         """
         self.workflow_id = workflow_id
         self.rag_system = rag_system
         self.workflow_db = WorkflowDB()
+        self.db_manager = db_manager
+        
+        # Initialize Multi-Model Orchestrator for real agent calls
+        try:
+            config_manager = AIConfigManager()
+            self.orchestrator = MultiModelOrchestrator(db_manager, config_manager)
+            self.use_real_agents = self.orchestrator.test_ollama_connection()
+            if self.use_real_agents:
+                logger.info("✅ Workflow Engine: Using real Ollama agents")
+            else:
+                logger.warning("⚠️ Workflow Engine: Ollama not available, using mock agents")
+        except Exception as e:
+            logger.error(f"Failed to initialize orchestrator: {str(e)}")
+            self.orchestrator = None
+            self.use_real_agents = False
+            logger.warning("⚠️ Workflow Engine: Falling back to mock agents")
         
         # Load workflow with nodes and connections
         self.workflow = self.workflow_db.get_workflow_with_nodes(workflow_id)
@@ -87,6 +108,9 @@ class WorkflowEngine:
                     # Execute node based on type
                     node_output = await self._execute_node(node, current_data)
                     
+                    # Generate summary for clean UI display
+                    summary = self._generate_node_summary(node, node_output)
+                    
                     # Log successful execution
                     node_log = {
                         "node_id": node['id'],
@@ -94,6 +118,7 @@ class WorkflowEngine:
                         "node_type": node['node_type'],
                         "input": current_data.copy(),
                         "output": node_output.copy() if isinstance(node_output, dict) else node_output,
+                        "summary": summary,  # Clean summary for UI
                         "processing_time": time.time() - node_start,
                         "status": "success"
                     }
@@ -209,7 +234,7 @@ class WorkflowEngine:
     
     async def _execute_router_node(self, node: Dict[str, Any], input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Process router node - determine intent and routing
+        Process router node - determine intent and routing using EnhancedRouterAgent
         
         Args:
             node: Node configuration
@@ -221,11 +246,41 @@ class WorkflowEngine:
         config = node.get('config', {})
         message = input_data.get('message', '')
         
-        # Simple intent detection (can be enhanced with ML model)
+        # Use real EnhancedRouterAgent if available
+        if self.use_real_agents and self.orchestrator:
+            try:
+                logger.info("🧭 Using EnhancedRouterAgent for routing")
+                routing_result = self.orchestrator.router.route_request(message)
+                
+                intent = routing_result.get("intent", "chat")
+                final_input = routing_result.get("final_input", message)
+                needs_rag = routing_result.get("needs_rag", False)
+                confidence = routing_result.get("confidence", 0.0)
+                was_improved = routing_result.get("was_improved", False)
+                keywords = routing_result.get("keywords", [])
+                
+                return {
+                    "message": final_input,
+                    "original_message": message,
+                    "intent": intent,
+                    "category": intent,
+                    "route": "rag_retriever" if needs_rag else "llm",
+                    "confidence": confidence,
+                    "needs_rag": needs_rag,
+                    "was_improved": was_improved,
+                    "keywords": keywords,
+                    "reasoning": f"Classified as '{intent}' with {confidence*100:.1f}% confidence",
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                logger.error(f"EnhancedRouterAgent failed: {str(e)}")
+                logger.warning("Falling back to simple routing")
+        
+        # Fallback: Simple intent detection (mock)
         intent = "unknown"
         route = "llm"  # default route
         confidence = 0.5
-        reasoning = "Default routing"
+        reasoning = "Default routing (mock)"
         
         message_lower = message.lower()
         
@@ -234,25 +289,21 @@ class WorkflowEngine:
             intent = "question"
             route = "rag_retriever"
             confidence = 0.85
-            reasoning = "Detected question pattern"
+            reasoning = "Detected question pattern (mock)"
         
         # Generation/creation request
         elif any(cmd in message_lower for cmd in ["buat", "buatkan", "generate", "create", "write"]):
             intent = "generation"
             route = "llm"
             confidence = 0.80
-            reasoning = "Detected generation request"
+            reasoning = "Detected generation request (mock)"
         
         # Greeting
         elif any(greet in message_lower for greet in ["halo", "hai", "hello", "hi", "hey"]):
             intent = "greeting"
             route = "llm"
             confidence = 0.90
-            reasoning = "Detected greeting"
-        
-        # If using advanced routing (from config)
-        if config.get('use_advanced_routing'):
-            confidence = min(confidence + 0.1, 1.0)
+            reasoning = "Detected greeting (mock)"
         
         return {
             "message": message,
@@ -260,13 +311,14 @@ class WorkflowEngine:
             "category": "general",
             "route": route,
             "confidence": confidence,
+            "needs_rag": route == "rag_retriever",
             "reasoning": reasoning,
             "timestamp": datetime.now().isoformat()
         }
     
     async def _execute_rag_node(self, node: Dict[str, Any], input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Process RAG retrieval node - search for relevant documents
+        Process RAG retrieval node - search for relevant documents using RAGAgent
         
         Args:
             node: Node configuration with config.max_results, config.source
@@ -280,12 +332,49 @@ class WorkflowEngine:
         source = config.get('source', 'chimepaedia')
         
         message = input_data.get('message', '')
+        intent = input_data.get('intent', 'unknown')
         
-        # If RAG system is available, use it
+        # Use real RAGAgent if available
         retrieved_docs = []
+        if self.use_real_agents and self.orchestrator:
+            try:
+                logger.info(f"🔍 Using RAGAgent for retrieval")
+                rag_result = self.orchestrator.rag.retrieve_context(message, intent)
+                
+                # Extract documents from result
+                documents = rag_result.get("documents", [])
+                context = rag_result.get("context", "")
+                
+                # Format results
+                for i, doc in enumerate(documents[:max_results]):
+                    retrieved_docs.append({
+                        "id": f"doc_{i+1}",
+                        "title": doc.get('metadata', {}).get('title', f"Document {i+1}"),
+                        "content": doc.get('content', doc.get('text', ''))[:500],  # First 500 chars
+                        "relevance": doc.get('score', doc.get('distance', 0.0)),
+                        "source": source,
+                        "metadata": doc.get('metadata', {})
+                    })
+                
+                logger.info(f"✅ RAGAgent retrieved {len(retrieved_docs)} documents")
+                
+                return {
+                    "message": message,
+                    "intent": intent,
+                    "retrieved_documents": retrieved_docs,
+                    "context": context,
+                    "retrieval_source": source,
+                    "num_results": len(retrieved_docs),
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                logger.error(f"RAGAgent failed: {str(e)}")
+                logger.warning("Falling back to mock RAG results")
+        
+        # Fallback: Try legacy RAG system or use mock data
         if self.rag_system:
             try:
-                logger.info(f"🔍 Querying RAG system for: {message[:50]}...")
+                logger.info(f"🔍 Querying legacy RAG system for: {message[:50]}...")
                 results = self.rag_system.query(message, n_results=max_results)
                 
                 # Format results
@@ -298,9 +387,9 @@ class WorkflowEngine:
                         "source": source
                     })
                 
-                logger.info(f"✅ Retrieved {len(retrieved_docs)} documents")
+                logger.info(f"✅ Retrieved {len(retrieved_docs)} documents from legacy system")
             except Exception as e:
-                logger.error(f"RAG query failed: {str(e)}")
+                logger.error(f"Legacy RAG query failed: {str(e)}")
                 # Return mock data on error
                 retrieved_docs = self._get_mock_rag_results(message, max_results, source)
         else:
@@ -310,7 +399,7 @@ class WorkflowEngine:
         
         return {
             "message": message,
-            "intent": input_data.get('intent', 'unknown'),
+            "intent": intent,
             "retrieved_documents": retrieved_docs,
             "retrieval_source": source,
             "num_results": len(retrieved_docs),
@@ -332,16 +421,17 @@ class WorkflowEngine:
     
     async def _execute_llm_node(self, node: Dict[str, Any], input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Process LLM generation node - generate response
+        Process LLM generation node - generate response using specialized agents
         
         Args:
-            node: Node configuration with config.model, config.temperature
+            node: Node configuration with config.agent_type, config.model, config.temperature
             input_data: Input from RAG or router
         
         Returns:
             Generated response
         """
         config = node.get('config', {})
+        agent_type = config.get('agent_type', 'chat')
         model = config.get('model', 'default')
         temperature = config.get('temperature', 0.7)
         
@@ -356,7 +446,58 @@ class WorkflowEngine:
                 for doc in context_docs[:3]  # Use top 3 docs
             ])
         
-        # Generate response (simplified - in real impl, use actual LLM API)
+        # Use real Specialized Agents if available
+        if self.use_real_agents and self.orchestrator:
+            try:
+                logger.info(f"🤖 Using {agent_type.capitalize()} Agent for generation")
+                
+                # Get the appropriate specialized agent
+                agent = self.orchestrator.specialized_agents.get(agent_type)
+                
+                if not agent:
+                    logger.warning(f"No agent for type '{agent_type}', using chat agent")
+                    agent = self.orchestrator.specialized_agents.get('chat')
+                    agent_type = 'chat'
+                
+                # Process with specialized agent
+                if agent_type == 'chat':
+                    agent_result = agent.process(message)
+                elif agent_type == 'tool':
+                    # Tool agent just detects, doesn't generate response
+                    tool_result = agent.detect_tool_need(message)
+                    if tool_result.get("needs_tools"):
+                        agent_result = {
+                            "success": True,
+                            "response": "Tool execution would be triggered here.",
+                            "agent": "tool"
+                        }
+                    else:
+                        # Not actually a tool request, route to chat
+                        agent = self.orchestrator.specialized_agents.get('chat')
+                        agent_result = agent.process(message)
+                else:
+                    # code, analysis, creative agents support RAG context
+                    agent_result = agent.process(message, rag_context=context)
+                
+                response = agent_result.get("response", "")
+                
+                logger.info(f"✅ {agent_type.capitalize()} Agent generated response ({len(response)} chars)")
+                
+                return {
+                    "message": message,
+                    "response": response,
+                    "agent_type": agent_type,
+                    "model": model,
+                    "temperature": temperature,
+                    "sources": [doc.get('id', '') for doc in context_docs] if context_docs else [],
+                    "context_used": len(context) > 0,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                logger.error(f"Specialized Agent failed: {str(e)}")
+                logger.warning("Falling back to mock response")
+        
+        # Fallback: Generate mock response
         response = self._generate_mock_response(message, context, model)
         
         return {
@@ -429,6 +570,64 @@ class WorkflowEngine:
             "timestamp": datetime.now().isoformat()
         }
     
+    def _generate_node_summary(self, node: Dict[str, Any], output: Dict[str, Any]) -> str:
+        """
+        Generate clean summary for UI display (bullet-point format)
+        
+        Args:
+            node: Node configuration
+            output: Node execution output
+        
+        Returns:
+            Clean summary string
+        """
+        node_type = node['node_type']
+        
+        if node_type == "input":
+            length = output.get('length', 0)
+            truncated = output.get('truncated', False)
+            if truncated:
+                return f"Processed input ({length} characters, truncated)"
+            return f"Processed input ({length} characters)"
+        
+        elif node_type == "router":
+            intent = output.get('intent', 'unknown')
+            confidence = output.get('confidence', 0.0)
+            needs_rag = output.get('needs_rag', False)
+            was_improved = output.get('was_improved', False)
+            
+            summary = f"Intent: '{intent}' ({confidence*100:.0f}% confidence)"
+            if needs_rag:
+                summary += " → RAG retrieval needed"
+            if was_improved:
+                summary += " | Query improved"
+            return summary
+        
+        elif node_type == "rag_retriever":
+            num_results = output.get('num_results', 0)
+            source = output.get('retrieval_source', 'unknown')
+            return f"Retrieved {num_results} documents from {source}"
+        
+        elif node_type == "llm":
+            response_length = len(output.get('response', ''))
+            agent_type = output.get('agent_type', 'default')
+            context_used = output.get('context_used', False)
+            
+            summary = f"Generated response ({response_length} chars)"
+            if agent_type != 'default':
+                summary += f" using {agent_type} agent"
+            if context_used:
+                summary += " with RAG context"
+            return summary
+        
+        elif node_type == "output":
+            output_format = output.get('format', 'text')
+            response_length = len(output.get('final_response', ''))
+            return f"Formatted output as {output_format} ({response_length} chars)"
+        
+        else:
+            return f"Node executed successfully"
+    
     async def _save_test_result(self, result: Dict[str, Any], test_input: str):
         """
         Save test execution result to database
@@ -457,15 +656,16 @@ class WorkflowEngine:
             logger.error(f"Failed to save test result: {str(e)}")
 
 
-def get_workflow_engine(workflow_id: str, rag_system=None) -> WorkflowEngine:
+def get_workflow_engine(workflow_id: str, db_manager=None, rag_system=None) -> WorkflowEngine:
     """
     Factory function to create WorkflowEngine instance
     
     Args:
         workflow_id: ID of the workflow to execute
+        db_manager: Database manager for agent configs
         rag_system: Optional RAG system instance
     
     Returns:
         WorkflowEngine instance
     """
-    return WorkflowEngine(workflow_id, rag_system)
+    return WorkflowEngine(workflow_id, db_manager, rag_system)

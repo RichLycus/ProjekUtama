@@ -51,6 +51,7 @@ export interface NodeExecution {
   node_type: string
   input: any
   output: any
+  summary?: string  // Clean summary for UI display (Phase 6.6.3)
   processing_time: number
   status: 'success' | 'error'
   error?: string

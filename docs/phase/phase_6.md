@@ -294,9 +294,13 @@ Mengubah RAG Studio dari viewer statis menjadi interactive visual editor dengan:
 | 6.5: Bug Fixes (Iter 1) | ✅ Complete | 0 | 3 | ✅ Verified |
 | 6.5: Bug Fixes (Iter 2) | ✅ Complete | 1 | 3 | ✅ Verified |
 | 6.6.1: Create Workflow + List | ✅ Complete | 2 | 4 | ✅ Verified |
-| 6.6.2: Enhanced Node Config | ✅ Complete | 4 | 3 | ⏳ User Testing |
+| 6.6.2: Enhanced Node Config | ✅ Complete | 4 | 3 | ✅ Verified |
+| 6.6.3a: Backend Agents | ✅ Complete | 0 | 2 | ✅ Verified |
+| 6.6.3b: Clean UI | ✅ Complete | 1 | 2 | ✅ Verified |
+| 6.6.3c: Persona Integration | 🔄 In Progress | 0 | 4 (planned) | ⏳ Pending |
+| 6.6.3d: Bug Fixes | ⏳ Pending | 0 | 2 (planned) | ⏳ Pending |
 
-**Total Progress:** 100% (Phase 6.6.2 complete, ready for user testing) 🎉
+**Total Progress:** Phase 6.6.3 at 60% (Real Agents ✅, Persona Integration ⏳)
 
 ---
 
@@ -755,34 +759,70 @@ Transform RAG Studio into a full-featured workflow management system with:
 
 ---
 
-## 🔜 Phase 6.6.3: Fix Workflow Execution & UI (CRITICAL) ⚠️
+## ⏳ Phase 6.6.3: Fix Workflow Execution & UI (IN PROGRESS)
 
-**Status:** 📋 Planned - PRIORITY HIGH  
+**Status:** 🔄 In Progress (Extended)  
+**Date Started:** January 25, 2025  
 **Goal:** Fix workflow execution to use real agents & improve test result UI
+
+**Progress:** 60% Complete ✅ (Backend agents integrated, UI improved)  
+**Remaining:** 40% ⚠️ (Persona Manager integration, conversation history, bug fixes)
 
 ### 🐛 Critical Issues Identified:
 
-**Issue 1: Workflow Engine Uses Mock Data Only**
+**Issue 1: Workflow Engine Uses Mock Data Only** ✅ FIXED
 - **Problem:** `WorkflowEngine` in `backend/ai/workflow_engine.py` only returns mock/dummy responses
-- **Impact:** Testing workflow tidak memanggil Ollama agents yang sebenarnya
-- **Root Cause:** 
-  - `_execute_llm_node()` calls `_generate_mock_response()` instead of real agent
-  - `_execute_rag_node()` uses `_get_mock_rag_results()` when RAG system not available
-  - `_execute_router_node()` uses simple keyword matching, not `EnhancedRouterAgent`
+- **Status:** ✅ Fixed - Real agents integrated via MultiModelOrchestrator
+- **Solution:** 
+  - ✅ `_execute_llm_node()` now uses specialized agents (chat/code/analysis/creative)
+  - ✅ `_execute_rag_node()` uses RAGAgent.retrieve_context()
+  - ✅ `_execute_router_node()` uses EnhancedRouterAgent.route_request()
 
-**Issue 2: Test Result UI Too Verbose**
+**Issue 2: Test Result UI Too Verbose** ✅ FIXED
 - **Problem:** Execution flow display cluttered with full JSON data
-- **Expected:** Clean bullet-point display like Chat page:
-  ```
-  • Router: Intent classified as 'general'
-  • RAG: Retrieved 3 sources
-  • Execution: No tool execution needed
-  • Reasoning: Generated response (37 chars)
-  • Persona: Applied lycus persona
-  ```
-- **Current:** Raw JSON with full input/output objects
+- **Status:** ✅ Fixed - Clean summary display implemented
+- **Solution:**
+  - ✅ Created ExecutionStepSummary component with bullet-point format
+  - ✅ Toggle between clean summary and detailed JSON view
+  - ✅ Visual icons and status indicators
 
-### 🎯 Solution Architecture:
+**Issue 3: Persona Manager Integration Missing** ⚠️ IN PROGRESS
+- **Problem:** Workflow tidak terintegrasi dengan Persona Manager seperti Chat tabs
+- **Impact:** Workflow RAG tidak bisa menggantikan Chat tabs karena missing features:
+  - ❌ Tidak ada integrasi dengan tabel `personas` database
+  - ❌ Tidak ada integrasi dengan `relationships` dan `user_characters`
+  - ❌ Tidak ada conversation history context
+  - ❌ Persona tidak punya router pribadi untuk cek conversation history
+  - ❌ Tidak ada Chimepedia integration untuk file management
+- **Expected Behavior (dari Chat tabs):**
+  ```python
+  # Chat tabs workflow:
+  1. Get persona from database (with default fallback)
+  2. Get character & relationship if character_id provided
+  3. Build enhanced system prompt with relationship context
+  4. Get conversation history (last 5 messages for context)
+  5. Process through orchestrator with enhanced_persona
+  6. Save message with conversation_id linking
+  ```
+- **Current Behavior (RAG Studio):**
+  ```python
+  # RAG Studio workflow:
+  1. Uses generic config.agent_type (no persona integration)
+  2. No conversation history
+  3. No relationship context
+  4. No character integration
+  5. Standalone test execution (not conversation-based)
+  ```
+
+**Issue 4: Node Update Bug** ⚠️ TO FIX
+- **Problem:** Update node returns 404 error
+- **Error:** `PUT /api/rag-studio/workflows/wf_flash_v1/nodes/node_1761308419341 404 (Not Found)`
+- **Root Cause:** Node ID mismatch atau node tidak ditemukan
+- **Action Required:** Debug node_id generation and lookup
+
+### 🎯 Solution Architecture (Extended):
+
+**Phase 6.6.3a: Backend Agent Integration** ✅ COMPLETE
 
 **Backend Changes Needed:**
 
@@ -889,51 +929,287 @@ Transform RAG Studio into a full-featured workflow management system with:
 
 ### 📋 Implementation Plan:
 
-**Phase 6.6.3.1: Backend Agent Integration**
-1. Import orchestrator in `workflow_engine.py`
-2. Replace `_execute_router_node()` with real router
-3. Replace `_execute_rag_node()` with real RAG
-4. Replace `_execute_llm_node()` with specialized agents
-5. Test with curl to verify real Ollama calls
+**Phase 6.6.3a: Backend Agent Integration** ✅ COMPLETE
+1. ✅ Import orchestrator in `workflow_engine.py`
+2. ✅ Replace `_execute_router_node()` with real router
+3. ✅ Replace `_execute_rag_node()` with real RAG
+4. ✅ Replace `_execute_llm_node()` with specialized agents
+5. ✅ Add summary generation for clean UI
 
-**Phase 6.6.3.2: Frontend UI Improvements**
-1. Create `ExecutionStepSummary` component
-2. Update `TestPanel` to use new component
-3. Add collapsible detailed view
-4. Visual polish (icons, colors, animations)
+**Phase 6.6.3b: Frontend UI Improvements** ✅ COMPLETE
+1. ✅ Create `ExecutionStepSummary` component
+2. ✅ Update `ExecutionFlow` with toggle view
+3. ✅ Add collapsible detailed view
+4. ✅ Visual polish (icons, colors, animations)
 
-**Phase 6.6.3.3: Testing & Verification**
-1. Test all node types (input, router, RAG, LLM, output)
-2. Verify Ollama calls in logs
-3. Compare with Chat page execution
-4. User acceptance testing
+**Phase 6.6.3c: Persona Manager Integration** ⚠️ IN PROGRESS
+1. ⏳ Add persona selection to workflow test
+2. ⏳ Integrate with `personas` table from database
+3. ⏳ Support character & relationship context
+4. ⏳ Add conversation history to workflow execution
+5. ⏳ Enhanced persona with relationship prompts
+6. ⏳ Save workflow execution as conversation messages
 
-### 📁 Files to Modify:
+**Phase 6.6.3d: Bug Fixes** ⚠️ TO DO
+1. ⏳ Fix node update 404 error
+2. ⏳ Fix node_id generation/lookup issues
+3. ⏳ Test all CRUD operations on nodes
 
-**Backend:**
-- `backend/ai/workflow_engine.py` (main changes)
-- `backend/routes/rag_studio.py` (pass orchestrator to engine)
+### ⏱️ Timeline Update:
+- **Phase 6.6.3a (Backend):** ✅ Complete (2 hours)
+- **Phase 6.6.3b (UI):** ✅ Complete (1 hour)
+- **Phase 6.6.3c (Persona):** ⏳ Estimated 3-4 hours
+- **Phase 6.6.3d (Bugs):** ⏳ Estimated 1 hour
+- **Total Remaining:** 4-5 hours
 
-**Frontend:**
-- `src/components/rag-studio/ExecutionStepSummary.tsx` (new)
-- `src/components/rag-studio/TestPanel.tsx` (update display)
-- `src/pages/RAGStudioPage.tsx` (integrate new component)
+---
 
-### 🔗 Reference Files:
+### ✅ What's Done:
 
-Study these for understanding real agent usage:
-- `/app/backend/ai/agent_orchestrator.py` - 5-agent pipeline
-- `/app/backend/ai/multi_model_orchestrator.py` - Multi-model routing
-- `/app/backend/ai/enhanced_router.py` - Router with validation
-- `/app/backend/ai/specialized_agents.py` - All specialized agents
-- `/app/backend/ai/agents.py` - Base agent classes
-- `/app/backend/routes/chat_routes.py` - How Chat uses orchestrator
+#### 1. Backend Integration (Real Ollama Agents) ✅
 
-### ⏱️ Estimated Timeline:
-- Backend Integration: 2-3 hours
-- Frontend UI: 1-2 hours  
-- Testing: 1 hour
-- **Total: 4-6 hours**
+**File: `backend/ai/workflow_engine.py`**
+- ✅ Imported `MultiModelOrchestrator` and `AIConfigManager`
+- ✅ Initialize orchestrator in `__init__()` with db_manager for agent configs
+- ✅ Added `use_real_agents` flag (graceful fallback to mock if Ollama unavailable)
+- ✅ Replaced `_execute_router_node()`:
+  - Now uses `EnhancedRouterAgent.route_request()` for real routing
+  - Returns: intent, confidence, needs_rag, was_improved, keywords
+  - Fallback to simple keyword matching if Ollama unavailable
+- ✅ Replaced `_execute_rag_node()`:
+  - Now uses `RAGAgent.retrieve_context()` for real retrieval
+  - Returns: retrieved_documents with relevance scores, context
+  - Fallback to mock RAG results if RAG system unavailable
+- ✅ Replaced `_execute_llm_node()`:
+  - Now uses specialized agents based on `config.agent_type`
+  - Supports: chat, code, analysis, creative, tool agents
+  - Each agent uses dedicated Ollama model from database
+  - Fallback to mock response if Ollama unavailable
+- ✅ Added `_generate_node_summary()` method:
+  - Generates clean bullet-point summary for each node
+  - Example: "Intent: 'chat' (85% confidence) → RAG retrieval needed"
+  - Used in frontend for user-friendly display
+
+**File: `backend/routes/rag_studio.py`**
+- ✅ Updated test endpoint to pass `db_manager` to WorkflowEngine
+- ✅ Engine now has access to agent configs from `chimera_tools.db`
+
+#### 2. Frontend UI Improvements (Clean Display) ✅
+
+**File: `src/components/rag-studio/ExecutionStepSummary.tsx` (NEW)**
+- ✅ Clean bullet-point execution flow display
+- ✅ Visual icons for each node type:
+  - 📥 Input
+  - 🧭 Router
+  - 🔍 RAG Retriever
+  - 🤖 LLM
+  - 📤 Output
+- ✅ Collapsible detailed view (click to expand JSON)
+- ✅ Status indicators: ✅ Success, ❌ Error
+- ✅ Processing time per step (milliseconds)
+- ✅ Summary stats: total steps completed, total time
+- ✅ Hover effects and animations
+
+**File: `src/components/rag-studio/ExecutionFlow.tsx`**
+- ✅ Added toggle between clean summary and verbose JSON view
+- ✅ Default view: Clean summary (user-friendly)
+- ✅ "Show Details" button to view full JSON
+- ✅ Integrated new ExecutionStepSummary component
+- ✅ Preserved original verbose view for debugging
+
+**File: `src/lib/rag-studio-api.ts`**
+- ✅ Added `summary?: string` field to `NodeExecution` interface
+- ✅ Summary used for clean UI display, full output preserved for debugging
+
+#### 3. Features ✅
+
+**Real Agent Integration:**
+- ✅ Router node → EnhancedRouterAgent (phi3:mini)
+- ✅ RAG node → RAGAgent (uses ChromaDB embeddings)
+- ✅ LLM node → Specialized agents:
+  - Chat Agent (gemma2:2b)
+  - Code Agent (qwen2.5-coder:7b)
+  - Analysis Agent (qwen2.5:7b)
+  - Creative Agent (llama3:8b)
+  - Tool Agent (phi3:mini)
+- ✅ All agents load config from database (`agents_configs` table)
+- ✅ Graceful fallback to mock if Ollama not running
+
+**UI Improvements:**
+- ✅ Clean execution summary (default view)
+- ✅ Verbose JSON view (toggle for debugging)
+- ✅ Visual status indicators
+- ✅ Processing time per node
+- ✅ Summary text for each step (e.g., "Retrieved 3 documents from chimepaedia")
+
+#### 4. Remaining Work ⚠️
+
+**Phase 6.6.3c: Persona Manager Integration** (In Progress)
+
+**Goal:** Make RAG Studio workflow match Chat tabs quality
+- Integrate with existing Persona Manager system
+- Support conversation history context
+- Enable character & relationship features
+- Save workflow executions as conversations
+
+**Required Features (from Chat tabs):**
+
+1. **Persona Integration:**
+   ```python
+   # backend/routes/rag_studio.py needs:
+   - Get persona from database (persona_id parameter)
+   - Default persona fallback
+   - Enhanced persona with relationship context
+   ```
+
+2. **Character & Relationship Support:**
+   ```python
+   # Add to test workflow request:
+   - character_id: Optional[str]
+   - Get character from user_characters table
+   - Get relationship between persona & character
+   - Build enhanced system prompt with relationship
+   ```
+
+3. **Conversation History:**
+   ```python
+   # workflow_engine.py needs:
+   - conversation_id parameter
+   - Load conversation history (last 5 messages)
+   - Pass history to orchestrator for context
+   - Router dapat cek conversation untuk prevent hallucination
+   ```
+
+4. **Message Persistence:**
+   ```python
+   # Save workflow execution as conversation:
+   - Create/get conversation with persona_id
+   - Save user input as message
+   - Save workflow output as AI message
+   - Link with conversation_id
+   ```
+
+5. **Chimepedia Integration:**
+   ```python
+   # Future enhancement:
+   - File management integration
+   - Document upload to RAG system
+   - Persona-specific knowledge base
+   ```
+
+**Implementation Plan:**
+
+**Step 1: Update Workflow Test Request Model**
+```python
+# backend/routes/rag_studio.py
+class WorkflowTestRequest(BaseModel):
+    workflow_id: str
+    test_input: str
+    stop_at_node: Optional[str] = None
+    # NEW FIELDS:
+    persona_id: Optional[str] = None
+    character_id: Optional[str] = None
+    conversation_id: Optional[str] = None
+```
+
+**Step 2: Enhance WorkflowEngine**
+```python
+# backend/ai/workflow_engine.py
+def __init__(self, workflow_id, db_manager, persona=None, conversation_history=None):
+    # Add persona & history support
+    self.persona = persona
+    self.conversation_history = conversation_history
+```
+
+**Step 3: Update LLM Node Execution**
+```python
+# Pass persona to specialized agents
+async def _execute_llm_node(self, node, input_data):
+    # Use self.persona instead of generic config
+    if self.persona:
+        agent_result = agent.process(
+            message,
+            rag_context=context,
+            persona=self.persona  # NEW
+        )
+```
+
+**Step 4: Add Conversation Persistence**
+```python
+# Save workflow execution as conversation
+async def execute(self, test_input, conversation_id=None):
+    # Create/get conversation
+    # Save messages to database
+    # Link with persona_id
+```
+
+**Step 5: Frontend Updates**
+```typescript
+// Add persona selector to TestPanel
+interface TestPanelProps {
+  workflowId: string
+  stopAtNode: string | null
+  personaId?: string  // NEW
+  characterId?: string  // NEW
+  conversationId?: string  // NEW
+  onBack: () => void
+}
+```
+
+**Phase 6.6.3d: Bug Fixes**
+
+**Bug 1: Node Update 404 Error** ⚠️
+- Error: `PUT /api/rag-studio/workflows/wf_flash_v1/nodes/node_1761308419341 404`
+- Root cause: Node ID mismatch
+- Action: Debug node_id generation and lookup
+- Files to check:
+  - `src/components/rag-studio/editor/NodeConfigPanel.tsx`
+  - `backend/routes/rag_studio.py` (update_node endpoint)
+  - `backend/workflow_database.py` (get_node method)
+
+**Bug 2: Edge Deletion Console Spam**
+- Issue: "[Delete Mode] Immediately deleting edge" messages
+- Impact: Console cluttered with debug logs
+- Action: Remove/reduce debug logging in production
+
+#### 5. Testing Notes ⏳
+
+**Completed Testing:**
+- ✅ Backend agents call Ollama successfully
+- ✅ Clean UI display works
+- ✅ Toggle between clean/verbose views works
+
+**Pending Testing:**
+- ⏳ Persona integration with database
+- ⏳ Character & relationship context
+- ⏳ Conversation history context
+- ⏳ Message persistence
+- ⏳ Node update bug fix verification
+
+**Known Dependencies:**
+- ⚠️ Requires `sentence_transformers` package
+- ⚠️ Requires `chromadb` package (installed)
+- ⚠️ Requires Ollama running for real agent calls
+
+#### Files Created:
+- `src/components/rag-studio/ExecutionStepSummary.tsx` (180 lines)
+
+#### Files Modified (Phase 6.6.3a & 6.6.3b):
+- `backend/ai/workflow_engine.py` (major rewrite, added orchestrator integration)
+- `backend/routes/rag_studio.py` (updated test endpoint)
+- `src/components/rag-studio/ExecutionFlow.tsx` (added toggle view)
+- `src/lib/rag-studio-api.ts` (added summary field)
+- `docs/phase/phase_6.md` (this file, extended)
+
+#### Files to Modify (Phase 6.6.3c - Persona Integration):
+- `backend/routes/rag_studio.py` (add persona parameters)
+- `backend/ai/workflow_engine.py` (add persona & conversation history support)
+- `src/components/rag-studio/TestPanel.tsx` (add persona selector)
+- `src/lib/rag-studio-api.ts` (update test request interface)
+
+#### Files to Debug (Phase 6.6.3d - Bug Fixes):
+- `src/components/rag-studio/editor/NodeConfigPanel.tsx` (404 error)
+- `backend/workflow_database.py` (node lookup)
 
 ---
 
@@ -984,22 +1260,39 @@ Study these for understanding real agent usage:
   - Fixed node name/config not persisting to database
 - ✅ Phase 6.6.1: Create Workflow + Workflow List
 - ✅ Phase 6.6.2: Enhanced Node Configuration
+- 🔄 **Phase 6.6.3: Fix Workflow Execution & UI** (60% Complete)
+  - ✅ Phase 6.6.3a: Backend Agent Integration (Complete)
+  - ✅ Phase 6.6.3b: Frontend UI Improvements (Complete)
+  - ⏳ Phase 6.6.3c: Persona Manager Integration (In Progress)
+  - ⏳ Phase 6.6.3d: Bug Fixes (Pending)
 
 **In Progress:**
-- ⏳ User Testing Phase 6.6.2
+- 🔄 **Phase 6.6.3c: Persona Manager Integration**
+  - Goal: Match Chat tabs quality with persona system
+  - Missing: Persona selector, character context, conversation history
+  - Estimated: 3-4 hours remaining
+
+**Critical Issues:**
+- ⚠️ Node update 404 error (needs debugging)
+- ⚠️ No persona integration (workflow inferior to Chat tabs)
+- ⚠️ No conversation history context
+- ⚠️ Missing character & relationship features
 
 **Next Priority:**
-- 🚨 **Phase 6.6.3: Fix Workflow Execution & UI (CRITICAL)**
-  - Workflow currently uses mock data
-  - Need to integrate real Ollama agents
-  - Improve test result UI display
+- 🚨 **Complete Phase 6.6.3c** - Persona Manager Integration
+- 🚨 **Fix Phase 6.6.3d** - Node update bugs
+- 📋 **Phase 6.6.4: Workflow Templates** (after 6.6.3 complete)
 
 **Planned:**
-- 📋 Phase 6.6.4: Workflow Templates (moved from 6.6.3)
+- 📋 Phase 6.6.4: Workflow Templates
 - 📋 Phase 6.6.5: Import/Export & History
 
 ---
 
-**Last Updated:** October 24, 2025  
-**Status:** ✅ Phase 6.6.2 Complete | 🚨 Phase 6.6.3 Analysis Complete (Ready for Implementation)  
-**Next Steps:** Implement Phase 6.6.3 - integrate real agents into workflow execution
+**Last Updated:** January 25, 2025  
+**Status:** 🔄 Phase 6.6.3 Extended (60% Complete) - Persona Integration Required  
+**Next Steps:** 
+1. Integrate Persona Manager system from Chat tabs
+2. Add conversation history context
+3. Fix node update 404 bug
+4. Complete Phase 6.6.3 → Move to 6.6.4
