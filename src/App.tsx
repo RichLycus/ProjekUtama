@@ -10,6 +10,7 @@ import ChatPage from './pages/ChatPage'
 import GamesPage from './pages/GamesPage'
 import SettingsPage from './pages/SettingsPage'
 import RAGStudioPage from './pages/RAGStudioPage'
+import RAGStudioEditorPage from './pages/RAGStudioEditorPage'
 
 function AnimatedRoutes() {
   const location = useLocation()
@@ -25,6 +26,7 @@ function AnimatedRoutes() {
         <Route path="/games" element={<PageTransition><GamesPage /></PageTransition>} />
         <Route path="/settings" element={<PageTransition><SettingsPage /></PageTransition>} />
         <Route path="/rag-studio" element={<PageTransition><RAGStudioPage /></PageTransition>} />
+        <Route path="/rag-studio/editor/:mode" element={<RAGStudioEditorPage />} />
       </Routes>
     </AnimatePresence>
   )

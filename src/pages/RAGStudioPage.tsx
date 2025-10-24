@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Save, RotateCcw, Loader2 } from 'lucide-react'
+import { ArrowLeft, RotateCcw, Loader2, Edit3 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import WorkflowCanvas from '@/components/rag-studio/WorkflowCanvas'
 import WorkflowModeSelector from '@/components/rag-studio/WorkflowModeSelector'
 import TestPanel from '@/components/rag-studio/TestPanel'
 import { useRAGStudioStore } from '@/store/ragStudioStore'
-import toast from 'react-hot-toast'
 
 type WorkflowMode = 'flash' | 'pro' | 'code_rag'
 
@@ -58,6 +57,11 @@ export default function RAGStudioPage() {
     }
   }
   
+  const handleEditWorkflow = () => {
+    // Navigate to visual editor
+    navigate(`/rag-studio/editor/${currentMode}`)
+  }
+  
   return (
     <div className="h-[calc(100vh-5.5rem)] flex flex-col bg-gray-50 dark:bg-dark-surface">
       {/* Header */}
@@ -81,6 +85,14 @@ export default function RAGStudioPage() {
         </div>
         
         <div className="flex gap-2">
+          <button
+            onClick={handleEditWorkflow}
+            disabled={loading || !currentWorkflow}
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-secondary text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Edit3 className="w-4 h-4" />
+            <span>Edit Workflow</span>
+          </button>
           <button
             onClick={handleReset}
             disabled={loading}
