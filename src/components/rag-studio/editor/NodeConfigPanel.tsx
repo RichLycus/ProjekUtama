@@ -1,0 +1,224 @@
+import { X, Save, Trash2, Power, PowerOff } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Node } from 'reactflow'
+
+interface NodeConfigPanelProps {
+  node: Node | null
+  onClose: () => void
+  onSave?: (nodeId: string, config: any) => void
+  onDelete?: (nodeId: string) => void
+  onToggleEnabled?: (nodeId: string, enabled: boolean) => void
+}
+
+export default function NodeConfigPanel({
+  node,
+  onClose,
+  onSave,
+  onDelete,
+  onToggleEnabled,
+}: NodeConfigPanelProps) {
+  const [nodeName, setNodeName] = useState('')
+  const [nodeConfig, setNodeConfig] = useState<string>('{}')
+  const [isEnabled, setIsEnabled] = useState(true)
+  const [hasChanges, setHasChanges] = useState(false)
+
+  useEffect(() => {
+    if (node) {
+      setNodeName(node.data.nodeName || node.data.label || '')
+      setIsEnabled(node.data.isEnabled ?? true)
+      
+      // Parse config if it's a string, otherwise stringify it
+      const config = node.data.config
+      if (typeof config === 'string') {
+        setNodeConfig(config)
+      } else {
+        setNodeConfig(JSON.stringify(config || {}, null, 2))
+      }
+      
+      setHasChanges(false)
+    }
+  }, [node])
+
+  if (!node) return null
+
+  const handleSave = () => {
+    if (onSave) {
+      try {
+        const parsedConfig = JSON.parse(nodeConfig)
+        onSave(node.id, {
+          nodeName,
+          config: parsedConfig,
+          isEnabled,
+        })
+        setHasChanges(false)
+      } catch (error) {
+        alert('Invalid JSON configuration')
+      }
+    }
+  }
+
+  const handleDelete = () => {
+    if (confirm('Are you sure you want to delete this node?')) {
+      onDelete?.(node.id)
+      onClose()
+    }
+  }
+
+  const handleToggleEnabled = () => {
+    const newEnabled = !isEnabled
+    setIsEnabled(newEnabled)
+    setHasChanges(true)
+    onToggleEnabled?.(node.id, newEnabled)
+  }
+
+  return (
+    <div className="fixed right-0 top-0 h-full w-96 bg-white dark:bg-dark-card border-l border-gray-200 dark:border-dark-border shadow-2xl z-50 flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-dark-border">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+            Node Configuration
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            {node.data.nodeType?.replace('_', ' ') || 'Unknown type'}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-dark-surface rounded-lg transition-colors"
+        >
+          <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Node name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Node Name
+          </label>
+          <input
+            type="text"
+            value={nodeName}
+            onChange={(e) => {
+              setNodeName(e.target.value)
+              setHasChanges(true)
+            }}
+            className="
+              w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+              bg-white dark:bg-dark-surface
+              text-gray-900 dark:text-white
+              focus:ring-2 focus:ring-primary focus:border-transparent
+              transition-colors
+            "
+            placeholder="Enter node name"
+          />
+        </div>
+
+        {/* Node enabled toggle */}
+        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-surface rounded-lg">
+          <div className="flex items-center gap-3">
+            {isEnabled ? (
+              <Power className="w-5 h-5 text-green-600 dark:text-green-400" />
+            ) : (
+              <PowerOff className="w-5 h-5 text-gray-400 dark:text-gray-600" />
+            )}
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                Node Status
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {isEnabled ? 'Enabled' : 'Disabled'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleToggleEnabled}
+            className={`
+              relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+              ${isEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'}
+            `}
+          >
+            <span
+              className={`
+                inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                ${isEnabled ? 'translate-x-6' : 'translate-x-1'}
+              `}
+            />
+          </button>
+        </div>
+
+        {/* Node configuration (JSON) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Configuration (JSON)
+          </label>
+          <textarea
+            value={nodeConfig}
+            onChange={(e) => {
+              setNodeConfig(e.target.value)
+              setHasChanges(true)
+            }}
+            rows={12}
+            className="
+              w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+              bg-white dark:bg-dark-surface
+              text-gray-900 dark:text-white font-mono text-sm
+              focus:ring-2 focus:ring-primary focus:border-transparent
+              transition-colors resize-none
+            "
+            placeholder='{"key": "value"}'
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            Enter valid JSON configuration for this node
+          </p>
+        </div>
+
+        {/* Node info */}
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <p className="text-sm text-blue-900 dark:text-blue-300">
+            <strong>Node ID:</strong> {node.id}
+          </p>
+          <p className="text-sm text-blue-900 dark:text-blue-300 mt-1">
+            <strong>Type:</strong> {node.data.nodeType}
+          </p>
+        </div>
+      </div>
+
+      {/* Footer actions */}
+      <div className="p-6 border-t border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-surface">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            disabled={!hasChanges}
+            className="
+              flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg
+              bg-primary hover:bg-secondary text-white
+              disabled:opacity-50 disabled:cursor-not-allowed
+              transition-colors font-medium
+            "
+          >
+            <Save className="w-4 h-4" />
+            Save Changes
+          </button>
+          
+          {onDelete && (
+            <button
+              onClick={handleDelete}
+              className="
+                p-2 rounded-lg
+                hover:bg-red-100 dark:hover:bg-red-900/20
+                text-red-600 dark:text-red-400
+                transition-colors
+              "
+              title="Delete node"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
