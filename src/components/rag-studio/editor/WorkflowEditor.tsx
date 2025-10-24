@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, DragEvent } from 'react'
+import { useCallback, useMemo, useState, DragEvent, useEffect, useRef } from 'react'
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -13,14 +13,18 @@ import ReactFlow, {
   NodeTypes,
   EdgeTypes,
   useReactFlow,
+  NodeChange,
+  EdgeChange,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { Workflow } from '@/lib/rag-studio-api'
+import { useRAGStudioStore } from '@/store/ragStudioStore'
 import CustomNode from './CustomNode'
 import CustomEdge from './CustomEdge'
 import NodePaletteSidebar from './NodePaletteSidebar'
 import EditorToolbar from './EditorToolbar'
 import NodeConfigPanel from './NodeConfigPanel'
+import toast from 'react-hot-toast'
 
 interface WorkflowEditorProps {
   workflow: Workflow
@@ -75,10 +79,15 @@ function convertToReactFlow(workflow: Workflow) {
 
 export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange }: WorkflowEditorProps) {
   const { zoomIn, zoomOut, fitView } = useReactFlow()
+  const { saveNodePositions, setHasUnsavedChanges } = useRAGStudioStore()
   const [showSidebar, setShowSidebar] = useState(true)
   const [showGrid, setShowGrid] = useState(true)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const [showConfigPanel, setShowConfigPanel] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  
+  // Debounced auto-save ref
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
     () => convertToReactFlow(workflow),
@@ -100,29 +109,69 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
   const [edges, setEdges, handleEdgesChange] = useEdgesState(initialEdges)
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, type: 'custom', animated: true }, eds)),
-    [setEdges]
+    (params: Connection) => {
+      setEdges((eds) => addEdge({ ...params, type: 'custom', animated: true }, eds))
+      setHasUnsavedChanges(true)
+    },
+    [setEdges, setHasUnsavedChanges]
   )
 
-  // Notify parent of changes
+  // Debounced auto-save function
+  const scheduleAutoSave = useCallback(() => {
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current)
+    }
+    
+    // Schedule new auto-save
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      const positions = nodes.map(node => ({
+        node_id: node.id,
+        position_x: Math.round(node.position.x),
+        position_y: Math.round(node.position.y),
+      }))
+      
+      console.log('[Auto-save] Saving positions:', positions)
+      setIsSaving(true)
+      const success = await saveNodePositions(positions)
+      setIsSaving(false)
+      
+      if (success) {
+        console.log('[Auto-save] Positions saved successfully')
+      }
+    }, 300) // 300ms debounce
+  }, [nodes, saveNodePositions])
+
+  // Notify parent of changes & trigger auto-save
   const onNodesChangeHandler = useCallback(
-    (changes: any) => {
+    (changes: NodeChange[]) => {
       handleNodesChange(changes)
+      
+      // Check if any position changes
+      const hasPositionChange = changes.some(change => change.type === 'position' && change.dragging === false)
+      
+      if (hasPositionChange) {
+        setHasUnsavedChanges(true)
+        scheduleAutoSave()
+      }
+      
       if (onNodesChange) {
         onNodesChange(nodes)
       }
     },
-    [handleNodesChange, nodes, onNodesChange]
+    [handleNodesChange, nodes, onNodesChange, setHasUnsavedChanges, scheduleAutoSave]
   )
 
   const onEdgesChangeHandler = useCallback(
-    (changes: any) => {
+    (changes: EdgeChange[]) => {
       handleEdgesChange(changes)
+      setHasUnsavedChanges(true)
+      
       if (onEdgesChange) {
         onEdgesChange(edges)
       }
     },
-    [handleEdgesChange, edges, onEdgesChange]
+    [handleEdgesChange, edges, onEdgesChange, setHasUnsavedChanges]
   )
 
   // Node selection handler
@@ -167,8 +216,9 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
       }
 
       setNodes((nds) => nds.concat(newNode))
+      setHasUnsavedChanges(true)
     },
-    [setNodes]
+    [setNodes, setHasUnsavedChanges]
   )
 
   // Auto layout handler
@@ -178,7 +228,27 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
       position: { x: 400, y: index * 150 + 50 }
     }))
     setNodes(layoutedNodes)
-  }, [nodes, setNodes])
+    setHasUnsavedChanges(true)
+    scheduleAutoSave()
+    toast.success('Auto-layout applied')
+  }, [nodes, setNodes, setHasUnsavedChanges, scheduleAutoSave])
+
+  // Manual save handler
+  const handleSave = useCallback(async () => {
+    const positions = nodes.map(node => ({
+      node_id: node.id,
+      position_x: Math.round(node.position.x),
+      position_y: Math.round(node.position.y),
+    }))
+    
+    setIsSaving(true)
+    const success = await saveNodePositions(positions)
+    setIsSaving(false)
+    
+    if (success) {
+      toast.success('Positions saved!')
+    }
+  }, [nodes, saveNodePositions])
 
   // Config panel handlers
   const handleConfigSave = useCallback((nodeId: string, config: any) => {
@@ -196,14 +266,19 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
         return node
       })
     )
+    setHasUnsavedChanges(true)
     setShowConfigPanel(false)
-  }, [setNodes])
+    toast.success('Node updated')
+  }, [setNodes, setHasUnsavedChanges])
 
   const handleNodeDelete = useCallback((nodeId: string) => {
     setNodes((nds) => nds.filter((node) => node.id !== nodeId))
     setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId))
+    setHasUnsavedChanges(true)
     setShowConfigPanel(false)
-  }, [setNodes, setEdges])
+    scheduleAutoSave()
+    toast.success('Node deleted')
+  }, [setNodes, setEdges, setHasUnsavedChanges, scheduleAutoSave])
 
   const handleToggleEnabled = useCallback((nodeId: string, enabled: boolean) => {
     setNodes((nds) =>
@@ -220,7 +295,37 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
         return node
       })
     )
-  }, [setNodes])
+    setHasUnsavedChanges(true)
+  }, [setNodes, setHasUnsavedChanges])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ctrl+S / Cmd+S: Save
+      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault()
+        handleSave()
+      }
+      
+      // Delete / Backspace: Delete selected node
+      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNode && showConfigPanel) {
+        event.preventDefault()
+        handleNodeDelete(selectedNode.id)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleSave, handleNodeDelete, selectedNode, showConfigPanel])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className="w-full h-full flex">
@@ -234,12 +339,14 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
       <div className="flex-1 flex flex-col relative">
         {/* Toolbar */}
         <EditorToolbar
+          onSave={handleSave}
           onZoomIn={() => zoomIn()}
           onZoomOut={() => zoomOut()}
           onFitView={() => fitView({ padding: 0.2 })}
           onAutoLayout={handleAutoLayout}
           onToggleGrid={() => setShowGrid(!showGrid)}
           showGrid={showGrid}
+          hasUnsavedChanges={isSaving}
         />
 
         {/* React Flow Canvas */}
@@ -258,6 +365,7 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
             fitView
             fitViewOptions={{ padding: 0.2 }}
             className="bg-gray-50 dark:bg-dark-surface"
+            deleteKeyCode={null}
           >
             <Controls className="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg" />
             <MiniMap 
@@ -283,6 +391,14 @@ export default function WorkflowEditor({ workflow, onNodesChange, onEdgesChange 
             )}
           </ReactFlow>
         </div>
+        
+        {/* Auto-save indicator */}
+        {isSaving && (
+          <div className="absolute bottom-4 right-4 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg px-4 py-2 shadow-lg flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <span className="text-sm text-gray-700 dark:text-gray-300">Saving...</span>
+          </div>
+        )}
       </div>
 
       {/* Node Config Panel */}

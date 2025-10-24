@@ -209,3 +209,90 @@ export async function getTestResults(workflowId: string, limit = 10): Promise<{ 
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
+
+/**
+ * Update single node position
+ */
+export async function updateNodePosition(
+  workflowId: string, 
+  nodeId: string, 
+  position: { x: number; y: number }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/workflows/${workflowId}/nodes/${nodeId}/position`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ position_x: position.x, position_y: position.y })
+    })
+    
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to update node position' }
+    }
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to update node position:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Batch update node positions
+ */
+export async function batchUpdatePositions(
+  workflowId: string,
+  positions: Array<{ node_id: string; position_x: number; position_y: number }>
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/workflows/${workflowId}/batch-positions`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ positions })
+    })
+    
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to batch update positions' }
+    }
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to batch update positions:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Trigger auto-layout for workflow
+ */
+export async function autoLayoutWorkflow(
+  workflowId: string,
+  layoutType: 'vertical' | 'horizontal' = 'vertical'
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/workflows/${workflowId}/auto-layout?layout_type=${layoutType}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to auto-layout workflow' }
+    }
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to auto-layout workflow:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { Workflow, getWorkflows, getWorkflow } from '@/lib/rag-studio-api'
+import { Workflow, getWorkflows, getWorkflow, batchUpdatePositions } from '@/lib/rag-studio-api'
 import toast from 'react-hot-toast'
 
 interface RAGStudioStore {
@@ -8,12 +8,15 @@ interface RAGStudioStore {
   currentWorkflow: Workflow | null
   loading: boolean
   error: string | null
+  hasUnsavedChanges: boolean
   
   // Actions
   loadWorkflows: () => Promise<void>
   loadWorkflow: (mode: 'flash' | 'pro' | 'code_rag') => Promise<void>
   setCurrentWorkflow: (workflow: Workflow | null) => void
   resetWorkflow: (mode: 'flash' | 'pro' | 'code_rag') => Promise<void>
+  saveNodePositions: (positions: Array<{ node_id: string; position_x: number; position_y: number }>) => Promise<boolean>
+  setHasUnsavedChanges: (value: boolean) => void
 }
 
 export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
@@ -21,6 +24,7 @@ export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
   currentWorkflow: null,
   loading: false,
   error: null,
+  hasUnsavedChanges: false,
   
   loadWorkflows: async () => {
     set({ loading: true, error: null })
@@ -62,7 +66,7 @@ export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
       if (result.success && result.workflow) {
         console.log('[RAG Studio] Workflow loaded:', result.workflow)
         console.log('[RAG Studio] Nodes:', result.workflow.nodes)
-        set({ currentWorkflow: result.workflow, loading: false })
+        set({ currentWorkflow: result.workflow, loading: false, hasUnsavedChanges: false })
       } else {
         const errorMsg = result.error || 'Failed to load workflow'
         console.error('[RAG Studio] Error:', errorMsg)
@@ -85,5 +89,33 @@ export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
     // Reload the default workflow for the mode
     await get().loadWorkflow(mode)
     toast.success('Workflow reset to default')
+  },
+  
+  saveNodePositions: async (positions: Array<{ node_id: string; position_x: number; position_y: number }>) => {
+    const workflow = get().currentWorkflow
+    if (!workflow) {
+      toast.error('No workflow loaded')
+      return false
+    }
+    
+    try {
+      const result = await batchUpdatePositions(workflow.id, positions)
+      
+      if (result.success) {
+        set({ hasUnsavedChanges: false })
+        return true
+      } else {
+        toast.error('Failed to save positions: ' + (result.error || 'Unknown error'))
+        return false
+      }
+    } catch (error) {
+      console.error('Failed to save node positions:', error)
+      toast.error('Failed to save positions')
+      return false
+    }
+  },
+  
+  setHasUnsavedChanges: (value: boolean) => {
+    set({ hasUnsavedChanges: value })
   }
 }))

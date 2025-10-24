@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ReactFlowProvider } from 'reactflow'
@@ -11,12 +11,13 @@ type WorkflowMode = 'flash' | 'pro' | 'code_rag'
 export default function RAGStudioEditorPage() {
   const navigate = useNavigate()
   const { mode } = useParams<{ mode: WorkflowMode }>()
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   
   const { 
     currentWorkflow, 
     loadWorkflow, 
-    loading 
+    loading,
+    hasUnsavedChanges,
+    setHasUnsavedChanges
   } = useRAGStudioStore()
   
   // Load workflow when mode changes
@@ -26,9 +27,23 @@ export default function RAGStudioEditorPage() {
     }
   }, [mode, loadWorkflow])
   
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
+  
   const handleBack = () => {
     if (hasUnsavedChanges) {
       if (confirm('You have unsaved changes. Are you sure you want to leave?')) {
+        setHasUnsavedChanges(false)
         navigate('/rag-studio')
       }
     } else {
@@ -38,11 +53,11 @@ export default function RAGStudioEditorPage() {
   
   
   const handleNodesChange = (_nodes: Node[]) => {
-    setHasUnsavedChanges(true)
+    // Position changes are handled by WorkflowEditor
   }
   
   const handleEdgesChange = (_edges: Edge[]) => {
-    setHasUnsavedChanges(true)
+    // Edge changes are handled by WorkflowEditor
   }
   
   const getModeName = (mode?: string) => {
@@ -109,8 +124,16 @@ export default function RAGStudioEditorPage() {
           </div>
         </div>
         
-        <div className="w-24">
-          {/* Spacer for centering */}
+        <div className="flex items-center gap-3">
+          {hasUnsavedChanges && (
+            <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+              <div className="w-2 h-2 rounded-full bg-amber-600 dark:bg-amber-400 animate-pulse" />
+              <span>Auto-saving...</span>
+            </div>
+          )}
+          <div className="w-24">
+            {/* Spacer for alignment */}
+          </div>
         </div>
       </div>
       
