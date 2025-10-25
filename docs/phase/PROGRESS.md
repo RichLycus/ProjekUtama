@@ -1,8 +1,8 @@
 # 🚀 ChimeraAI Phase 6 Journey Tracker
 
 **Last Updated:** January 25, 2025  
-**Current Phase:** 6.8.1 - Intent Classifier (COMPLETE) ✅  
-**Overall Progress:** Phase 6.8 - 25% Complete (1/4 sub-phases done)
+**Current Phase:** 6.8.2 - Complexity Analyzer (COMPLETE) ✅  
+**Overall Progress:** Phase 6.8 - 50% Complete (2/4 sub-phases done)
 
 ---
 
@@ -16,9 +16,9 @@ Phase 6 Redesign Journey:
 ✅ 6.7.2: Flow Loader & Parser           [COMPLETE]
 ✅ 6.7.3: Flow Executor                  [COMPLETE]
 ✅ 6.7.4: Basic Agents                   [COMPLETE]
-✅ 6.8.1: Intent Classifier              [COMPLETE] ← YOU ARE HERE
-⏳ 6.8.2: Complexity Analyzer            [NEXT]
-⏳ 6.8.3: Context-Aware Layer
+✅ 6.8.1: Intent Classifier              [COMPLETE]
+✅ 6.8.2: Complexity Analyzer            [COMPLETE] ← YOU ARE HERE
+⏳ 6.8.3: Context-Aware Layer            [NEXT]
 ⏳ 6.8.4: Mode Selector
 ⏳ 6.9: Retriever & Cache
 ⏳ 6.10: Persona System
@@ -74,7 +74,7 @@ Phase 6 Redesign Journey:
    - 23 unit tests passing (74 total)
    - Demo script with all agents
 
-6. **Intent Classifier** (Phase 6.8.1) ⭐ **NEW**
+6. **Intent Classifier** (Phase 6.8.1) ✅
    - IntentClassifier for Flash vs Pro routing
    - Bilingual support (Indonesian priority, English fallback)
    - 6 intent types: greeting, chitchat, simple_question, informational, complex_question, analytical, creative
@@ -84,9 +84,22 @@ Phase 6 Redesign Journey:
    - Interactive demo script
    - Config-driven keywords (router_config.json)
 
+7. **Complexity Analyzer** (Phase 6.8.2) ⭐ **NEW**
+   - ComplexityAnalyzer with 5-factor scoring
+   - Factors: length (15%), technical (25%), structure (20%), context (15%), reasoning (25%)
+   - Configurable weights via router_config.json
+   - Complexity levels: low/medium/high
+   - Mode recommendation: flash/pro/depends
+   - Technical keyword detection (programming, AI/ML, data, system, web)
+   - Structure analysis (simple/medium/complex)
+   - Context dependency detection
+   - Reasoning depth analysis
+   - 47 unit tests passing (100% success rate)
+   - Explainable scoring with detailed breakdown
+
 ### Phase 6.8: Smart Router ⏳
 
-**Status:** 🔄 In Progress (1/4 sub-phases complete)  
+**Status:** 🔄 In Progress (2/4 sub-phases complete)  
 **Estimated:** 3-4 days  
 **Goal:** Context-aware intelligent routing with roleplay support
 
@@ -106,12 +119,19 @@ Phase 6 Redesign Journey:
   - Config-driven (router_config.json)
   - Note: Roleplay & code detection deferred to later phases
 
+- [x] Sub-Phase 6.8.2: Complexity Analyzer ✅
+  - 5-factor scoring system (length, technical, structure, context, reasoning)
+  - Configurable weights (technical 25%, reasoning 25%, structure 20%, length 15%, context 15%)
+  - Technical keyword detection (programming, AI/ML, data, system, web)
+  - Structure complexity analysis (simple/medium/complex)
+  - Context dependency detection
+  - Reasoning depth analysis (why/how, analysis, explanation, problem-solving)
+  - Complexity levels: low/medium/high
+  - Mode recommendation: flash/pro/depends
+  - 47 tests passing
+  - Explainable AI with detailed factor breakdown
+
 **To Do:**
-- [ ] Sub-Phase 6.8.2: Complexity Analyzer
-  - 5-factor scoring (length, technical, structure, context, reasoning)
-  - Configurable weights
-  - Mode recommendation engine
-  
 - [ ] Sub-Phase 6.8.3: Context-Aware Layer
   - Session tracking & continuity
   - Topic continuity checking
@@ -660,6 +680,148 @@ Query: "Analisis dampak AI terhadap ekonomi"
 
 ---
 
+### Phase 6.8.2: Complexity Analyzer ✅
+
+**Status:** ✅ Complete  
+**Completed:** January 25, 2025  
+**Duration:** 1 day  
+**Goal:** Analyze query complexity with 5-factor scoring for mode recommendation
+
+**What Was Done:**
+- [x] Extended `ai/router/router_config.json` - Added complexity_analysis config
+- [x] Created `ai/router/complexity_analyzer.py` - ComplexityAnalyzer class (550+ lines)
+- [x] Updated `ai/router/__init__.py` - Export ComplexityAnalyzer & ComplexityResult
+- [x] Implemented 5-factor analysis:
+  - **Length Factor (15%)**: Short/medium/long query analysis
+  - **Technical Factor (25%)**: Technical keyword density (programming, AI/ML, data, system, web)
+  - **Structure Factor (20%)**: Sentence complexity (simple/medium/complex clauses)
+  - **Context Factor (15%)**: Context dependency detection
+  - **Reasoning Factor (25%)**: Reasoning depth (why/how, analysis, explanation, problem-solving)
+- [x] Advanced features:
+  - Configurable weights via JSON
+  - Complexity levels: low (<0.35), medium (<0.65), high (≥0.65)
+  - Mode recommendation: flash/depends/pro
+  - Technical keywords: 50+ terms across 5 categories
+  - Bilingual support (ID/EN)
+  - Explainable scoring with factor breakdown
+  - Batch analysis support
+- [x] Comprehensive unit tests (47 tests)
+- [x] Updated module exports
+
+**Success Criteria:** ✅ ALL MET
+- [x] 5-factor scoring implemented
+- [x] Configurable weights working (via JSON)
+- [x] Technical keyword detection accurate
+- [x] Structure complexity analysis working
+- [x] Context dependency detection working
+- [x] Reasoning depth analysis working
+- [x] Complexity levels correct (low/medium/high)
+- [x] Mode recommendations appropriate
+- [x] Tests pass (47/47, 100% success rate)
+- [x] Explainable AI with detailed breakdown
+
+**Files Created/Modified:**
+- `ai/router/complexity_analyzer.py` (550+ lines, new)
+- `ai/router/router_config.json` (extended with complexity_analysis, 100+ lines added)
+- `ai/router/__init__.py` (updated exports)
+- `tests/test_complexity_analyzer.py` (700+ lines, 47 tests)
+
+**Key Features:**
+1. **5-Factor Scoring System** 🎯
+   - Each factor scored 0.0-1.0
+   - Weighted combination for overall score
+   - Configurable weights via JSON
+   
+2. **Length Analysis** 📏
+   - Short (<50 chars) → 0.0-0.3
+   - Medium (50-150) → 0.3-0.6
+   - Long (150-300) → 0.6-0.8
+   - Very long (>300) → 0.8-1.0
+
+3. **Technical Detection** 💻
+   - 50+ technical keywords
+   - 5 categories: programming, AI/ML, data, system, web
+   - Density-based scoring (keywords per 50 chars)
+   - Bilingual (ID/EN)
+
+4. **Structure Analysis** 🏗️
+   - Clause counting (punctuation + conjunctions)
+   - Simple structure indicators (apa, siapa, what, who)
+   - Complex structure indicators (karena, meskipun, if, although)
+   - Nested question detection
+
+5. **Context Detection** 🔗
+   - Context reference words (sebelumnya, itu, ini, previous, that, this)
+   - Multi-indicator scoring
+   - 1 indicator = 0.35, 2 = 0.7, 3+ = 1.0
+
+6. **Reasoning Analysis** 🧠
+   - Why/how questions (0.4)
+   - Analysis requirements (0.3)
+   - Explanation requirements (0.2)
+   - Problem-solving (0.3)
+   - Combined scoring up to 1.0
+
+7. **Explainable AI** 💡
+   - Overall score with breakdown
+   - Top contributing factors highlighted
+   - Detailed reasoning per factor
+   - Mode recommendation with explanation
+
+**Key Learnings:**
+- **Weighted approach crucial** - Different factors have different importance
+- **Technical keywords powerful** - Strong signal for complexity
+- **Reasoning depth matters** - Why/how questions need more processing
+- **Configurable weights enable tuning** - Can adjust without code changes
+- **Bilingual keyword matching** - Works well for ID/EN mixed queries
+- **Factor details improve explainability** - Users understand why certain mode chosen
+
+**Testing Results:**
+```
+✅ 47/47 tests passing (100%)
+✅ Length factor (short/medium/long/very long)
+✅ Technical factor (keyword detection, density)
+✅ Structure factor (simple/medium/complex)
+✅ Context factor (dependency detection)
+✅ Reasoning factor (why/how, analysis, explanation)
+✅ Complexity levels (low/medium/high)
+✅ Weighted scoring (configurable)
+✅ Bilingual support (ID/EN)
+✅ Batch analysis
+✅ Explainable reasoning
+✅ Edge cases (empty, long, special chars)
+```
+
+**Analysis Examples:**
+```
+Query: "Halo!"
+  Level: low | Mode: flash | Score: 0.08
+  Factors: L=0.03 T=0.00 S=0.40 C=0.00 R=0.00
+
+Query: "Apa yang dimaksud dengan Python?"
+  Level: low | Mode: flash | Score: 0.19
+  Factors: L=0.19 T=0.50 S=0.20 C=0.00 R=0.00
+
+Query: "Jelaskan tentang machine learning"
+  Level: low | Mode: flash | Score: 0.28
+  Factors: L=0.20 T=0.50 S=0.40 C=0.00 R=0.20
+
+Query: "Analisis mendalam tentang transformer architecture dalam deep learning"
+  Level: medium | Mode: depends | Score: 0.39
+  Factors: L=0.36 T=0.71 S=0.40 C=0.00 R=0.30
+```
+
+**Weight Distribution:**
+```
+Technical:  25% (highest) - Strong signal for complexity
+Reasoning:  25% (highest) - Depth of thought required
+Structure:  20% - Sentence complexity matters
+Length:     15% - Longer often more complex
+Context:    15% - Context dependency indicator
+```
+
+---
+
 ## 🎓 Key Concepts Reference
 
 ### ExecutionContext
@@ -804,8 +966,8 @@ class MyRetriever(RetrieverInterface):
 | 6.7.3: Flow Executor | 1-2 days | ✅ Done | 1 day |
 | 6.7.4: Basic Agents | 1-2 days | ✅ Done | 1 day |
 | 6.8.1: Intent Classifier | 1 day | ✅ Done | 1 day |
-| 6.8.2: Complexity Analyzer | 1 day | 🔄 Next | - |
-| 6.8.3: Context-Aware Layer | 1 day | ⏳ Todo | - |
+| 6.8.2: Complexity Analyzer | 1 day | ✅ Done | 1 day |
+| 6.8.3: Context-Aware Layer | 1 day | 🔄 Next | - |
 | 6.8.4: Mode Selector | 1-2 days | ⏳ Todo | - |
 | 6.9: Retriever & Cache | 3-4 days | ⏳ Todo | - |
 | 6.10: Persona System | 2-3 days | ⏳ Todo | - |
@@ -813,8 +975,8 @@ class MyRetriever(RetrieverInterface):
 | 6.12: Legacy Integration | 2 days | ⏳ Todo | - |
 
 **Total Estimated:** 18-22 days  
-**Completed:** 6 days (27-33%)  
-**Progress:** Phase 6.8.1 - Complete! Intent Classifier working ✅
+**Completed:** 7 days (32-39%)  
+**Progress:** Phase 6.8.2 - Complete! Complexity Analyzer with 5-factor scoring ✅
 
 ---
 
@@ -848,7 +1010,7 @@ class MyRetriever(RetrieverInterface):
 
 ---
 
-**Last Action:** Completed Phase 6.8.1 (Intent Classifier + 45 tests passing) ✅  
-**Current Work:** Phase 6.8 - 25% complete (1/4 sub-phases done)  
-**Next Action:** Start Phase 6.8.2 (Complexity Analyzer)  
-**Status:** 🎉 Phase 6.8.1 Successfully Complete! Intent Classification Working!
+**Last Action:** Completed Phase 6.8.2 (Complexity Analyzer + 47 tests passing) ✅  
+**Current Work:** Phase 6.8 - 50% complete (2/4 sub-phases done)  
+**Next Action:** Start Phase 6.8.3 (Context-Aware Layer)  
+**Status:** 🎉 Phase 6.8.2 Successfully Complete! 5-Factor Complexity Analysis Working!

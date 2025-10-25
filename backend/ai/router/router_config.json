@@ -180,5 +180,101 @@
     "flash": ["greeting", "chitchat", "simple_question"],
     "pro": ["complex_question", "analytical", "creative"],
     "depends": ["informational"]
+  },
+  "complexity_analysis": {
+    "weights": {
+      "length": 0.15,
+      "technical": 0.25,
+      "structure": 0.20,
+      "context": 0.15,
+      "reasoning": 0.25
+    },
+    "length_thresholds": {
+      "short": 50,
+      "medium": 150,
+      "long": 300
+    },
+    "technical_keywords": {
+      "programming": [
+        "python", "javascript", "java", "code", "coding", "programming",
+        "algorithm", "function", "variable", "class", "object", "array",
+        "loop", "if", "else", "syntax", "bug", "debug", "compile",
+        "kode", "pemrograman", "algoritma", "fungsi", "variabel"
+      ],
+      "ai_ml": [
+        "ai", "artificial intelligence", "machine learning", "deep learning",
+        "neural network", "model", "training", "dataset", "inference",
+        "transformer", "gpt", "llm", "kecerdasan buatan", "pembelajaran mesin"
+      ],
+      "data": [
+        "database", "sql", "nosql", "mongodb", "postgresql", "query",
+        "data", "dataset", "dataframe", "csv", "json", "api",
+        "basis data", "kueri"
+      ],
+      "system": [
+        "server", "cloud", "docker", "kubernetes", "deployment", "devops",
+        "linux", "windows", "os", "operating system", "sistem operasi"
+      ],
+      "web": [
+        "html", "css", "frontend", "backend", "rest", "http", "https",
+        "website", "web", "browser", "react", "vue", "angular"
+      ]
+    },
+    "structure_indicators": {
+      "simple": {
+        "patterns": ["^(apa|siapa|kapan|dimana|berapa)", "^(what|who|when|where)"],
+        "max_clauses": 1,
+        "score_range": [0.0, 0.3]
+      },
+      "medium": {
+        "conjunctions": ["dan", "atau", "tetapi", "namun", "and", "or", "but", "however"],
+        "max_clauses": 3,
+        "score_range": [0.3, 0.6]
+      },
+      "complex": {
+        "indicators": [
+          "karena", "sehingga", "meskipun", "walaupun", "jika", "apabila",
+          "because", "therefore", "although", "though", "if", "unless"
+        ],
+        "min_clauses": 3,
+        "score_range": [0.6, 1.0]
+      }
+    },
+    "context_indicators": [
+      "sebelumnya", "tadi", "sebelum", "sesudah", "lalu", "kemudian",
+      "previous", "before", "after", "then", "earlier", "later",
+      "itu", "ini", "tersebut", "that", "this", "the above"
+    ],
+    "reasoning_indicators": {
+      "why_how": ["mengapa", "kenapa", "bagaimana", "why", "how"],
+      "analysis": [
+        "analisis", "evaluasi", "bandingkan", "pertimbangkan",
+        "analyze", "evaluate", "compare", "consider"
+      ],
+      "explanation": [
+        "jelaskan", "uraikan", "jabarkan", "explain", "elaborate", "describe"
+      ],
+      "problem_solving": [
+        "solusi", "pemecahan", "strategi", "pendekatan",
+        "solution", "solve", "strategy", "approach"
+      ]
+    },
+    "complexity_levels": {
+      "low": {
+        "threshold": 0.35,
+        "mode": "flash",
+        "description": "Simple query, quick response sufficient"
+      },
+      "medium": {
+        "threshold": 0.65,
+        "mode": "depends",
+        "description": "Moderate complexity, depends on intent"
+      },
+      "high": {
+        "threshold": 1.0,
+        "mode": "pro",
+        "description": "High complexity, needs advanced processing"
+      }
+    }
   }
 }
