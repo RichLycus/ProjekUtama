@@ -109,6 +109,7 @@ async def send_message(request: MessageRequest):
                 'id': 'fallback-lycus',
                 'name': 'Lycus',
                 'ai_name': 'Lycus',
+                'ai_nickname': '',
                 'user_greeting': 'Kawan',
                 'personality_traits': {
                     'technical': 90,
@@ -118,7 +119,12 @@ async def send_message(request: MessageRequest):
                     'professional': 75
                 },
                 'response_style': 'technical',
-                'tone': 'direct'
+                'tone': 'direct',
+                'preferred_language': 'id',  # ✅ Default to Indonesian
+                'system_prompt': """Anda adalah Lycus, asisten AI yang teknis dan direct.
+Gunakan Bahasa Indonesia untuk semua respons Anda.
+Panggil user dengan sebutan 'Kawan'.
+Berikan jawaban yang akurat, teknis namun tetap ramah."""
             }
         
         # Create or get conversation
@@ -200,7 +206,7 @@ async def send_message(request: MessageRequest):
         ai_timestamp = datetime.now().isoformat()
         
         if orchestrator and orchestrator.test_ollama_connection():
-            logger.info(f"🤖 Processing message through 5-Agent Pipeline...")
+            logger.info("🤖 Processing message through 5-Agent Pipeline...")
             
             # Get conversation history (last 5 messages for context)
             history = db.get_messages(conversation_id, limit=5)
@@ -428,7 +434,7 @@ async def test_ollama_connection():
             return {
                 "success": True,
                 "connected": True,
-                "message": f"✅ Connected to Ollama successfully!",
+                "message": "✅ Connected to Ollama successfully!",
                 "ollama_url": config_manager.get_ollama_url(),
                 "available_models": models,
                 "current_model": config_manager.get_model()

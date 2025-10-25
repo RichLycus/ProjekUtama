@@ -545,16 +545,28 @@ class WorkflowEngine:
         }
     
     def _generate_mock_response(self, message: str, context: str, model: str) -> str:
-        """Generate base mock LLM response for testing (will be enhanced with persona)"""
-        if context:
-            return f"Based on the retrieved context, here's what I found:\n\n{context[:300]}...\n\nLet me know if you need more details!"
+        """Generate base mock LLM response for testing (will be enhanced with persona and language)"""
+        # Use Indonesian as default (most personas use 'id' language)
+        preferred_language = self.persona.get('preferred_language', 'id') if self.persona else 'id'
+        
+        if preferred_language == 'id':
+            # Bahasa Indonesia
+            if context:
+                return f"Berdasarkan konteks yang saya temukan, berikut informasinya:\n\n{context[:300]}...\n\nKalau butuh penjelasan lebih detail, tanya aja!"
+            else:
+                return f"Mengenai pertanyaan kamu tentang '{message[:50]}...', saya siap membantu. Bisa kasih konteks lebih lengkap supaya jawaban saya lebih detail?"
         else:
-            return f"Regarding your question about '{message[:50]}...', I'd be happy to help you with that. Could you provide more context so I can give you a more detailed answer?"
+            # English
+            if context:
+                return f"Based on the retrieved context, here's what I found:\n\n{context[:300]}...\n\nLet me know if you need more details!"
+            else:
+                return f"Regarding your question about '{message[:50]}...', I'd be happy to help you with that. Could you provide more context so I can give you a more detailed answer?"
     
     def _apply_persona_to_mock(self, response: str, user_message: str) -> str:
         """
         Apply persona formatting to mock response (Phase 6.6.3c)
         This simulates what PersonaAgent would do if Ollama was running
+        Uses preferred_language from database
         """
         if not self.persona:
             return response
@@ -563,6 +575,7 @@ class WorkflowEngine:
         user_greeting = self.persona.get('user_greeting', 'friend')
         tone = self.persona.get('tone', 'friendly')
         personality_traits = self.persona.get('personality_traits', {})
+        preferred_language = self.persona.get('preferred_language', 'id')  # ✅ Get language from database
         
         # Get relationship context if available
         greeting_prefix = ""
@@ -576,45 +589,81 @@ class WorkflowEngine:
                 if nickname_match:
                     user_greeting = nickname_match.group(1)
         
-        # Build persona-formatted response
-        # 1. Add greeting based on tone
-        if tone == 'warm' or tone == 'friendly':
-            greeting_prefix = f"Halo {user_greeting}! "
-        elif tone == 'direct' or tone == 'professional':
-            greeting_prefix = f"{user_greeting}, "
-        elif tone == 'casual':
-            greeting_prefix = f"Hai {user_greeting}~ "
+        # Build persona-formatted response using preferred_language
+        # 1. Add greeting based on tone and language
+        if preferred_language == 'id':  # Bahasa Indonesia
+            if tone == 'warm' or tone == 'friendly':
+                greeting_prefix = f"Halo {user_greeting}! "
+            elif tone == 'direct' or tone == 'professional':
+                greeting_prefix = f"{user_greeting}, "
+            elif tone == 'casual':
+                greeting_prefix = f"Hai {user_greeting}~ "
+        else:  # English
+            if tone == 'warm' or tone == 'friendly':
+                greeting_prefix = f"Hello {user_greeting}! "
+            elif tone == 'direct' or tone == 'professional':
+                greeting_prefix = f"{user_greeting}, "
+            elif tone == 'casual':
+                greeting_prefix = f"Hey {user_greeting}~ "
         
-        # 2. Apply personality traits to response style
+        # 2. Apply personality traits to response style with language-appropriate phrases
         technical = personality_traits.get('technical', 50)
         friendly = personality_traits.get('friendly', 50)
         creative = personality_traits.get('creative', 50)
         
-        # Enhance response based on traits
+        # Enhance response based on traits and language
         enhanced_response = response
         
-        # High technical: Add technical accuracy note
-        if technical > 75:
-            enhanced_response = response.replace(
-                "I'd be happy to help", 
-                "I can provide you with accurate information"
-            )
-        
-        # High friendly: Add warm closing
-        if friendly > 75:
-            enhanced_response += "\n\nLet me know if there's anything else you'd like to know! 😊"
-        elif friendly > 60:
-            enhanced_response += "\n\nFeel free to ask if you need more clarification!"
-        
-        # High creative: Add creative touch
-        if creative > 75:
-            enhanced_response = enhanced_response.replace(
-                "here's what I found",
-                "here's an interesting perspective"
-            )
+        if preferred_language == 'id':
+            # Indonesian language enhancements
+            # High technical: Add technical accuracy note
+            if technical > 75:
+                enhanced_response = response.replace(
+                    "I'd be happy to help", 
+                    "Saya bisa memberikan informasi yang akurat"
+                ).replace(
+                    "happy to help",
+                    "siap membantu"
+                )
+            
+            # High friendly: Add warm closing
+            if friendly > 75:
+                enhanced_response += "\n\nKalau ada yang ingin ditanyakan lagi, silakan saja ya! 😊"
+            elif friendly > 60:
+                enhanced_response += "\n\nKalau butuh penjelasan lebih lanjut, tanya aja!"
+            
+            # High creative: Add creative touch
+            if creative > 75:
+                enhanced_response = enhanced_response.replace(
+                    "here's what I found",
+                    "ini perspektif menarik yang saya temukan"
+                )
+        else:
+            # English language enhancements  
+            # High technical: Add technical accuracy note
+            if technical > 75:
+                enhanced_response = response.replace(
+                    "I'd be happy to help", 
+                    "I can provide you with accurate information"
+                )
+            
+            # High friendly: Add warm closing
+            if friendly > 75:
+                enhanced_response += "\n\nLet me know if there's anything else you'd like to know! 😊"
+            elif friendly > 60:
+                enhanced_response += "\n\nFeel free to ask if you need more clarification!"
+            
+            # High creative: Add creative touch
+            if creative > 75:
+                enhanced_response = enhanced_response.replace(
+                    "here's what I found",
+                    "here's an interesting perspective"
+                )
         
         # 3. Combine greeting + enhanced response
         final_response = greeting_prefix + enhanced_response
+        
+        logger.info(f"✅ Applied persona formatting with {preferred_language} language")
         
         return final_response
     

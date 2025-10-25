@@ -619,7 +619,12 @@ async def test_workflow(request: WorkflowTestRequest):
                     'professional': 75
                 },
                 'response_style': 'technical',
-                'tone': 'direct'
+                'tone': 'direct',
+                'preferred_language': 'id',  # ✅ Default to Indonesian
+                'system_prompt': """Anda adalah Lycus, asisten AI yang teknis dan direct.
+Gunakan Bahasa Indonesia untuk semua respons Anda.
+Panggil user dengan sebutan 'Kawan'.
+Berikan jawaban yang akurat, teknis namun tetap ramah."""
             }
         
         # 2. Get relationship and character if character_id provided
