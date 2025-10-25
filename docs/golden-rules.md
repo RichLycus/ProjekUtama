@@ -689,6 +689,13 @@ ChimeraAI Architecture:
 - 🔍 Check: `docs/phase/phase_X.md` untuk phase-specific info
 - 🧪 See: `tests/` untuk testing examples
 - 📝 Update: File ini jika ada aturan baru
+- 🚀 **NEW:** `docs/phase/PROGRESS.md` - Journey tracker untuk project continuity
+
+**For AI Agents (E1/E1.1):**
+- Always read `docs/phase/PROGRESS.md` first in new conversations
+- Check "Where We Are Now" to understand current phase
+- Follow "Quick Reference" for essential files
+- Update PROGRESS.md after completing each phase
 
 ---
 
