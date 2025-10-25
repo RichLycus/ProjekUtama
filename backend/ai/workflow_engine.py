@@ -27,7 +27,7 @@ class WorkflowEngine:
     Integrated with real Ollama agents (Phase 6.6.3)
     """
     
-    def __init__(self, workflow_id: str, db_manager=None, rag_system=None):
+    def __init__(self, workflow_id: str, db_manager=None, rag_system=None, persona=None, conversation_history=None):
         """
         Initialize workflow engine
         
@@ -35,11 +35,15 @@ class WorkflowEngine:
             workflow_id: ID of the workflow to execute
             db_manager: Database manager for agent configs
             rag_system: Optional RAG system instance (deprecated, use orchestrator.rag)
+            persona: Optional persona object with personality & relationship context (Phase 6.6.3c)
+            conversation_history: Optional conversation history for context (Phase 6.6.3c)
         """
         self.workflow_id = workflow_id
         self.rag_system = rag_system
         self.workflow_db = WorkflowDB()
         self.db_manager = db_manager
+        self.persona = persona  # Store persona for agent processing
+        self.conversation_history = conversation_history or []  # Store history for context
         
         # Initialize Multi-Model Orchestrator for real agent calls
         try:
@@ -421,7 +425,7 @@ class WorkflowEngine:
     
     async def _execute_llm_node(self, node: Dict[str, Any], input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Process LLM generation node - generate response using specialized agents
+        Process LLM generation node - generate response using specialized agents with persona
         
         Args:
             node: Node configuration with config.agent_type, config.model, config.temperature
@@ -459,9 +463,16 @@ class WorkflowEngine:
                     agent = self.orchestrator.specialized_agents.get('chat')
                     agent_type = 'chat'
                 
+                # ===================================================
+                # PERSONA INTEGRATION (Phase 6.6.3c)
+                # ===================================================
+                # Pass persona to agent if available
+                # This will format the response according to persona's style
+                
                 # Process with specialized agent
                 if agent_type == 'chat':
-                    agent_result = agent.process(message)
+                    # Chat agent supports persona directly
+                    agent_result = agent.process(message, persona=self.persona if self.persona else None)
                 elif agent_type == 'tool':
                     # Tool agent just detects, doesn't generate response
                     tool_result = agent.detect_tool_need(message)
@@ -472,14 +483,27 @@ class WorkflowEngine:
                             "agent": "tool"
                         }
                     else:
-                        # Not actually a tool request, route to chat
+                        # Not actually a tool request, route to chat with persona
                         agent = self.orchestrator.specialized_agents.get('chat')
-                        agent_result = agent.process(message)
+                        agent_result = agent.process(message, persona=self.persona if self.persona else None)
                 else:
                     # code, analysis, creative agents support RAG context
                     agent_result = agent.process(message, rag_context=context)
                 
                 response = agent_result.get("response", "")
+                
+                # Apply persona formatting if persona provided (final touch)
+                if self.persona and self.orchestrator.persona:
+                    try:
+                        persona_result = self.orchestrator.persona.format_response(
+                            response, 
+                            self.persona, 
+                            self.conversation_history
+                        )
+                        response = persona_result.get("response", response)
+                        logger.info(f"✅ Applied persona formatting: {self.persona.get('name', 'Unknown')}")
+                    except Exception as e:
+                        logger.error(f"❌ Persona formatting failed: {str(e)}")
                 
                 logger.info(f"✅ {agent_type.capitalize()} Agent generated response ({len(response)} chars)")
                 
@@ -491,14 +515,23 @@ class WorkflowEngine:
                     "temperature": temperature,
                     "sources": [doc.get('id', '') for doc in context_docs] if context_docs else [],
                     "context_used": len(context) > 0,
+                    "persona_applied": self.persona is not None,
                     "timestamp": datetime.now().isoformat()
                 }
             except Exception as e:
                 logger.error(f"Specialized Agent failed: {str(e)}")
                 logger.warning("Falling back to mock response")
         
-        # Fallback: Generate mock response
+        # Fallback: Generate mock response with persona formatting
         response = self._generate_mock_response(message, context, model)
+        
+        # Apply persona formatting even for mock responses (Phase 6.6.3c enhancement)
+        if self.persona:
+            try:
+                response = self._apply_persona_to_mock(response, message)
+                logger.info(f"✅ Applied persona formatting to mock response: {self.persona.get('name', 'Unknown')}")
+            except Exception as e:
+                logger.error(f"❌ Persona formatting for mock failed: {str(e)}")
         
         return {
             "message": message,
@@ -507,15 +540,83 @@ class WorkflowEngine:
             "temperature": temperature,
             "sources": [doc.get('id', '') for doc in context_docs] if context_docs else [],
             "context_used": len(context) > 0,
+            "persona_applied": self.persona is not None,  # Add this flag
             "timestamp": datetime.now().isoformat()
         }
     
     def _generate_mock_response(self, message: str, context: str, model: str) -> str:
-        """Generate mock LLM response for testing"""
+        """Generate base mock LLM response for testing (will be enhanced with persona)"""
         if context:
-            return f"[{model.upper()} Response]\n\nBased on the retrieved context about '{message}', here's a comprehensive answer:\n\n{context[:200]}...\n\nThis response was generated using the {model} model with relevant context from the knowledge base."
+            return f"Based on the retrieved context, here's what I found:\n\n{context[:300]}...\n\nLet me know if you need more details!"
         else:
-            return f"[{model.upper()} Response]\n\nRegarding your query '{message}', I can help you with that. This is a generated response using the {model} model."
+            return f"Regarding your question about '{message[:50]}...', I'd be happy to help you with that. Could you provide more context so I can give you a more detailed answer?"
+    
+    def _apply_persona_to_mock(self, response: str, user_message: str) -> str:
+        """
+        Apply persona formatting to mock response (Phase 6.6.3c)
+        This simulates what PersonaAgent would do if Ollama was running
+        """
+        if not self.persona:
+            return response
+        
+        persona_name = self.persona.get('ai_name', 'Assistant')
+        user_greeting = self.persona.get('user_greeting', 'friend')
+        tone = self.persona.get('tone', 'friendly')
+        personality_traits = self.persona.get('personality_traits', {})
+        
+        # Get relationship context if available
+        greeting_prefix = ""
+        if hasattr(self, 'persona') and self.persona:
+            system_prompt = self.persona.get('system_prompt', '')
+            # Check if there's relationship context (enhanced persona)
+            if 'relationship' in system_prompt.lower() or 'nickname' in system_prompt.lower():
+                # Extract nickname from system prompt if relationship exists
+                import re
+                nickname_match = re.search(r"call.*?['\"](.*?)['\"]", system_prompt, re.IGNORECASE)
+                if nickname_match:
+                    user_greeting = nickname_match.group(1)
+        
+        # Build persona-formatted response
+        # 1. Add greeting based on tone
+        if tone == 'warm' or tone == 'friendly':
+            greeting_prefix = f"Halo {user_greeting}! "
+        elif tone == 'direct' or tone == 'professional':
+            greeting_prefix = f"{user_greeting}, "
+        elif tone == 'casual':
+            greeting_prefix = f"Hai {user_greeting}~ "
+        
+        # 2. Apply personality traits to response style
+        technical = personality_traits.get('technical', 50)
+        friendly = personality_traits.get('friendly', 50)
+        creative = personality_traits.get('creative', 50)
+        
+        # Enhance response based on traits
+        enhanced_response = response
+        
+        # High technical: Add technical accuracy note
+        if technical > 75:
+            enhanced_response = response.replace(
+                "I'd be happy to help", 
+                "I can provide you with accurate information"
+            )
+        
+        # High friendly: Add warm closing
+        if friendly > 75:
+            enhanced_response += "\n\nLet me know if there's anything else you'd like to know! 😊"
+        elif friendly > 60:
+            enhanced_response += "\n\nFeel free to ask if you need more clarification!"
+        
+        # High creative: Add creative touch
+        if creative > 75:
+            enhanced_response = enhanced_response.replace(
+                "here's what I found",
+                "here's an interesting perspective"
+            )
+        
+        # 3. Combine greeting + enhanced response
+        final_response = greeting_prefix + enhanced_response
+        
+        return final_response
     
     async def _execute_output_node(self, node: Dict[str, Any], input_data: Dict[str, Any]) -> Dict[str, Any]:
         """

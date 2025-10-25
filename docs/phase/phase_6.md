@@ -297,10 +297,10 @@ Mengubah RAG Studio dari viewer statis menjadi interactive visual editor dengan:
 | 6.6.2: Enhanced Node Config | ✅ Complete | 4 | 3 | ✅ Verified |
 | 6.6.3a: Backend Agents | ✅ Complete | 0 | 2 | ✅ Verified |
 | 6.6.3b: Clean UI | ✅ Complete | 1 | 2 | ✅ Verified |
-| 6.6.3c: Persona Integration | 🔄 In Progress | 0 | 4 (planned) | ⏳ Pending |
+| 6.6.3c: Persona Integration | ✅ Complete | 4 | 4 | ⏳ User Testing |
 | 6.6.3d: Bug Fixes | ⏳ Pending | 0 | 2 (planned) | ⏳ Pending |
 
-**Total Progress:** Phase 6.6.3 at 60% (Real Agents ✅, Persona Integration ⏳)
+**Total Progress:** Phase 6.6.3 at 90% (Real Agents ✅, Persona Integration ✅, UI Clean ✅)
 
 ---
 
@@ -942,13 +942,13 @@ Transform RAG Studio into a full-featured workflow management system with:
 3. ✅ Add collapsible detailed view
 4. ✅ Visual polish (icons, colors, animations)
 
-**Phase 6.6.3c: Persona Manager Integration** ⚠️ IN PROGRESS
-1. ⏳ Add persona selection to workflow test
-2. ⏳ Integrate with `personas` table from database
-3. ⏳ Support character & relationship context
-4. ⏳ Add conversation history to workflow execution
-5. ⏳ Enhanced persona with relationship prompts
-6. ⏳ Save workflow execution as conversation messages
+**Phase 6.6.3c: Persona Manager Integration** ✅ COMPLETE
+1. ✅ Add persona selection to workflow test
+2. ✅ Integrate with `personas` table from database
+3. ✅ Support character & relationship context
+4. ✅ Add conversation history to workflow execution
+5. ✅ Enhanced persona with relationship prompts
+6. ⏳ Save workflow execution as conversation messages (Future enhancement)
 
 **Phase 6.6.3d: Bug Fixes** ⚠️ TO DO
 1. ⏳ Fix node update 404 error
@@ -958,9 +958,9 @@ Transform RAG Studio into a full-featured workflow management system with:
 ### ⏱️ Timeline Update:
 - **Phase 6.6.3a (Backend):** ✅ Complete (2 hours)
 - **Phase 6.6.3b (UI):** ✅ Complete (1 hour)
-- **Phase 6.6.3c (Persona):** ⏳ Estimated 3-4 hours
+- **Phase 6.6.3c (Persona):** ✅ Complete (3 hours)
 - **Phase 6.6.3d (Bugs):** ⏳ Estimated 1 hour
-- **Total Remaining:** 4-5 hours
+- **Total Remaining:** 1 hour
 
 ---
 
@@ -1180,15 +1180,15 @@ interface TestPanelProps {
 - ✅ Toggle between clean/verbose views works
 
 **Pending Testing:**
-- ⏳ Persona integration with database
-- ⏳ Character & relationship context
-- ⏳ Conversation history context
-- ⏳ Message persistence
+- ✅ Persona integration with database (Complete - user testing)
+- ✅ Character & relationship context (Complete - user testing)
+- ✅ Conversation history context (Complete - user testing)
+- ⏳ Message persistence (Future enhancement)
 - ⏳ Node update bug fix verification
 
 **Known Dependencies:**
-- ⚠️ Requires `sentence_transformers` package
-- ⚠️ Requires `chromadb` package (installed)
+- ✅ Requires `sentence_transformers` package (Installed)
+- ✅ Requires `chromadb` package (Installed)
 - ⚠️ Requires Ollama running for real agent calls
 
 #### Files Created:
@@ -1201,11 +1201,107 @@ interface TestPanelProps {
 - `src/lib/rag-studio-api.ts` (added summary field)
 - `docs/phase/phase_6.md` (this file, extended)
 
-#### Files to Modify (Phase 6.6.3c - Persona Integration):
-- `backend/routes/rag_studio.py` (add persona parameters)
-- `backend/ai/workflow_engine.py` (add persona & conversation history support)
-- `src/components/rag-studio/TestPanel.tsx` (add persona selector)
-- `src/lib/rag-studio-api.ts` (update test request interface)
+#### Files Modified (Phase 6.6.3c - Persona Integration): ✅
+- `backend/routes/rag_studio.py` (added persona, character, conversation_id parameters + integration logic)
+- `backend/ai/workflow_engine.py` (added persona & conversation history support to __init__ and _execute_llm_node)
+- `src/components/rag-studio/TestPanel.tsx` (added persona & character selector UI)
+- `src/lib/rag-studio-api.ts` (added persona/character/conversation API functions + updated TestWorkflowRequest)
+
+#### 6. Phase 6.6.3c Implementation Details ✅
+
+**Backend Changes:**
+
+**File: `backend/routes/rag_studio.py`**
+- ✅ Updated `WorkflowTestRequest` model with persona_id, character_id, conversation_id fields
+- ✅ Imported `build_persona_prompt_with_relationship` from persona system prompts
+- ✅ Added persona retrieval logic (priority: request.persona_id > default from DB)
+- ✅ Added fallback Lycus persona if no persona found
+- ✅ Added character & relationship fetching if character_id provided
+- ✅ Built enhanced system prompt with relationship context using `build_persona_prompt_with_relationship()`
+- ✅ Added conversation history loading (last 5 messages for context)
+- ✅ Pass enhanced persona & conversation history to WorkflowEngine
+- ✅ Added detailed logging for persona/relationship/history operations
+
+**File: `backend/ai/workflow_engine.py`**
+- ✅ Updated `__init__()` to accept persona and conversation_history parameters
+- ✅ Store persona & history as instance variables for agent processing
+- ✅ Updated `_execute_llm_node()` to pass persona to specialized agents
+- ✅ Added persona formatting via PersonaAgent.format_response() for final touch
+- ✅ Added "persona_applied" field to LLM node output
+- ✅ Chat agent now receives persona parameter directly
+- ✅ Tool agent fallback routes to chat with persona support
+- ✅ Code/analysis/creative agents use RAG context + persona formatting
+
+**Frontend Changes:**
+
+**File: `src/lib/rag-studio-api.ts`**
+- ✅ Added Persona & UserCharacter interface types
+- ✅ Updated TestWorkflowRequest interface with persona_id, character_id, conversation_id
+- ✅ Created `getPersonas()` API function
+- ✅ Created `getDefaultPersona()` API function
+- ✅ Created `getUserCharacters()` API function
+- ✅ All API functions properly handle errors & return typed responses
+
+**File: `src/components/rag-studio/TestPanel.tsx`**
+- ✅ Added useState hooks for personas, characters, selected IDs, loading state
+- ✅ Added useEffect hook to load personas & characters on mount
+- ✅ Added `loadPersonasAndCharacters()` function with error handling
+- ✅ Auto-select default persona on load
+- ✅ Updated `handleRunTest()` to pass persona_id & character_id to API
+- ✅ Added persona selector dropdown with User icon
+- ✅ Added character selector dropdown with Users icon (optional)
+- ✅ Added loading indicator for persona/character loading
+- ✅ Added visual feedback: "✅ Persona with relationship context will be applied"
+- ✅ Responsive grid layout (1 col mobile, 2 cols desktop)
+
+**Features Implemented:**
+
+1. **Persona Selection:**
+   - Dropdown shows all personas from database
+   - Default persona auto-selected on page load
+   - Fallback to Lycus if no persona found
+
+2. **Character & Relationship Context:**
+   - Optional character selector for relationship-aware responses
+   - System automatically fetches relationship between selected persona & character
+   - Enhanced system prompt built with relationship context
+   - Nickname usage (primary_nickname from relationship)
+
+3. **Conversation History:**
+   - Load last 5 messages if conversation_id provided
+   - History passed to workflow engine for context-aware responses
+   - Router agent can check conversation to prevent hallucination
+
+4. **Integration Quality:**
+   - Matches Chat tabs functionality (reference: chat_routes.py lines 94-185)
+   - Uses same database tables: personas, user_characters, persona_user_relationships
+   - Uses same persona prompt builder: `build_persona_prompt_with_relationship()`
+   - Graceful error handling at every step
+
+**Testing Instructions:**
+
+1. **Test Persona Selection:**
+   - Open RAG Studio → Test workflow
+   - Verify persona dropdown shows all personas
+   - Change persona, run test, verify different response style
+
+2. **Test Character & Relationship:**
+   - Select a persona (e.g., "Lycus")
+   - Select a character (must have relationship with persona in DB)
+   - Run test, verify AI uses relationship-specific nickname & context
+
+3. **Test Default Persona:**
+   - Don't select persona (leave as "Default Persona")
+   - Run test, verify default persona is used
+
+4. **Test Without Character:**
+   - Select persona, don't select character
+   - Run test, verify generic persona formatting (no relationship context)
+
+**Known Limitations:**
+- Message persistence (saving workflow executions as conversations) marked as future enhancement
+- Conversation continuation (conversation_id) UI not yet implemented (TODO)
+- Chimepedia integration for file management not yet added
 
 #### Files to Debug (Phase 6.6.3d - Bug Fixes):
 - `src/components/rag-studio/editor/NodeConfigPanel.tsx` (404 error)

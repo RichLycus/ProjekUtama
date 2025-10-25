@@ -1,7 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Play, Loader2, AlertCircle } from 'lucide-react'
-import { testWorkflow, TestWorkflowResponse } from '@/lib/rag-studio-api'
+import { ArrowLeft, Play, Loader2, AlertCircle, User, Users } from 'lucide-react'
+import { 
+  testWorkflow, 
+  TestWorkflowResponse, 
+  getPersonas, 
+  getUserCharacters,
+  Persona,
+  UserCharacter 
+} from '@/lib/rag-studio-api'
 import ExecutionFlow from './ExecutionFlow'
 import toast from 'react-hot-toast'
 
@@ -16,6 +23,46 @@ export default function TestPanel({ workflowId, stopAtNode, onBack }: TestPanelP
   const [isRunning, setIsRunning] = useState(false)
   const [result, setResult] = useState<TestWorkflowResponse | null>(null)
   
+  // Persona Manager Integration (Phase 6.6.3c)
+  const [personas, setPersonas] = useState<Persona[]>([])
+  const [characters, setCharacters] = useState<UserCharacter[]>([])
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('')
+  const [selectedCharacterId, setSelectedCharacterId] = useState<string>('')
+  const [loadingPersonas, setLoadingPersonas] = useState(true)
+  
+  // Load personas and characters on mount
+  useEffect(() => {
+    loadPersonasAndCharacters()
+  }, [])
+  
+  const loadPersonasAndCharacters = async () => {
+    try {
+      setLoadingPersonas(true)
+      
+      // Load personas
+      const personasResult = await getPersonas()
+      if (personasResult.success && personasResult.personas) {
+        setPersonas(personasResult.personas)
+        
+        // Auto-select default persona
+        const defaultPersona = personasResult.personas.find(p => p.is_default)
+        if (defaultPersona) {
+          setSelectedPersonaId(defaultPersona.id)
+        }
+      }
+      
+      // Load characters
+      const charactersResult = await getUserCharacters()
+      if (charactersResult.success && charactersResult.characters) {
+        setCharacters(charactersResult.characters)
+      }
+    } catch (error) {
+      console.error('Failed to load personas/characters:', error)
+    } finally {
+      setLoadingPersonas(false)
+    }
+  }
+  
   const handleRunTest = async () => {
     if (!testInput.trim()) {
       toast.error('Please enter test input')
@@ -29,7 +76,10 @@ export default function TestPanel({ workflowId, stopAtNode, onBack }: TestPanelP
       const response = await testWorkflow({
         workflow_id: workflowId,
         test_input: testInput,
-        stop_at_node: stopAtNode === 'all' ? null : stopAtNode
+        stop_at_node: stopAtNode === 'all' ? null : stopAtNode,
+        persona_id: selectedPersonaId || null,  // Pass persona for enhanced context
+        character_id: selectedCharacterId || null,  // Pass character for relationship context
+        conversation_id: null  // TODO: Support conversation continuation
       })
       
       setResult(response)
@@ -77,10 +127,72 @@ export default function TestPanel({ workflowId, stopAtNode, onBack }: TestPanelP
       
       {/* Content */}
       <div className="flex-1 overflow-auto custom-scrollbar p-6">
+        {/* Persona & Character Selection (Phase 6.6.3c) */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 glass rounded-xl p-4"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Persona Selector */}
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-900 dark:text-white">
+                <User className="w-4 h-4" />
+                AI Persona:
+              </label>
+              <select
+                value={selectedPersonaId}
+                onChange={(e) => setSelectedPersonaId(e.target.value)}
+                disabled={loadingPersonas || isRunning}
+                className="w-full p-2 rounded-lg border border-gray-300 dark:border-dark-border bg-white dark:bg-dark-surface-hover text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
+              >
+                <option value="">Default Persona</option>
+                {personas.map(persona => (
+                  <option key={persona.id} value={persona.id}>
+                    {persona.name} {persona.is_default ? '(Default)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Character Selector (Optional) */}
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium mb-2 text-gray-900 dark:text-white">
+                <Users className="w-4 h-4" />
+                User Character (Optional):
+              </label>
+              <select
+                value={selectedCharacterId}
+                onChange={(e) => setSelectedCharacterId(e.target.value)}
+                disabled={loadingPersonas || isRunning}
+                className="w-full p-2 rounded-lg border border-gray-300 dark:border-dark-border bg-white dark:bg-dark-surface-hover text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
+              >
+                <option value="">None (Generic)</option>
+                {characters.map(character => (
+                  <option key={character.id} value={character.id}>
+                    {character.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          {loadingPersonas && (
+            <p className="text-xs text-secondary mt-2">Loading personas & characters...</p>
+          )}
+          
+          {selectedPersonaId && selectedCharacterId && (
+            <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+              ✅ Persona with relationship context will be applied
+            </p>
+          )}
+        </motion.div>
+        
         {/* Input Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
           className="mb-6 glass rounded-xl p-6"
         >
           <label className="block text-sm font-medium mb-3 text-gray-900 dark:text-white">

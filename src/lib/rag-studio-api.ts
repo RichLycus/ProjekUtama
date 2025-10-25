@@ -43,6 +43,9 @@ export interface TestWorkflowRequest {
   workflow_id: string
   test_input: string
   stop_at_node?: string | null
+  persona_id?: string | null  // Optional persona for enhanced context (Phase 6.6.3c)
+  character_id?: string | null  // Optional user character for relationship context (Phase 6.6.3c)
+  conversation_id?: string | null  // Optional conversation for history context (Phase 6.6.3c)
 }
 
 export interface NodeExecution {
@@ -421,6 +424,92 @@ export async function autoLayoutWorkflow(
     return { success: true }
   } catch (error) {
     console.error('Failed to auto-layout workflow:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+// ============================================
+// PERSONA MANAGER API (Phase 6.6.3c)
+// ============================================
+
+export interface Persona {
+  id: string
+  name: string
+  ai_name: string
+  ai_nickname?: string
+  user_greeting: string
+  personality_traits: Record<string, number>
+  response_style: string
+  tone: string
+  sample_greeting?: string
+  avatar_color: string
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface UserCharacter {
+  id: string
+  name: string
+  bio?: string
+  preferences?: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Get all personas
+ */
+export async function getPersonas(): Promise<{ success: boolean; personas?: Persona[]; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/personas`)
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to fetch personas' }
+    }
+    
+    return { success: true, personas: data.personas || [] }
+  } catch (error) {
+    console.error('Failed to fetch personas:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Get default persona
+ */
+export async function getDefaultPersona(): Promise<{ success: boolean; persona?: Persona; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/personas/default`)
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to fetch default persona' }
+    }
+    
+    return { success: true, persona: data.persona }
+  } catch (error) {
+    console.error('Failed to fetch default persona:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Get all user characters
+ */
+export async function getUserCharacters(): Promise<{ success: boolean; characters?: UserCharacter[]; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/personas/characters/all`)
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to fetch characters' }
+    }
+    
+    return { success: true, characters: data.characters || [] }
+  } catch (error) {
+    console.error('Failed to fetch characters:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }

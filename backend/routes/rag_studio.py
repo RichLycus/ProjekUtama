@@ -7,6 +7,7 @@ import logging
 
 from workflow_database import WorkflowDB
 from ai.workflow_engine import WorkflowEngine
+from ai.prompts.persona_system_prompts import build_persona_prompt_with_relationship
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -32,6 +33,9 @@ class WorkflowTestRequest(BaseModel):
     workflow_id: str
     test_input: str
     stop_at_node: Optional[str] = None
+    persona_id: Optional[str] = None  # Optional persona for enhanced context
+    character_id: Optional[str] = None  # Optional user character for relationship context
+    conversation_id: Optional[str] = None  # Optional conversation for history context
 
 class NodeCreate(BaseModel):
     workflow_id: str
@@ -544,13 +548,16 @@ async def get_test_result(result_id: str):
 @router.post("/api/rag-studio/test")
 async def test_workflow(request: WorkflowTestRequest):
     """
-    Test workflow execution with real Ollama agents
+    Test workflow execution with real Ollama agents & Persona Manager integration
     
     Request body:
     {
         "workflow_id": "wf_flash_v1",
         "test_input": "Apa itu RAG?",
-        "stop_at_node": "node_flash_router"  // Optional: for partial testing
+        "stop_at_node": "node_flash_router",  // Optional: for partial testing
+        "persona_id": "persona-lycus",  // Optional: persona for enhanced context
+        "character_id": "char-123",  // Optional: user character for relationship
+        "conversation_id": "conv-456"  // Optional: conversation for history
     }
     
     Response:
@@ -579,8 +586,102 @@ async def test_workflow(request: WorkflowTestRequest):
         db_path = Path(__file__).parent.parent / "data" / "chimera_tools.db"
         db_manager = SQLiteDB(str(db_path))
         
-        # Create workflow engine with db_manager for real agent access
-        engine = WorkflowEngine(request.workflow_id, db_manager=db_manager, rag_system=_rag_system)
+        # ==================================================
+        # PERSONA MANAGER INTEGRATION (Phase 6.6.3c)
+        # ==================================================
+        
+        # 1. Get persona - priority: request.persona_id > default from DB
+        persona_obj = None
+        persona_id = request.persona_id
+        
+        if persona_id:
+            # User specified a persona
+            persona_obj = db_manager.get_persona(persona_id)
+            logger.info(f"✅ Using specified persona: {persona_obj['name'] if persona_obj else 'Not found'}")
+        else:
+            # Get default persona from database
+            persona_obj = db_manager.get_default_persona()
+            logger.info(f"✅ Using default persona: {persona_obj['name'] if persona_obj else 'None'}")
+        
+        # Fallback to Lycus if no persona found
+        if not persona_obj:
+            logger.warning("⚠️ No persona found, using fallback Lycus")
+            persona_obj = {
+                'id': 'fallback-lycus',
+                'name': 'Lycus',
+                'ai_name': 'Lycus',
+                'user_greeting': 'Kawan',
+                'personality_traits': {
+                    'technical': 90,
+                    'friendly': 70,
+                    'direct': 85,
+                    'creative': 60,
+                    'professional': 75
+                },
+                'response_style': 'technical',
+                'tone': 'direct'
+            }
+        
+        # 2. Get relationship and character if character_id provided
+        relationship = None
+        character = None
+        enhanced_persona = persona_obj  # Will be enhanced with relationship context
+        
+        if request.character_id:
+            try:
+                # Fetch character details
+                character = db_manager.get_user_character(request.character_id)
+                
+                if character:
+                    # Fetch relationship between persona and character
+                    relationship = db_manager.get_relationship_by_persona_character(
+                        persona_obj['id'],
+                        request.character_id
+                    )
+                    
+                    if relationship:
+                        logger.info(f"✅ Relationship found: {relationship['relationship_type']} - {relationship['primary_nickname']}")
+                        
+                        # Build enhanced system prompt with relationship context
+                        enhanced_system_prompt = build_persona_prompt_with_relationship(
+                            persona_obj,
+                            relationship,
+                            character
+                        )
+                        
+                        # Create enhanced persona object with new system prompt
+                        enhanced_persona = persona_obj.copy()
+                        enhanced_persona['system_prompt'] = enhanced_system_prompt
+                        
+                        logger.info(f"🔗 Enhanced persona with relationship context for {character['name']}")
+                    else:
+                        logger.warning(f"⚠️ No relationship found between {persona_obj['name']} and {character['name']}")
+                else:
+                    logger.warning(f"⚠️ Character not found: {request.character_id}")
+            except Exception as e:
+                logger.error(f"❌ Error fetching relationship context: {str(e)}")
+        
+        # 3. Get conversation history if conversation_id provided
+        conversation_history = []
+        if request.conversation_id:
+            try:
+                conversation_history = db_manager.get_messages(request.conversation_id, limit=5)
+                logger.info(f"✅ Loaded {len(conversation_history)} messages from conversation history")
+            except Exception as e:
+                logger.error(f"❌ Error loading conversation history: {str(e)}")
+        
+        # ==================================================
+        # CREATE WORKFLOW ENGINE WITH PERSONA & HISTORY
+        # ==================================================
+        
+        # Create workflow engine with persona & conversation history
+        engine = WorkflowEngine(
+            request.workflow_id,
+            db_manager=db_manager,
+            rag_system=_rag_system,
+            persona=enhanced_persona,  # Pass enhanced persona with relationship context
+            conversation_history=conversation_history  # Pass conversation history for context
+        )
         
         # Execute workflow
         result = await engine.execute(
@@ -589,6 +690,12 @@ async def test_workflow(request: WorkflowTestRequest):
         )
         
         logger.info(f"✅ Workflow execution complete: {result['status']}")
+        
+        # ==================================================
+        # SAVE AS CONVERSATION (Optional - for future)
+        # ==================================================
+        # TODO: Implement saving workflow execution as conversation messages
+        # This would allow users to continue workflow tests as conversations
         
         return {
             "success": True,
