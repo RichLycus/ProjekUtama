@@ -28,8 +28,16 @@ class RAGSystem:
     Handles document indexing and retrieval using ChromaDB
     """
     
-    def __init__(self):
-        """Initialize RAG system with ChromaDB and embedding model"""
+    def __init__(self, embedding_model: str = "all-MiniLM-L6-v2"):
+        """
+        Initialize RAG system with ChromaDB and embedding model
+        
+        Args:
+            embedding_model: Model ID from sentence-transformers
+                Options: all-MiniLM-L6-v2 (default), all-mpnet-base-v2, 
+                         bge-large-en-v1.5, nomic-embed-text-v1.5,
+                         paraphrase-multilingual-MiniLM-L12-v2
+        """
         # Initialize ChromaDB client
         self.chroma_client = chromadb.PersistentClient(
             path=str(VECTOR_DB_PATH),
@@ -39,15 +47,17 @@ class RAGSystem:
             )
         )
         
-        # Load embedding model (lightweight and fast)
-        print("Loading embedding model...")
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        print("✅ Embedding model loaded")
+        # Load configurable embedding model
+        self.embedding_model_name = embedding_model
+        print(f"Loading embedding model: {embedding_model}...")
+        self.embedding_model = SentenceTransformer(embedding_model)
+        print(f"✅ Embedding model loaded: {embedding_model}")
         
         # Get or create collections
         self.tools_collection = self._get_or_create_collection("tools_collection")
         self.docs_collection = self._get_or_create_collection("docs_collection")
         self.conversations_collection = self._get_or_create_collection("conversations_collection")
+        self.chimepedia_collection = self._get_or_create_collection("chimepedia_collection")
         
         self.status = "ready"
         
@@ -176,56 +186,65 @@ Author: {tool_data.get('author', 'Unknown')}
             print(f"Error indexing conversation {conversation_id}: {e}")
             return False
     
-    def query(self, query_text: str, n_results: int = 5) -> List[Dict[str, Any]]:
+    def query(
+        self, 
+        query_text: str, 
+        n_results: int = 5, 
+        collections: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
         """
         Query RAG system for relevant context
         
         Args:
             query_text: User query or message
             n_results: Number of results to return
+            collections: List of collections to query (default: ["tools", "docs"])
         
         Returns:
             List of relevant documents with metadata and relevance scores
         """
         try:
+            # Default collections if not specified
+            if collections is None:
+                collections = ["tools", "docs"]
+            
             # Generate query embedding
             query_embedding = self.embedding_model.encode(query_text).tolist()
             
-            # Query all collections
-            tools_results = self.tools_collection.query(
-                query_embeddings=[query_embedding],
-                n_results=min(n_results, 3)
-            )
-            
-            docs_results = self.docs_collection.query(
-                query_embeddings=[query_embedding],
-                n_results=min(n_results, 2)
-            )
-            
-            # Combine and format results
+            # Query selected collections
             combined_results = []
             
-            # Process tools results
-            if tools_results['ids'] and len(tools_results['ids'][0]) > 0:
-                for i, doc_id in enumerate(tools_results['ids'][0]):
-                    combined_results.append({
-                        "id": doc_id,
-                        "content": tools_results['documents'][0][i] if tools_results['documents'] else "",
-                        "metadata": tools_results['metadatas'][0][i] if tools_results['metadatas'] else {},
-                        "relevance": 1 - tools_results['distances'][0][i] if tools_results['distances'] else 0.0,
-                        "source": "tool"
-                    })
+            # Query tools collection
+            if "tools" in collections:
+                tools_results = self.tools_collection.query(
+                    query_embeddings=[query_embedding],
+                    n_results=min(n_results, 3)
+                )
+                combined_results.extend(self._format_results(tools_results, "tool"))
             
-            # Process docs results
-            if docs_results['ids'] and len(docs_results['ids'][0]) > 0:
-                for i, doc_id in enumerate(docs_results['ids'][0]):
-                    combined_results.append({
-                        "id": doc_id,
-                        "content": docs_results['documents'][0][i] if docs_results['documents'] else "",
-                        "metadata": docs_results['metadatas'][0][i] if docs_results['metadatas'] else {},
-                        "relevance": 1 - docs_results['distances'][0][i] if docs_results['distances'] else 0.0,
-                        "source": "document"
-                    })
+            # Query docs collection
+            if "docs" in collections:
+                docs_results = self.docs_collection.query(
+                    query_embeddings=[query_embedding],
+                    n_results=min(n_results, 2)
+                )
+                combined_results.extend(self._format_results(docs_results, "document"))
+            
+            # Query chimepedia collection
+            if "chimepedia" in collections:
+                chimepedia_results = self.chimepedia_collection.query(
+                    query_embeddings=[query_embedding],
+                    n_results=n_results
+                )
+                combined_results.extend(self._format_results(chimepedia_results, "chimepedia"))
+            
+            # Query conversations collection
+            if "conversations" in collections:
+                conv_results = self.conversations_collection.query(
+                    query_embeddings=[query_embedding],
+                    n_results=min(n_results, 2)
+                )
+                combined_results.extend(self._format_results(conv_results, "conversation"))
             
             # Sort by relevance
             combined_results.sort(key=lambda x: x['relevance'], reverse=True)
@@ -236,20 +255,73 @@ Author: {tool_data.get('author', 'Unknown')}
             print(f"Error querying RAG: {e}")
             return []
     
+    def _format_results(self, raw_results: Dict, source_type: str) -> List[Dict[str, Any]]:
+        """Helper to format ChromaDB results"""
+        formatted = []
+        
+        if raw_results['ids'] and len(raw_results['ids'][0]) > 0:
+            for i, doc_id in enumerate(raw_results['ids'][0]):
+                formatted.append({
+                    "id": doc_id,
+                    "content": raw_results['documents'][0][i] if raw_results['documents'] else "",
+                    "metadata": raw_results['metadatas'][0][i] if raw_results['metadatas'] else {},
+                    "relevance": 1 - raw_results['distances'][0][i] if raw_results['distances'] else 0.0,
+                    "source": source_type
+                })
+        
+        return formatted
+    
+    def query_chimepedia(
+        self, 
+        query_text: str, 
+        n_results: int = 5,
+        category: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Query Chimepedia collection specifically
+        
+        Args:
+            query_text: User query
+            n_results: Number of results to return
+            category: Optional category filter
+        
+        Returns:
+            List of relevant Chimepedia articles
+        """
+        try:
+            query_embedding = self.embedding_model.encode(query_text).tolist()
+            
+            # Build filter if category specified
+            where_filter = {"category": category} if category else None
+            
+            results = self.chimepedia_collection.query(
+                query_embeddings=[query_embedding],
+                n_results=n_results,
+                where=where_filter if where_filter else None
+            )
+            
+            return self._format_results(results, "chimepedia")
+            
+        except Exception as e:
+            print(f"Error querying Chimepedia: {e}")
+            return []
+    
     def get_status(self) -> Dict[str, Any]:
         """Get RAG system status"""
         try:
             tools_count = self.tools_collection.count()
             docs_count = self.docs_collection.count()
             conversations_count = self.conversations_collection.count()
+            chimepedia_count = self.chimepedia_collection.count()
             
             return {
                 "status": self.status,
                 "indexed_tools": tools_count,
                 "indexed_docs": docs_count,
                 "indexed_conversations": conversations_count,
-                "total_sources": tools_count + docs_count + conversations_count,
-                "embedding_model": "all-MiniLM-L6-v2",
+                "indexed_chimepedia": chimepedia_count,
+                "total_sources": tools_count + docs_count + conversations_count + chimepedia_count,
+                "embedding_model": self.embedding_model_name,
                 "vector_db_path": str(VECTOR_DB_PATH)
             }
         except Exception as e:
@@ -270,6 +342,9 @@ Author: {tool_data.get('author', 'Unknown')}
             elif collection_name == "conversations":
                 self.chroma_client.delete_collection("conversations_collection")
                 self.conversations_collection = self._get_or_create_collection("conversations_collection")
+            elif collection_name == "chimepedia":
+                self.chroma_client.delete_collection("chimepedia_collection")
+                self.chimepedia_collection = self._get_or_create_collection("chimepedia_collection")
             else:
                 return False
             
@@ -299,19 +374,74 @@ Author: {tool_data.get('author', 'Unknown')}
         except Exception as e:
             print(f"Error indexing golden rules: {e}")
             return False
+    
+    def index_chimepedia(
+        self, 
+        doc_id: str, 
+        doc_title: str, 
+        doc_content: str, 
+        doc_type: str = "general",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Index a Chimepedia article
+        
+        Args:
+            doc_id: Unique document identifier
+            doc_title: Article title
+            doc_content: Article content (markdown, text, etc.)
+            doc_type: Type/category (tutorial, guide, reference, api-doc, etc.)
+            metadata: Additional metadata (author, tags, etc.)
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Create document text
+            doc_text = f"{doc_title}\n\n{doc_content}"
+            
+            # Generate embedding
+            embedding = self.embedding_model.encode(doc_text).tolist()
+            
+            # Prepare metadata
+            doc_metadata = metadata or {}
+            doc_metadata["type"] = doc_type
+            doc_metadata["title"] = doc_title
+            doc_metadata["category"] = doc_type  # For filtering
+            
+            # Add to chimepedia collection
+            self.chimepedia_collection.add(
+                ids=[doc_id],
+                documents=[doc_text],
+                embeddings=[embedding],
+                metadatas=[doc_metadata]
+            )
+            
+            return True
+        except Exception as e:
+            print(f"Error indexing Chimepedia document {doc_id}: {e}")
+            return False
 
 
 # Global RAG instance
 _rag_instance: Optional[RAGSystem] = None
 
 
-def get_rag_system() -> RAGSystem:
-    """Get or create global RAG system instance"""
+def get_rag_system(embedding_model: str = "all-MiniLM-L6-v2") -> RAGSystem:
+    """
+    Get or create global RAG system instance
+    
+    Args:
+        embedding_model: Model ID for embeddings (default: all-MiniLM-L6-v2)
+    
+    Returns:
+        RAG system instance
+    """
     global _rag_instance
     
     if _rag_instance is None:
-        print("🚀 Initializing RAG system...")
-        _rag_instance = RAGSystem()
+        print(f"🚀 Initializing RAG system with model: {embedding_model}")
+        _rag_instance = RAGSystem(embedding_model=embedding_model)
         print("✅ RAG system initialized")
         
         # Index golden rules on startup

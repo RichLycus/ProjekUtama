@@ -9,5 +9,7 @@ Provides unified interface for all retrieval backends:
 """
 
 from .base import RetrieverInterface, RetrievalResult
+from .rag_retriever import RAGRetriever
+from .chimepedia_retriever import ChimepediaRetriever
 
-__all__ = ['RetrieverInterface', 'RetrievalResult']
+__all__ = ['RetrieverInterface', 'RetrievalResult', 'RAGRetriever', 'ChimepediaRetriever']
