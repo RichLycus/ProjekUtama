@@ -1,0 +1,184 @@
+{
+  "intent_patterns": {
+    "greeting": {
+      "keywords_id": [
+        "halo", "hai", "hi", "hey", "salam", "pagi", "siang", "sore", "malam",
+        "apa kabar", "gimana", "bagaimana kabarmu", "selamat"
+      ],
+      "keywords_en": [
+        "hello", "hi", "hey", "greetings", "good morning", "good afternoon",
+        "good evening", "how are you", "what's up", "howdy"
+      ],
+      "patterns": [
+        "^(halo|hai|hi|hey)",
+        "apa kabar",
+        "selamat (pagi|siang|sore|malam)",
+        "^(good morning|good afternoon)"
+      ],
+      "weight": 1.0,
+      "mode_hint": "flash"
+    },
+    "chitchat": {
+      "keywords_id": [
+        "terima kasih", "thanks", "makasih", "oke", "baik", "sip", "mantap",
+        "keren", "bagus", "senang", "gembira", "sedih", "maaf", "permisi"
+      ],
+      "keywords_en": [
+        "thanks", "thank you", "okay", "ok", "nice", "great", "awesome",
+        "cool", "sorry", "excuse me", "goodbye", "bye"
+      ],
+      "patterns": [
+        "terima kasih",
+        "makasih",
+        "^(oke|ok|baik|sip)",
+        "^(thanks|thank you)"
+      ],
+      "weight": 0.9,
+      "mode_hint": "flash"
+    },
+    "simple_question": {
+      "keywords_id": [
+        "apa", "siapa", "kapan", "dimana", "berapa", "apakah",
+        "nama", "umur", "tahun", "tanggal", "waktu", "tempat",
+        "definisi", "arti", "maksud"
+      ],
+      "keywords_en": [
+        "what", "who", "when", "where", "how much", "how many",
+        "is it", "are you", "can you", "definition", "meaning"
+      ],
+      "patterns": [
+        "^(apa|siapa|kapan|dimana|berapa)",
+        "^(what|who|when|where)",
+        "apa itu",
+        "what is"
+      ],
+      "weight": 0.8,
+      "mode_hint": "flash",
+      "heuristics": {
+        "max_length": 100,
+        "simple_structure": true
+      }
+    },
+    "informational": {
+      "keywords_id": [
+        "jelaskan", "ceritakan", "beritahu", "informasi", "info",
+        "tentang", "mengenai", "terkait", "penjelasan", "deskripsi",
+        "bagaimana cara", "cara", "langkah", "tutorial", "panduan"
+      ],
+      "keywords_en": [
+        "explain", "tell me", "information", "about", "regarding",
+        "describe", "how to", "steps", "guide", "tutorial"
+      ],
+      "patterns": [
+        "jelaskan.*tentang",
+        "bagaimana cara",
+        "apa saja.*yang",
+        "explain.*about",
+        "how to"
+      ],
+      "weight": 0.7,
+      "mode_hint": "depends",
+      "heuristics": {
+        "length_threshold": 150,
+        "complexity_check": true
+      }
+    },
+    "complex_question": {
+      "keywords_id": [
+        "mengapa", "kenapa", "alasan", "sebab", "akibat", "dampak",
+        "perbedaan", "perbandingan", "bandingkan", "analisis",
+        "evaluasi", "pertimbangkan", "implikasi", "konsekuensi",
+        "faktor", "aspek", "dimensi", "perspektif"
+      ],
+      "keywords_en": [
+        "why", "reason", "cause", "effect", "impact", "consequence",
+        "difference", "comparison", "compare", "analyze", "analysis",
+        "evaluate", "consider", "implication", "factor", "aspect"
+      ],
+      "patterns": [
+        "mengapa.*terjadi",
+        "apa perbedaan.*antara",
+        "bandingkan.*dengan",
+        "analisis.*tentang",
+        "why.*happen",
+        "what.*difference.*between",
+        "compare.*with"
+      ],
+      "weight": 1.0,
+      "mode_hint": "pro"
+    },
+    "analytical": {
+      "keywords_id": [
+        "riset", "penelitian", "studi", "investigasi", "telaah",
+        "kritis", "mendalam", "detail", "komprehensif", "menyeluruh",
+        "argumen", "bukti", "data", "statistik", "hipotesis",
+        "teori", "konsep", "framework", "metodologi"
+      ],
+      "keywords_en": [
+        "research", "study", "investigation", "critical", "in-depth",
+        "detailed", "comprehensive", "thorough", "argument", "evidence",
+        "data", "statistics", "hypothesis", "theory", "concept",
+        "framework", "methodology"
+      ],
+      "patterns": [
+        "analisis.*mendalam",
+        "penelitian.*tentang",
+        "studi.*kasus",
+        "in-depth.*analysis",
+        "research.*on",
+        "critical.*thinking"
+      ],
+      "weight": 1.0,
+      "mode_hint": "pro"
+    },
+    "creative": {
+      "keywords_id": [
+        "cerita", "dongeng", "puisi", "pantun", "sajak", "narasi",
+        "kreatif", "imajinatif", "fantasi", "fiksi", "karakter",
+        "buatkan", "tuliskan", "karang", "ciptakan", "rancang",
+        "ide", "konsep", "brainstorming", "inspirasi"
+      ],
+      "keywords_en": [
+        "story", "tale", "poem", "poetry", "narrative", "creative",
+        "imaginative", "fantasy", "fiction", "character", "write",
+        "create", "compose", "design", "idea", "concept",
+        "brainstorm", "inspiration"
+      ],
+      "patterns": [
+        "buatkan.*cerita",
+        "tuliskan.*puisi",
+        "buat.*ide",
+        "brainstorming.*tentang",
+        "write.*story",
+        "create.*poem",
+        "brainstorm.*about"
+      ],
+      "weight": 1.0,
+      "mode_hint": "pro"
+    }
+  },
+  "heuristics": {
+    "short_query_threshold": 50,
+    "medium_query_threshold": 150,
+    "long_query_threshold": 300,
+    "simple_structure_indicators": [
+      "?", "apa", "siapa", "kapan", "dimana", "berapa",
+      "what", "who", "when", "where", "how many"
+    ],
+    "complex_structure_indicators": [
+      "mengapa", "kenapa", "bagaimana", "jelaskan", "bandingkan",
+      "analisis", "evaluasi", "why", "how", "explain", "compare",
+      "analyze", "evaluate"
+    ]
+  },
+  "confidence_thresholds": {
+    "high": 0.8,
+    "medium": 0.5,
+    "low": 0.3
+  },
+  "mode_routing": {
+    "flash": ["greeting", "chitchat", "simple_question"],
+    "pro": ["complex_question", "analytical", "creative"],
+    "depends": ["informational"]
+  }
+}
