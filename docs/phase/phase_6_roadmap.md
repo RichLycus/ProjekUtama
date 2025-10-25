@@ -477,34 +477,70 @@ backend/tests/
 
 ---
 
-### 🆕 Phase 6.8: Smart Router & Mode Selection
-**Status:** 📋 Planned  
-**Duration:** ~2-3 days  
-**Goal:** Intelligent routing berdasarkan query analysis
+### 🆕 Phase 6.8: Smart Router & Context-Aware Mode Selection
+**Status:** 📋 Planned (Documentation Complete ✅)  
+**Duration:** ~3-4 days  
+**Goal:** Intelligent routing dengan context awareness dan roleplay detection
 
-#### Sub-Phase 6.8.1: Intent Classifier
+**Strategic Enhancements:**
+1. **Context-Aware Layer** - Session continuity & roleplay detection
+2. **Weighted Scoring** - Configurable weights (intent × 0.4 + complexity × 0.4 + context × 0.2)
+3. **Adaptive Hybrid** - Flash with auto-upgrade to Pro (confidence-based)
+4. **Explainable Logging** - Clear reasoning for every decision
+5. **Language & Role Detection** - Bilingual + roleplay intent
+6. **Roleplay Flow Preparation** - Foundation untuk Phase 6.13
+
+**Documentation:** See `docs/phase/phase_6_8_plan.md` for complete design
+
+#### Sub-Phase 6.8.0: Enhanced Documentation ✅
+**Status:** ✅ Complete  
+**Deliverables:**
+- [x] Complete architecture design with context-aware layer
+- [x] Strategic enhancements documented
+- [x] Config schema defined (router_config.json)
+- [x] Examples & use cases
+- [x] Roleplay flow roadmap
+
+#### Sub-Phase 6.8.1: Intent Classifier (Enhanced)
 **Deliverables:**
 - `ai/router/intent_classifier.py`
-- Detect: question, command, generation, analysis, chat
-- Simple rule-based + keyword matching (no ML initially)
+- Detect: question, command, generation, analysis, chat, greeting, farewell, help
+- **NEW:** Roleplay intent detection
+- **NEW:** Sub-intent classification
+- **NEW:** Bilingual support (Indonesian + English)
+- Simple rule-based + keyword matching + pattern recognition
 
-**Testing:** User tests intent classification accuracy
+**Testing:** 30+ test queries per intent, bilingual validation
 
 #### Sub-Phase 6.8.2: Complexity Analyzer
 **Deliverables:**
 - `ai/router/complexity_analyzer.py`
-- Analyze: simple (flash) vs complex (pro) vs reasoning (hybrid)
-- Scoring system for query complexity
+- 5 factors: length, technical keywords, structure, context needs, reasoning depth
+- Weighted scoring with configurable weights
+- Mode recommendation: flash (< 0.3), hybrid (0.3-0.6), pro (> 0.6)
 
-**Testing:** User tests complexity scoring
+**Testing:** Test queries across complexity spectrum, validate factor weights
 
-#### Sub-Phase 6.8.3: Mode Selector
+#### Sub-Phase 6.8.3: Context-Aware Layer
+**Deliverables:**
+- `ai/router/context_checker.py`
+- Session tracking & continuity
+- Roleplay detection (active persona, emotion state)
+- Topic continuity checking
+- Context scoring contribution
+
+**Testing:** Multi-turn conversations, roleplay sessions, mode consistency
+
+#### Sub-Phase 6.8.4: Mode Selector (Enhanced)
 **Deliverables:**
 - `ai/router/mode_selector.py`
-- Combine intent + complexity → choose optimal mode
-- Configurable rules for mode selection
+- Weighted scoring engine (configurable via JSON)
+- Decision matrix with context override
+- **NEW:** Adaptive hybrid mode (flash → pro upgrade)
+- **NEW:** Explainable reasoning for every selection
+- Fallback strategies (confidence-based)
 
-**Testing:** User tests automatic mode selection
+**Testing:** End-to-end routing tests, explainability validation, hybrid adaptive behavior
 
 ---
 

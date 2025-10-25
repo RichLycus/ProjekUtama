@@ -71,12 +71,86 @@ Phase 6 Redesign Journey:
    - 23 unit tests passing (74 total)
    - Demo script with all agents
 
-### What's Next 🔄
-- **Phase 6.8:** Smart Router
-  - Intent classification
-  - Dynamic routing logic
-  - Route selection based on input
-  - Integration with flow system
+### Phase 6.8: Smart Router ⏳
+
+**Status:** 📋 Planned (Documentation Complete ✅)  
+**Estimated:** 3-4 days  
+**Goal:** Context-aware intelligent routing with roleplay support
+
+**Documentation:**
+- [x] Complete architecture design (`phase_6_8_plan.md`)
+- [x] Strategic enhancements defined
+- [x] Config schema documented
+- [x] Examples & test cases prepared
+
+**To Do:**
+- [ ] Sub-Phase 6.8.1: Intent Classifier (Enhanced)
+  - Detect 8+ intents including roleplay
+  - Bilingual support (ID/EN)
+  - Sub-intent classification
+  - Pattern matching + keyword scoring
+  
+- [ ] Sub-Phase 6.8.2: Complexity Analyzer
+  - 5-factor scoring (length, technical, structure, context, reasoning)
+  - Configurable weights
+  - Mode recommendation engine
+  
+- [ ] Sub-Phase 6.8.3: Context-Aware Layer
+  - Session tracking & continuity
+  - Roleplay detection
+  - Topic continuity checking
+  - Context scoring
+  
+- [ ] Sub-Phase 6.8.4: Mode Selector (Enhanced)
+  - Weighted scoring engine
+  - Adaptive hybrid mode (flash → pro)
+  - Explainable reasoning
+  - Config-driven rules (router_config.json)
+
+**Strategic Enhancements:**
+1. **Context-Aware Layer** ⭐
+   - Preserve session continuity
+   - Roleplay session detection
+   - Memory & emotion state tracking
+   
+2. **Weighted Scoring System** 🎯
+   ```
+   final_score = (intent × 0.4) + (complexity × 0.4) + (context × 0.2)
+   ```
+   - Configurable via router_config.json
+   - Tunable without code changes
+   
+3. **Adaptive Hybrid Mode** 🚀
+   - Start with flash (quick)
+   - Auto-upgrade to pro if confidence < 0.7
+   - Merge results intelligently
+   
+4. **Explainable Logging** 📝
+   - Every decision has clear reasoning
+   - Example: "Mode Pro: complex technical question (complexity: 0.75) + RAG needed"
+   
+5. **Roleplay Flow Preparation** 🎭
+   - Foundation for Phase 6.13
+   - Separate flow for immersive character interactions
+   - Persona + memory + emotion + TTS integration
+
+**Key Features:**
+- ✅ Bilingual support (Indonesian + English)
+- ✅ 8+ intent types (including roleplay)
+- ✅ 5-factor complexity scoring
+- ✅ Context preservation across sessions
+- ✅ Config-driven rules (no hardcoded logic)
+- ✅ Explainable AI (clear reasoning)
+- ✅ < 50ms routing overhead target
+
+**Success Criteria:**
+- [ ] 85%+ accuracy on test queries
+- [ ] Roleplay detection working
+- [ ] Hybrid mode adaptive behavior verified
+- [ ] Explainable logging for all decisions
+- [ ] Config-driven rules working
+- [ ] Bilingual support validated
+- [ ] Performance < 50ms overhead
 
 ---
 
@@ -584,7 +658,7 @@ class MyRetriever(RetrieverInterface):
 | 6.7.2: Flow Loader | 1 day | ✅ Done | 1 day |
 | 6.7.3: Flow Executor | 1-2 days | ✅ Done | 1 day |
 | 6.7.4: Basic Agents | 1-2 days | ✅ Done | 1 day |
-| 6.8: Smart Router | 3 days | ⏳ Todo | - |
+| 6.8: Smart Router | 3-4 days | 📋 Todo | - |
 | 6.9: Retriever & Cache | 3-4 days | ⏳ Todo | - |
 | 6.10: Persona System | 2-3 days | ⏳ Todo | - |
 | 6.11: Observability | 2 days | ⏳ Todo | - |
