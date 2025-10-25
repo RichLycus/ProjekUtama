@@ -24,13 +24,38 @@ export default function ExecutionFlow({ result }: ExecutionFlowProps) {
     }
   }
   
+  // NEW: Get mode badge color
+  const getModeBadge = () => {
+    const mode = (result as any).mode || 'unknown'
+    
+    if (mode === 'flash') {
+      return (
+        <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+          ⚡ Flash Mode
+        </span>
+      )
+    } else if (mode === 'pro') {
+      return (
+        <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+          🚀 Pro Mode
+        </span>
+      )
+    }
+    
+    return null
+  }
+  
   return (
     <div className="glass rounded-xl p-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-white">
-          <Sparkles className="w-5 h-5 text-primary" />
-          Execution Flow
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-white">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Execution Flow
+          </h3>
+          {/* NEW: Show mode badge */}
+          {getModeBadge()}
+        </div>
         
         {/* Toggle Verbose Log */}
         <button

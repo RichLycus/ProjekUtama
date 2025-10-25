@@ -23,6 +23,9 @@ export default function TestPanel({ workflowId, stopAtNode, onBack }: TestPanelP
   const [isRunning, setIsRunning] = useState(false)
   const [result, setResult] = useState<TestWorkflowResponse | null>(null)
   
+  // NEW: Mode selection (Flash vs Pro)
+  const [selectedMode, setSelectedMode] = useState<'flash' | 'pro'>('flash')
+  
   // Persona Manager Integration (Phase 6.6.3c)
   const [personas, setPersonas] = useState<Persona[]>([])
   const [characters, setCharacters] = useState<UserCharacter[]>([])
@@ -76,6 +79,7 @@ export default function TestPanel({ workflowId, stopAtNode, onBack }: TestPanelP
       const response = await testWorkflow({
         workflow_id: workflowId,
         test_input: testInput,
+        mode: selectedMode,  // NEW: Send mode selection (flash/pro)
         stop_at_node: stopAtNode === 'all' ? null : stopAtNode,
         persona_id: selectedPersonaId || null,  // Pass persona for enhanced context
         character_id: selectedCharacterId || null,  // Pass character for relationship context
@@ -85,7 +89,7 @@ export default function TestPanel({ workflowId, stopAtNode, onBack }: TestPanelP
       setResult(response)
       
       if (response.success) {
-        toast.success('Test completed successfully!')
+        toast.success(`Test completed successfully (${selectedMode.toUpperCase()} mode)!`)
       } else {
         toast.error('Test execution failed')
       }
@@ -127,6 +131,67 @@ export default function TestPanel({ workflowId, stopAtNode, onBack }: TestPanelP
       
       {/* Content */}
       <div className="flex-1 overflow-auto custom-scrollbar p-6">
+        {/* Mode Selection (Flash vs Pro) - NEW! */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 glass rounded-xl p-4"
+        >
+          <label className="block text-sm font-medium mb-3 text-gray-900 dark:text-white">
+            🚀 Execution Mode:
+          </label>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setSelectedMode('flash')}
+              disabled={isRunning}
+              className={`
+                flex-1 px-4 py-3 rounded-lg font-medium transition-all
+                ${selectedMode === 'flash'
+                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/50'
+                  : 'bg-gray-100 dark:bg-dark-surface-hover text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-dark-surface'
+                }
+                disabled:opacity-50 disabled:cursor-not-allowed
+              `}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-2xl">⚡</span>
+                <div className="text-left">
+                  <div className="font-bold">Flash Mode</div>
+                  <div className="text-xs opacity-80">Quick response (3 steps)</div>
+                </div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => setSelectedMode('pro')}
+              disabled={isRunning}
+              className={`
+                flex-1 px-4 py-3 rounded-lg font-medium transition-all
+                ${selectedMode === 'pro'
+                  ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/50'
+                  : 'bg-gray-100 dark:bg-dark-surface-hover text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-dark-surface'
+                }
+                disabled:opacity-50 disabled:cursor-not-allowed
+              `}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-2xl">🚀</span>
+                <div className="text-left">
+                  <div className="font-bold">Pro Mode</div>
+                  <div className="text-xs opacity-80">Full pipeline (6 steps)</div>
+                </div>
+              </div>
+            </button>
+          </div>
+          
+          <p className="text-xs text-secondary mt-3">
+            {selectedMode === 'flash' 
+              ? '⚡ Flash: Preprocessor → LLM → Persona (fast, ~2s)'
+              : '🚀 Pro: Preprocessor → Router → RAG → Execution → LLM → Persona (comprehensive, ~5s)'
+            }
+          </p>
+        </motion.div>
+        
         {/* Persona & Character Selection (Phase 6.6.3c) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

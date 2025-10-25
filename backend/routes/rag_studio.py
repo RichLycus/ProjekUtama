@@ -36,6 +36,7 @@ class WorkflowTestRequest(BaseModel):
     persona_id: Optional[str] = None  # Optional persona for enhanced context
     character_id: Optional[str] = None  # Optional user character for relationship context
     conversation_id: Optional[str] = None  # Optional conversation for history context
+    mode: Optional[str] = None  # NEW: flash or pro mode selection
 
 class NodeCreate(BaseModel):
     workflow_id: str
@@ -548,12 +549,13 @@ async def get_test_result(result_id: str):
 @router.post("/api/rag-studio/test")
 async def test_workflow(request: WorkflowTestRequest):
     """
-    Test workflow execution with real Ollama agents & Persona Manager integration
+    Test workflow execution with NEW FlowExecutor system (JSON-based flows)
     
     Request body:
     {
         "workflow_id": "wf_flash_v1",
         "test_input": "Apa itu RAG?",
+        "mode": "flash" or "pro",  // NEW: Mode selection (flash/pro)
         "stop_at_node": "node_flash_router",  // Optional: for partial testing
         "persona_id": "persona-lycus",  // Optional: persona for enhanced context
         "character_id": "char-123",  // Optional: user character for relationship
@@ -562,6 +564,8 @@ async def test_workflow(request: WorkflowTestRequest):
     
     Response:
     {
+        "success": true,
+        "mode": "flash",
         "execution_id": "exec_123",
         "status": "success",
         "execution_flow": [...],
@@ -575,144 +579,120 @@ async def test_workflow(request: WorkflowTestRequest):
         if not workflow:
             raise HTTPException(404, f"Workflow not found: {request.workflow_id}")
         
-        logger.info(f"🚀 Starting workflow execution: {request.workflow_id}")
+        # Determine mode (default to flash if not provided)
+        mode = request.mode or "flash"
+        if mode not in ["flash", "pro"]:
+            raise HTTPException(400, f"Invalid mode: {mode}. Must be 'flash' or 'pro'")
+        
+        logger.info(f"🚀 Starting NEW FlowExecutor test: {request.workflow_id}")
+        logger.info(f"   Mode: {mode.upper()}")
         logger.info(f"   Input: {request.test_input[:50]}...")
-        if request.stop_at_node:
-            logger.info(f"   Stop at: {request.stop_at_node}")
         
-        # Get database manager for agents (import from server context)
-        from database import SQLiteDB
+        # ==================================================
+        # NEW SYSTEM: FlowExecutor with JSON Flows
+        # ==================================================
+        
         from pathlib import Path
-        db_path = Path(__file__).parent.parent / "data" / "chimera_tools.db"
-        db_manager = SQLiteDB(str(db_path))
+        from ai.flow.executor import FlowExecutor
+        from ai.flow.loader import FlowLoader
+        from ai.flow.registry import AgentRegistry
+        from ai.flow.context import ExecutionContext
+        from ai.agents.register_agents import register_all_agents
+        import time
         
-        # ==================================================
-        # PERSONA MANAGER INTEGRATION (Phase 6.6.3c)
-        # ==================================================
-        
-        # 1. Get persona - priority: request.persona_id > default from DB
-        persona_obj = None
-        persona_id = request.persona_id
-        
-        if persona_id:
-            # User specified a persona
-            persona_obj = db_manager.get_persona(persona_id)
-            logger.info(f"✅ Using specified persona: {persona_obj['name'] if persona_obj else 'Not found'}")
+        # 1. Load flow config based on mode
+        # Determine flow filename
+        if mode == "pro":
+            flow_filename = "rag_full.json"
         else:
-            # Get default persona from database
-            persona_obj = db_manager.get_default_persona()
-            logger.info(f"✅ Using default persona: {persona_obj['name'] if persona_obj else 'None'}")
+            flow_filename = "base.json"
         
-        # Fallback to Lycus if no persona found
-        if not persona_obj:
-            logger.warning("⚠️ No persona found, using fallback Lycus")
-            persona_obj = {
-                'id': 'fallback-lycus',
-                'name': 'Lycus',
-                'ai_name': 'Lycus',
-                'user_greeting': 'Kawan',
-                'personality_traits': {
-                    'technical': 90,
-                    'friendly': 70,
-                    'direct': 85,
-                    'creative': 60,
-                    'professional': 75
-                },
-                'response_style': 'technical',
-                'tone': 'direct',
-                'preferred_language': 'id',  # ✅ Default to Indonesian
-                'system_prompt': """Anda adalah Lycus, asisten AI yang teknis dan direct.
-Gunakan Bahasa Indonesia untuk semua respons Anda.
-Panggil user dengan sebutan 'Kawan'.
-Berikan jawaban yang akurat, teknis namun tetap ramah."""
-            }
+        # FlowLoader base_path is already set to ai/flows/
+        # So we only need: {mode}/{filename}
+        flow_path = f"{mode}/{flow_filename}"
         
-        # 2. Get relationship and character if character_id provided
-        relationship = None
-        character = None
-        enhanced_persona = persona_obj  # Will be enhanced with relationship context
+        logger.info(f"📄 Loading flow config: {flow_path}")
         
-        if request.character_id:
-            try:
-                # Fetch character details
-                character = db_manager.get_user_character(request.character_id)
-                
-                if character:
-                    # Fetch relationship between persona and character
-                    relationship = db_manager.get_relationship_by_persona_character(
-                        persona_obj['id'],
-                        request.character_id
-                    )
-                    
-                    if relationship:
-                        logger.info(f"✅ Relationship found: {relationship['relationship_type']} - {relationship['primary_nickname']}")
-                        
-                        # Build enhanced system prompt with relationship context
-                        enhanced_system_prompt = build_persona_prompt_with_relationship(
-                            persona_obj,
-                            relationship,
-                            character
-                        )
-                        
-                        # Create enhanced persona object with new system prompt
-                        enhanced_persona = persona_obj.copy()
-                        enhanced_persona['system_prompt'] = enhanced_system_prompt
-                        
-                        logger.info(f"🔗 Enhanced persona with relationship context for {character['name']}")
-                    else:
-                        logger.warning(f"⚠️ No relationship found between {persona_obj['name']} and {character['name']}")
-                else:
-                    logger.warning(f"⚠️ Character not found: {request.character_id}")
-            except Exception as e:
-                logger.error(f"❌ Error fetching relationship context: {str(e)}")
+        # 2. Load flow
+        loader = FlowLoader()
+        flow_config = loader.load_flow(flow_path)  # loader will handle base_dir
         
-        # 3. Get conversation history if conversation_id provided
-        conversation_history = []
-        if request.conversation_id:
-            try:
-                conversation_history = db_manager.get_messages(request.conversation_id, limit=5)
-                logger.info(f"✅ Loaded {len(conversation_history)} messages from conversation history")
-            except Exception as e:
-                logger.error(f"❌ Error loading conversation history: {str(e)}")
+        logger.info(f"✅ Flow loaded: {flow_config.name} ({len(flow_config.steps)} steps)")
         
-        # ==================================================
-        # CREATE WORKFLOW ENGINE WITH PERSONA & HISTORY
-        # ==================================================
+        # 3. Setup agent registry
+        registry = AgentRegistry()
+        register_all_agents(registry)
         
-        # Create workflow engine with persona & conversation history
-        engine = WorkflowEngine(
-            request.workflow_id,
-            db_manager=db_manager,
-            rag_system=_rag_system,
-            persona=enhanced_persona,  # Pass enhanced persona with relationship context
-            conversation_history=conversation_history  # Pass conversation history for context
-        )
+        logger.info(f"✅ Agents registered: {len(registry.list_agents())} agents")
         
-        # Execute workflow
-        result = await engine.execute(
-            test_input=request.test_input,
-            stop_at_node=request.stop_at_node
-        )
+        # 4. Create execution context
+        context = ExecutionContext({
+            "message": request.test_input,
+            "workflow_id": request.workflow_id,
+            "mode": mode,
+            "persona_id": request.persona_id,
+            "character_id": request.character_id,
+            "conversation_id": request.conversation_id
+        })
         
-        logger.info(f"✅ Workflow execution complete: {result['status']}")
+        # 5. Execute flow
+        start_time = time.time()
         
-        # ==================================================
-        # SAVE AS CONVERSATION (Optional - for future)
-        # ==================================================
-        # TODO: Implement saving workflow execution as conversation messages
-        # This would allow users to continue workflow tests as conversations
+        executor = FlowExecutor(registry)  # Only pass registry
+        result_context = executor.execute_flow(flow_config, context)  # Then call execute_flow
+        
+        total_time = time.time() - start_time
+        
+        logger.info(f"✅ Flow execution complete: {result_context.get('status', 'unknown')}")
+        logger.info(f"   Total time: {total_time:.3f}s")
+        logger.info(f"   Steps executed: {len(result_context.metadata['steps_executed'])}")
+        
+        # 6. Format response for frontend (compatible with old format)
+        execution_flow = []
+        for step in result_context.metadata['steps_executed']:
+            execution_flow.append({
+                'node_id': step['agent'],
+                'node_name': step['agent'].replace('_', ' ').title(),
+                'node_type': step['agent'],
+                'status': 'success',
+                'processing_time': step['timing'],
+                'input': {},
+                'output': result_context.agent_outputs.get(step['agent'], {})
+            })
+        
+        # Get final response
+        final_output = result_context.get("response", result_context.get("formatted_response", ""))
+        
+        # Check for errors
+        has_errors = len(result_context.metadata['errors']) > 0
+        status = "error" if has_errors else "success"
+        error_message = result_context.metadata['errors'][0]['error'] if has_errors else None
         
         return {
-            "success": True,
-            **result
+            "success": not has_errors,
+            "mode": mode,
+            "execution_id": result_context.context_id,
+            "workflow_id": request.workflow_id,
+            "status": status,
+            "execution_flow": execution_flow,
+            "final_output": final_output,
+            "total_time": total_time,
+            "error_message": error_message,
+            "metadata": {
+                "flow_name": flow_config.name,
+                "flow_version": flow_config.version,
+                "steps_count": len(flow_config.steps),
+                "executed_steps": len(result_context.metadata['steps_executed'])
+            }
         }
+        
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Workflow execution failed: {str(e)}")
+        logger.error(f"❌ Flow execution failed: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
-        raise HTTPException(500, f"Workflow execution failed: {str(e)}")
+        raise HTTPException(500, f"Flow execution failed: {str(e)}")
 
 
 # ============================================

@@ -42,6 +42,7 @@ export interface WorkflowConnection {
 export interface TestWorkflowRequest {
   workflow_id: string
   test_input: string
+  mode?: 'flash' | 'pro'  // NEW: Mode selection (flash/pro)
   stop_at_node?: string | null
   persona_id?: string | null  // Optional persona for enhanced context (Phase 6.6.3c)
   character_id?: string | null  // Optional user character for relationship context (Phase 6.6.3c)
@@ -62,6 +63,7 @@ export interface NodeExecution {
 
 export interface TestWorkflowResponse {
   success: boolean
+  mode?: 'flash' | 'pro'  // NEW: Execution mode
   execution_id: string
   workflow_id: string
   status: 'success' | 'partial' | 'error'
@@ -69,6 +71,12 @@ export interface TestWorkflowResponse {
   final_output: any
   total_time: number
   error_message?: string
+  metadata?: {  // NEW: Additional metadata
+    flow_name?: string
+    flow_version?: string
+    steps_count?: number
+    executed_steps?: number
+  }
 }
 
 // API Functions
