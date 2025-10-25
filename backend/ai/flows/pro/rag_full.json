@@ -1,14 +1,14 @@
 {
   "flow_id": "pro_rag_full_v1",
-  "name": "Pro Mode - Full RAG",
-  "description": "Deep analysis with RAG retrieval, reasoning, and comprehensive response",
+  "name": "Pro Mode - Full Pipeline",
+  "description": "Full 5-agent pipeline: Router → RAG → Execution → LLM → Persona",
   "version": "1.0.0",
   
   "metadata": {
     "author": "ChimeraAI",
     "created_at": "2025-10-25",
     "updated_at": "2025-10-25",
-    "tags": ["pro", "rag", "reasoning", "comprehensive"]
+    "tags": ["pro", "rag", "comprehensive", "5-agent"]
   },
   
   "profile": {
@@ -21,7 +21,7 @@
   },
   
   "signature": {
-    "hash": "sha256:a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+    "hash": "sha256:pro_rag_full_v1_simple",
     "last_verified": "2025-10-25T10:00:00Z",
     "auto_update": true
   },
@@ -29,101 +29,74 @@
   "config": {
     "max_execution_time": 30,
     "enable_cache": false,
-    "enable_reasoning": true,
-    "fallback_on_error": true,
-    "auto_model_switch": true,
-    "model_fallbacks": {
-      "qwen2.5:14b": "qwen2.5:7b",
-      "qwen2.5:7b": "gemma2:2b"
-    }
+    "fallback_on_error": true
   },
   
   "steps": [
     {
       "id": "step_1_preprocess",
       "agent": "preprocessor",
-      "description": "Preprocess and extract query features",
+      "description": "Preprocess input",
       "config": {
-        "max_length": 5000,
-        "extract_keywords": true,
-        "detect_language": true,
-        "analyze_intent": true
+        "normalize_whitespace": true,
+        "max_length": 5000
       },
       "condition": null,
       "timeout": 2,
       "critical": true
     },
     {
-      "id": "step_2_intent_router",
+      "id": "step_2_router",
       "agent": "router",
-      "description": "Classify intent and determine retrieval needs",
-      "config": {
-        "classify_intent": true,
-        "detect_complexity": true,
-        "analyze_rag_need": true
-      },
+      "description": "Classify intent",
+      "config": {},
       "condition": null,
-      "timeout": 1,
-      "critical": false
-    },
-    {
-      "id": "step_3_rag_retrieve",
-      "agent": "rag_retriever",
-      "description": "Retrieve relevant documents from knowledge base",
-      "config": {
-        "sources": ["chimepaedia", "conversations"],
-        "top_k": 10,
-        "min_relevance": 0.7,
-        "rerank": true,
-        "include_metadata": true
-      },
-      "condition": "router.needs_rag == true",
       "timeout": 5,
       "critical": false
     },
     {
-      "id": "step_4_llm_reasoning",
-      "agent": "llm_reasoning",
-      "description": "Generate comprehensive response with reasoning",
+      "id": "step_3_rag",
+      "agent": "rag",
+      "description": "Retrieve relevant context",
+      "config": {},
+      "condition": null,
+      "timeout": 5,
+      "critical": false
+    },
+    {
+      "id": "step_4_execution",
+      "agent": "execution",
+      "description": "Check tool execution",
+      "config": {},
+      "condition": null,
+      "timeout": 2,
+      "critical": false
+    },
+    {
+      "id": "step_5_llm_reasoning",
+      "agent": "llm_agent",
+      "description": "Generate comprehensive response",
       "config": {
-        "model": "qwen2.5:7b",
+        "model": "gemma2:2b",
         "temperature": 0.6,
-        "max_tokens": 2000,
-        "use_context": true,
-        "enable_reasoning": true,
-        "reasoning_depth": "medium"
+        "max_tokens": 2000
       },
       "condition": null,
       "timeout": 15,
       "critical": true
     },
     {
-      "id": "step_5_persona_brain",
-      "agent": "persona_brain",
-      "description": "Apply full persona with memory and relationships",
+      "id": "step_6_persona",
+      "agent": "persona",
+      "description": "Apply full persona (stays alive with LLM!)",
       "config": {
-        "apply_full_persona": true,
-        "use_relationship": true,
-        "use_memory": true,
-        "emotional_depth": "high"
-      },
-      "condition": "persona != null",
-      "timeout": 3,
-      "critical": false
-    },
-    {
-      "id": "step_6_output_format",
-      "agent": "formatter",
-      "description": "Format detailed output with sources",
-      "config": {
-        "format": "detailed",
-        "include_sources": true,
-        "include_reasoning": true,
-        "include_metadata": true
+        "persona": "lycus",
+        "format": "text",
+        "include_metadata": false
       },
       "condition": null,
-      "timeout": 1,
-      "critical": true
+      "timeout": 5,
+      "critical": false
     }
   ],
   
@@ -133,20 +106,11 @@
     "retry_delay": 1,
     "fallback_flows": ["flash_base_v1"],
     "log_level": "info",
-    "on_fail": {
-      "agent": "error_responder",
-      "config": {
-        "message": "Maaf, query ini terlalu kompleks untuk saat ini. Aku coba dengan mode lebih sederhana ya 💕",
-        "include_error_details": false
-      }
-    }
+    "on_fail": null
   },
   
   "optimization": {
-    "enable_parallel": true,
-    "parallel_groups": [
-      ["step_2_intent_router", "step_3_rag_retrieve"]
-    ],
+    "enable_parallel": false,
     "priority": "quality",
     "adaptive_timeout": true,
     "resource_aware": true

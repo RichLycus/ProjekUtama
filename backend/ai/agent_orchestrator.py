@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, Any, Optional
 from .ollama_client import OllamaClient
-from .agents import RouterAgent, RAGAgent, ExecutionAgent, ReasoningAgent, PersonaAgent
+from .legacy_agents import RouterAgent, RAGAgent, ExecutionAgent, ReasoningAgent, PersonaAgent
 from .config_manager import AIConfigManager
 
 logger = logging.getLogger(__name__)

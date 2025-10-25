@@ -1,14 +1,14 @@
 {
   "flow_id": "flash_base_v1",
   "name": "Flash Mode - Base",
-  "description": "Quick response with minimal processing and intelligent caching",
+  "description": "Quick response: Preprocessor → LLM → Persona (persona stays alive!)",
   "version": "1.0.0",
   
   "metadata": {
     "author": "ChimeraAI",
     "created_at": "2025-10-25",
     "updated_at": "2025-10-25",
-    "tags": ["flash", "quick", "cache", "lightweight"]
+    "tags": ["flash", "quick", "lightweight", "persona"]
   },
   
   "profile": {
@@ -21,106 +21,55 @@
   },
   
   "signature": {
-    "hash": "sha256:e4f56a1c2b9d3e8f7a6c5b4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4",
+    "hash": "sha256:flash_base_v1_simple",
     "last_verified": "2025-10-25T10:00:00Z",
     "auto_update": true
   },
   
   "config": {
     "max_execution_time": 5,
-    "enable_cache": true,
-    "cache_ttl": 3600,
-    "fallback_on_error": true,
-    "auto_model_switch": true,
-    "model_fallbacks": {
-      "qwen2.5:7b": "gemma2:2b",
-      "mixtral:8x7b": "mistral:7b"
-    }
+    "enable_cache": false,
+    "fallback_on_error": true
   },
   
   "steps": [
     {
       "id": "step_1_preprocess",
       "agent": "preprocessor",
-      "description": "Normalize and validate user input",
+      "description": "Normalize user input",
       "config": {
-        "max_length": 1000,
-        "normalize": true,
-        "detect_language": true
+        "normalize_whitespace": true,
+        "max_length": 1000
       },
       "condition": null,
       "timeout": 1,
       "critical": true
     },
     {
-      "id": "step_2_cache_lookup",
-      "agent": "cache_lookup",
-      "description": "Check semantic cache for similar queries",
-      "config": {
-        "cache_type": "response",
-        "use_semantic": true,
-        "similarity_threshold": 0.85
-      },
-      "condition": "config.enable_cache == true",
-      "timeout": 0.5,
-      "critical": false,
-      "on_success": {
-        "set_flag": "cache_hit",
-        "skip_to": "step_5_persona_format"
-      }
-    },
-    {
-      "id": "step_3_llm_generate",
-      "agent": "llm_simple",
-      "description": "Generate response with lightweight model",
+      "id": "step_2_llm_generate",
+      "agent": "llm_agent",
+      "description": "Generate response with LLM",
       "config": {
         "model": "gemma2:2b",
         "temperature": 0.7,
-        "max_tokens": 500,
-        "use_context": false
-      },
-      "condition": "flags.cache_hit == false",
-      "timeout": 3,
-      "critical": true
-    },
-    {
-      "id": "step_4_cache_store",
-      "agent": "cache_store",
-      "description": "Store response in cache for future use",
-      "config": {
-        "cache_type": "response",
-        "ttl": 3600,
-        "include_metadata": true
-      },
-      "condition": "config.enable_cache == true and flags.cache_hit == false",
-      "timeout": 0.5,
-      "critical": false
-    },
-    {
-      "id": "step_5_persona_format",
-      "agent": "persona_formatter",
-      "description": "Apply persona tone and style (lightweight)",
-      "config": {
-        "apply_tone": true,
-        "add_greeting": false,
-        "tone_only": true
-      },
-      "condition": "persona != null",
-      "timeout": 1,
-      "critical": false
-    },
-    {
-      "id": "step_6_output_format",
-      "agent": "formatter",
-      "description": "Format final output",
-      "config": {
-        "format": "text",
-        "include_metadata": false,
-        "include_timing": false
+        "max_tokens": 2000
       },
       "condition": null,
-      "timeout": 0.5,
+      "timeout": 10,
       "critical": true
+    },
+    {
+      "id": "step_3_persona_format",
+      "agent": "persona",
+      "description": "Apply persona formatting (persona stays alive with LLM!)",
+      "config": {
+        "persona": "lycus",
+        "format": "text",
+        "include_metadata": false
+      },
+      "condition": null,
+      "timeout": 5,
+      "critical": false
     }
   ],
   
@@ -130,13 +79,7 @@
     "retry_delay": 0.5,
     "fallback_flows": [],
     "log_level": "info",
-    "on_fail": {
-      "agent": "error_responder",
-      "config": {
-        "message": "Maaf, aku mengalami kendala teknis kecil. Aku coba ulang ya 💕",
-        "include_error_details": false
-      }
-    }
+    "on_fail": null
   },
   
   "optimization": {

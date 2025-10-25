@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional
 from .ollama_client import OllamaClient
 from .enhanced_router import EnhancedRouterAgent
 from .specialized_agents import ChatAgent, CodeAgent, AnalysisAgent, CreativeAgent, ToolAgent
-from .agents import RAGAgent, PersonaAgent
+from .legacy_agents import RAGAgent, PersonaAgent
 from .config_manager import AIConfigManager
 
 # Import Chat Flow Logger
