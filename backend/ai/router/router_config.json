@@ -276,5 +276,18 @@
         "description": "High complexity, needs advanced processing"
       }
     }
+  },
+  "mode_selection": {
+    "weights": {
+      "intent": 0.4,
+      "complexity": 0.4,
+      "context": 0.2
+    },
+    "thresholds": {
+      "pro_threshold": 0.6,
+      "flash_threshold": 0.4,
+      "hybrid_confidence_threshold": 0.7
+    },
+    "description": "Weighted scoring for final mode selection. Intent and complexity are primary factors (40% each), context provides additional signal (20%)."
   }
 }

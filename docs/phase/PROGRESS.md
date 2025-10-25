@@ -1,8 +1,8 @@
 # 🚀 ChimeraAI Phase 6 Journey Tracker
 
-**Last Updated:** January 25, 2025  
-**Current Phase:** 6.8.2 - Complexity Analyzer (COMPLETE) ✅  
-**Overall Progress:** Phase 6.8 - 50% Complete (2/4 sub-phases done)
+**Last Updated:** January 26, 2025  
+**Current Phase:** 6.8.4 - Mode Selector (COMPLETE) ✅  
+**Overall Progress:** Phase 6.8 - 100% Complete (4/4 sub-phases done) 🎉
 
 ---
 
@@ -17,10 +17,10 @@ Phase 6 Redesign Journey:
 ✅ 6.7.3: Flow Executor                  [COMPLETE]
 ✅ 6.7.4: Basic Agents                   [COMPLETE]
 ✅ 6.8.1: Intent Classifier              [COMPLETE]
-✅ 6.8.2: Complexity Analyzer            [COMPLETE] ← YOU ARE HERE
-⏳ 6.8.3: Context-Aware Layer            [NEXT]
-⏳ 6.8.4: Mode Selector
-⏳ 6.9: Retriever & Cache
+✅ 6.8.2: Complexity Analyzer            [COMPLETE]
+✅ 6.8.3: Context-Aware Layer            [COMPLETE]
+✅ 6.8.4: Mode Selector                  [COMPLETE] ← YOU ARE HERE 🎉
+⏳ 6.9: Retriever & Cache                [NEXT]
 ⏳ 6.10: Persona System
 ⏳ 6.11: Observability
 ⏳ 6.12: Legacy Integration
@@ -84,7 +84,7 @@ Phase 6 Redesign Journey:
    - Interactive demo script
    - Config-driven keywords (router_config.json)
 
-7. **Complexity Analyzer** (Phase 6.8.2) ⭐ **NEW**
+7. **Complexity Analyzer** (Phase 6.8.2) ✅
    - ComplexityAnalyzer with 5-factor scoring
    - Factors: length (15%), technical (25%), structure (20%), context (15%), reasoning (25%)
    - Configurable weights via router_config.json
@@ -97,17 +97,41 @@ Phase 6 Redesign Journey:
    - 47 unit tests passing (100% success rate)
    - Explainable scoring with detailed breakdown
 
-### Phase 6.8: Smart Router ⏳
+8. **Context-Aware Layer** (Phase 6.8.3) ⭐ **NEW**
+   - SessionTracker for conversation history
+   - TopicContinuity for topic similarity detection
+   - ContextScorer for overall context scoring
+   - Session management (create, update, history, clear)
+   - Keyword extraction with stopword filtering
+   - Jaccard similarity for topic matching
+   - Decay factor for recent query weighting
+   - Multi-turn conversation awareness
+   - 41 unit tests passing (100% success rate)
+   - Integration with routing pipeline
 
-**Status:** 🔄 In Progress (2/4 sub-phases complete)  
-**Estimated:** 3-4 days  
-**Goal:** Context-aware intelligent routing with roleplay support
+9. **Mode Selector** (Phase 6.8.4) ⭐ **NEW**
+   - ModeSelector with weighted scoring engine
+   - Combines: Intent (40%) + Complexity (40%) + Context (20%)
+   - Adaptive hybrid mode (flash → pro upgrade)
+   - Override rules for special cases
+   - Explainable reasoning for every decision
+   - Config-driven thresholds (router_config.json)
+   - Metadata tracking (intent, complexity_level, has_context)
+   - 25 unit tests passing (100% success rate)
+   - Interactive demo with 7 scenarios
+
+### Phase 6.8: Smart Router ✅
+
+**Status:** ✅ Complete (4/4 sub-phases done) 🎉  
+**Duration:** 4 days (Jan 23-26, 2025)  
+**Goal:** Context-aware intelligent routing - **ACHIEVED**
 
 **Documentation:**
 - [x] Complete architecture design (`phase_6_8_plan.md`)
 - [x] Strategic enhancements defined
 - [x] Config schema documented
 - [x] Examples & test cases prepared
+- [x] All 4 sub-phases implemented & tested
 
 **Completed:**
 - [x] Sub-Phase 6.8.1: Intent Classifier ✅
@@ -131,17 +155,62 @@ Phase 6 Redesign Journey:
   - 47 tests passing
   - Explainable AI with detailed factor breakdown
 
-**To Do:**
-- [ ] Sub-Phase 6.8.3: Context-Aware Layer
-  - Session tracking & continuity
-  - Topic continuity checking
-  - Context scoring
+- [x] Sub-Phase 6.8.3: Context-Aware Layer ✅
+  - **SessionTracker**: Conversation history management
+    - create_session(), get_session(), add_query()
+    - get_history(), get_previous_query(), clear_session()
+    - Max history limit (configurable, default: 10)
+    - Timestamp tracking for all queries
   
-- [ ] Sub-Phase 6.8.4: Mode Selector (Enhanced)
-  - Weighted scoring engine
-  - Adaptive hybrid mode (flash → pro)
-  - Explainable reasoning
-  - Config-driven rules (router_config.json)
+  - **TopicContinuity**: Topic similarity detection
+    - Keyword extraction with stopword filtering
+    - Jaccard similarity calculation
+    - Decay factor for recent query weighting (0.8 default)
+    - Bilingual stopword support (ID/EN)
+  
+  - **ContextScorer**: Overall context scoring
+    - Reference word detection (itu, ini, that, this, previous, etc.)
+    - Topic continuity with previous queries
+    - Session length bonus (longer sessions = higher context)
+    - Weighted scoring: reference (50%), topic (40%), session (10%)
+    - Explainable reasoning
+  
+  - **41 unit tests passing** (100% success rate)
+  - Integration with routing pipeline
+  - Demo scenarios included
+
+- [x] Sub-Phase 6.8.4: Mode Selector (Enhanced) ✅
+  - **Weighted Scoring Engine**:
+    - Intent: 40% weight
+    - Complexity: 40% weight
+    - Context: 20% weight
+    - Configurable via router_config.json
+  
+  - **Mode Selection Logic**:
+    - flash: overall_score <= 0.4
+    - depends: 0.4 < overall_score < 0.6
+    - pro: overall_score >= 0.6
+  
+  - **Adaptive Hybrid Mode**:
+    - Start with flash
+    - Upgrade to pro if confidence < 0.7
+    - Smart decision based on complexity and intent
+  
+  - **Override Rules**:
+    1. Very high complexity (>0.7) → always pro
+    2. Analytical/creative intent → always pro
+    3. Greeting/chitchat + low complexity → always flash
+    4. Context-heavy (>0.7) + long session (>5) → upgrade mode
+  
+  - **Explainable Reasoning**:
+    - Clear explanation for every decision
+    - Score breakdown by factor
+    - Top contributing factors highlighted
+    - Mode-specific reasoning
+  
+  - **25 unit tests passing** (100% success rate)
+  - Interactive demo with full explanation
+  - Integration tests with complete pipeline
 
 **Strategic Enhancements:**
 1. **Context-Aware Layer** ⭐
@@ -822,6 +891,312 @@ Context:    15% - Context dependency indicator
 
 ---
 
+### Phase 6.8.3: Context-Aware Layer ✅
+
+**Status:** ✅ Complete  
+**Completed:** January 26, 2025  
+**Duration:** 1 day  
+**Goal:** Session tracking and topic continuity for context-aware routing
+
+**What Was Done:**
+- [x] Created `ai/router/context_layer.py` - Context awareness module (550+ lines)
+- [x] Implemented SessionTracker for conversation history
+- [x] Implemented TopicContinuity for topic similarity
+- [x] Implemented ContextScorer for overall context scoring
+- [x] Comprehensive unit tests (41 tests)
+- [x] Integration with routing pipeline
+- [x] Updated module exports in `__init__.py`
+
+**Success Criteria:** ✅ ALL MET
+- [x] Session management working (create, update, get, clear)
+- [x] Query history tracking with max limit
+- [x] Topic continuity detection via keyword matching
+- [x] Context scoring with reference word detection
+- [x] Session length bonus for multi-turn conversations
+- [x] Tests pass (41/41, 100% success rate)
+
+**Files Created:**
+- `ai/router/context_layer.py` (550+ lines)
+- `tests/test_context_layer.py` (650+ lines, 41 tests)
+
+**Key Features:**
+
+**1. SessionTracker** 📊
+- Session management:
+  - create_session(session_id)
+  - get_session(session_id)
+  - add_query(session_id, query, topics)
+  - get_history(session_id, n)
+  - get_previous_query(session_id)
+  - clear_session(session_id)
+- Max history limit (default: 10 queries)
+- Timestamp tracking
+- Automatic session creation
+- History trimming
+
+**2. TopicContinuity** 🔗
+- Keyword extraction:
+  - Stopword filtering (ID/EN)
+  - Minimum length filtering
+  - Lowercase normalization
+- Similarity calculation:
+  - Jaccard similarity on keyword sets
+  - Decay factor for older queries (0.8 default)
+  - Weighted continuity scoring
+- Bilingual support
+
+**3. ContextScorer** 🎯
+- Reference word detection:
+  - ID: itu, ini, sebelumnya, tadi, tersebut
+  - EN: that, this, previous, earlier, the above
+  - Multi-reference scoring: 1=0.35, 2=0.7, 3+=1.0
+- Topic continuity integration
+- Session length bonus:
+  - Longer sessions indicate context
+  - Max bonus: 0.2
+- Weighted scoring:
+  - Reference: 50%
+  - Topic: 40%
+  - Session: 10%
+- Explainable reasoning
+
+**Key Learnings:**
+- **Session history essential** - Multi-turn conversations need memory
+- **Topic continuity powerful** - Jaccard similarity works well for keyword overlap
+- **Decay factor important** - Recent queries more relevant than older ones
+- **Reference words strong signal** - Clear indicator of context dependency
+- **Session length useful** - Longer conversations inherently more contextual
+
+**Testing Results:**
+```
+✅ 41/41 tests passing (100%)
+✅ SessionTracker: 14 tests (CRUD operations, history, limits)
+✅ TopicContinuity: 13 tests (keyword extraction, similarity)
+✅ ContextScorer: 12 tests (scoring, reference detection)
+✅ Integration: 2 tests (full pipeline, topic shift)
+```
+
+**Context Scoring Examples:**
+```
+Query: "Apa itu AI?"
+  → No context (standalone query)
+  → Score: 0.0
+
+Query: "Jelaskan lebih detail tentang itu"
+  → Has reference word "itu"
+  → Score: 0.4+
+
+Query: "Bagaimana cara kerja algoritma tersebut?" (after AI discussion)
+  → Has reference + topic continuity + session length
+  → Score: 0.7+
+```
+
+---
+
+### Phase 6.8.4: Mode Selector (Enhanced) ✅
+
+**Status:** ✅ Complete  
+**Completed:** January 26, 2025  
+**Duration:** 1 day  
+**Goal:** Intelligent mode selection with weighted scoring and adaptive behavior
+
+**What Was Done:**
+- [x] Created `ai/router/mode_selector.py` - Mode selection engine (550+ lines)
+- [x] Implemented weighted scoring (intent 40%, complexity 40%, context 20%)
+- [x] Implemented adaptive hybrid mode
+- [x] Implemented override rules for special cases
+- [x] Added explainable reasoning for all decisions
+- [x] Extended `router_config.json` with mode_selection config
+- [x] Comprehensive unit tests (25 tests)
+- [x] Integration tests with full pipeline
+- [x] Interactive demo with 7 scenarios
+- [x] Updated module exports in `__init__.py`
+
+**Success Criteria:** ✅ ALL MET
+- [x] Weighted scoring working correctly
+- [x] Mode selection based on overall score
+- [x] Adaptive hybrid mode activation
+- [x] Override rules applied correctly
+- [x] Explainable reasoning generated
+- [x] Config-driven thresholds
+- [x] Tests pass (25/25, 100% success rate)
+- [x] Integration with all router components
+
+**Files Created/Modified:**
+- `ai/router/mode_selector.py` (550+ lines)
+- `ai/router/router_config.json` (extended with mode_selection)
+- `tests/test_mode_selector.py` (700+ lines, 25 tests)
+- `tests/demo_smart_router.py` (800+ lines, 7 demo scenarios)
+- `ai/router/__init__.py` (updated exports)
+
+**Key Features:**
+
+**1. Weighted Scoring Engine** ⚖️
+```python
+overall_score = (
+    intent_score * 0.4 +        # 40% weight
+    complexity_score * 0.4 +     # 40% weight
+    context_score * 0.2          # 20% weight
+)
+```
+- Configurable weights via router_config.json
+- Intent → complexity score mapping
+- Score breakdown tracking
+- Contribution analysis
+
+**2. Mode Selection Logic** 🎯
+```
+overall_score <= 0.4    → flash
+0.4 < score < 0.6       → depends
+overall_score >= 0.6    → pro
+```
+- Score-based thresholds
+- Intent hint consideration
+- Confidence calculation
+- Mode preference checking
+
+**3. Adaptive Hybrid Mode** 🔀
+- Trigger conditions:
+  - Base mode = flash
+  - Confidence < 0.7
+  - Complexity or intent score > 0.5
+- Smart upgrade decision
+- Start fast, scale up if needed
+- Resource-efficient approach
+
+**4. Override Rules** 🚨
+Priority-based overrides:
+1. **Very high complexity** (>0.7) → pro
+2. **Analytical/creative intent** → pro
+3. **Greeting/chitchat** + low complexity → flash
+4. **Context-heavy** (>0.7) + long session (>5) → upgrade
+
+**5. Explainable Reasoning** 💡
+Every decision includes:
+- Overall score
+- Top contributing factors
+- Intent reasoning
+- Complexity reasoning
+- Context reasoning (if available)
+- Mode-specific explanation
+
+Example:
+```
+Mode: PRO (confidence: 0.85). Overall score: 0.72.
+Key factors: complexity (0.29), intent (0.28).
+Intent: complex_question (conf: 0.80, hint: pro).
+Complexity: high (score: 0.72).
+Context: dependent (score: 0.45).
+→ High complexity requires advanced processing.
+```
+
+**Key Learnings:**
+- **Weighted approach flexible** - Easy to tune without code changes
+- **Override rules crucial** - Handle edge cases cleanly
+- **Explainability important** - Users/devs understand decisions
+- **Adaptive mode efficient** - Balance speed vs quality
+- **Context integration smooth** - Optional but valuable signal
+
+**Testing Results:**
+```
+✅ 25/25 tests passing (100%)
+✅ Basic mode selection (flash/pro/depends)
+✅ Weighted scoring calculations
+✅ Adaptive hybrid mode activation
+✅ Override rules (4 scenarios)
+✅ Reasoning generation
+✅ Metadata tracking
+✅ Integration tests (full pipeline)
+✅ Edge case handling
+```
+
+**Mode Selection Examples:**
+```
+Query: "Halo!"
+  → Intent: greeting (0.9), Complexity: low (0.1)
+  → Mode: FLASH (conf: 0.95)
+
+Query: "Apa itu AI?"
+  → Intent: simple_question (0.7), Complexity: low (0.2)
+  → Mode: FLASH (conf: 0.85)
+
+Query: "Jelaskan perbedaan supervised dan unsupervised learning"
+  → Intent: complex_question (0.8), Complexity: medium (0.5)
+  → Mode: DEPENDS or PRO (conf: 0.70)
+
+Query: "Analisis mendalam tentang transformer architecture"
+  → Intent: analytical (0.85), Complexity: high (0.75)
+  → Mode: PRO (conf: 0.90)
+```
+
+**Demo Scenarios:**
+1. Basic routing (6 test queries)
+2. Context-aware routing (5-turn conversation)
+3. Detailed analysis with explanations
+4. Edge cases (empty, short, long, spam)
+5. Bilingual support (ID/EN queries)
+6. Mode comparison (same query, different context)
+7. Interactive mode (custom queries)
+
+---
+
+### Phase 6.8: Final Summary 🎉
+
+**Overall Achievement:**
+✅ **All 4 sub-phases complete** (Jan 23-26, 2025)
+✅ **158 tests passing** (45 + 47 + 41 + 25 = 158 tests, 100% success)
+✅ **2000+ lines of production code**
+✅ **1500+ lines of test code**
+✅ **Fully documented and demo-ready**
+
+**Key Accomplishments:**
+1. ✅ Intent classification with bilingual support
+2. ✅ Multi-factor complexity analysis
+3. ✅ Session-aware context tracking
+4. ✅ Intelligent mode selection with explanations
+5. ✅ Config-driven rules (easy tuning)
+6. ✅ Adaptive hybrid mode
+7. ✅ Comprehensive testing & demos
+
+**Integration Ready:**
+```python
+# Complete routing pipeline
+from ai.router import (
+    IntentClassifier,
+    ComplexityAnalyzer,
+    ContextScorer,
+    SessionTracker,
+    ModeSelector
+)
+
+# Initialize
+classifier = IntentClassifier()
+analyzer = ComplexityAnalyzer()
+scorer = ContextScorer()
+tracker = SessionTracker()
+selector = ModeSelector()
+
+# Route a query
+query = "User's question"
+session_id = "user123"
+
+# Run pipeline
+tracker.add_query(session_id, query)
+intent = classifier.classify(query)
+complexity = analyzer.analyze(query)
+context = scorer.score(query, session_id, tracker)
+decision = selector.select_mode(intent, complexity, context)
+
+# Use decision
+print(f"Mode: {decision.mode}")
+print(f"Confidence: {decision.confidence:.2f}")
+print(f"Reasoning: {decision.reasoning}")
+```
+
+**Next Phase:** 6.9 - Retriever & Cache Layer
+
+---
+
 ## 🎓 Key Concepts Reference
 
 ### ExecutionContext
@@ -967,16 +1342,16 @@ class MyRetriever(RetrieverInterface):
 | 6.7.4: Basic Agents | 1-2 days | ✅ Done | 1 day |
 | 6.8.1: Intent Classifier | 1 day | ✅ Done | 1 day |
 | 6.8.2: Complexity Analyzer | 1 day | ✅ Done | 1 day |
-| 6.8.3: Context-Aware Layer | 1 day | 🔄 Next | - |
-| 6.8.4: Mode Selector | 1-2 days | ⏳ Todo | - |
-| 6.9: Retriever & Cache | 3-4 days | ⏳ Todo | - |
+| 6.8.3: Context-Aware Layer | 1 day | ✅ Done | 1 day |
+| 6.8.4: Mode Selector | 1-2 days | ✅ Done | 1 day |
+| 6.9: Retriever & Cache | 3-4 days | 🔄 Next | - |
 | 6.10: Persona System | 2-3 days | ⏳ Todo | - |
 | 6.11: Observability | 2 days | ⏳ Todo | - |
 | 6.12: Legacy Integration | 2 days | ⏳ Todo | - |
 
 **Total Estimated:** 18-22 days  
-**Completed:** 7 days (32-39%)  
-**Progress:** Phase 6.8.2 - Complete! Complexity Analyzer with 5-factor scoring ✅
+**Completed:** 9 days (41-50%)  
+**Progress:** Phase 6.8 - COMPLETE! Smart Router with Context-Aware Routing ✅
 
 ---
 
@@ -1012,5 +1387,5 @@ class MyRetriever(RetrieverInterface):
 
 **Last Action:** Completed Phase 6.8.2 (Complexity Analyzer + 47 tests passing) ✅  
 **Current Work:** Phase 6.8 - 50% complete (2/4 sub-phases done)  
-**Next Action:** Start Phase 6.8.3 (Context-Aware Layer)  
-**Status:** 🎉 Phase 6.8.2 Successfully Complete! 5-Factor Complexity Analysis Working!
+**Next Action:** Start Phase 6.9 (Retriever & Cache Layer)  
+**Status:** 🎉 Phase 6.8 COMPLETE! Smart Router with Context-Aware Routing Ready! 🚀
