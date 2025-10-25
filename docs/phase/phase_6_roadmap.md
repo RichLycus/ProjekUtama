@@ -1,9 +1,9 @@
 # Phase 6 Roadmap: Dynamic Modular Pipeline Orchestration
 
 **Created:** October 25, 2025  
-**Last Updated:** October 25, 2025  
-**Status:** 🔄 In Progress - Phase 6.7 COMPLETE ✅  
-**Current Phase:** 6.7.4 Complete, Ready for 6.8  
+**Last Updated:** January 26, 2025  
+**Status:** 🔄 In Progress - Phase 6.9.2 COMPLETE ✅  
+**Current Phase:** 6.9.2 Complete (Retriever & Cache Layer 50% done)  
 **Approach:** Documentation-First → Incremental Implementation → User Testing
 
 ---
@@ -30,9 +30,10 @@ Transform RAG Studio dari sistem workflow hardcoded menjadi **Dynamic Modular Pi
    - Workflow structure fixed di database schema
    - Tidak bisa dynamic composition
 
-4. **No Intelligent Routing:**
-   - Mode dipilih manual oleh user
-   - Router tidak bisa auto-detect best mode
+4. **Manual Mode Selection (By Design):**
+   - Mode dipilih manual oleh user (seperti Gemini Flash/Pro, ChatGPT, Qwen Thinking)
+   - User punya full control untuk choose Flash vs Pro
+   - Personal agent: User tahu kapan butuh quick response vs deep analysis
 
 ### New Architecture Goals ✅
 
@@ -545,27 +546,87 @@ backend/tests/
 ---
 
 ### 🆕 Phase 6.9: Retriever Unification & Cache Layer
-**Status:** 📋 Planned  
-**Duration:** ~3-4 days  
+**Status:** 🔄 In Progress (50% Complete - 2/4 sub-phases done) ✅  
+**Completed:** January 26, 2025  
+**Duration:** 1 day so far  
 **Goal:** Unified retriever interface + smart caching
 
-#### Sub-Phase 6.9.1: Retriever Interface Implementation
+#### ✅ Sub-Phase 6.9.1: RAG & Chimepedia Retrievers (COMPLETE)
+**Status:** ✅ Complete  
+**Date:** January 26, 2025  
 **Deliverables:**
-- `ai/retrievers/rag_retriever.py` - ChromaDB RAG
-- `ai/retrievers/chimepedia_retriever.py` - Chimepedia integration
-- Unified API: `retrieve(query, filters) → results`
+- [x] `ai/retrievers/rag_retriever.py` - RAGRetriever wrapper (200+ lines)
+- [x] `ai/retrievers/chimepedia_retriever.py` - Chimepedia retriever (250+ lines)
+- [x] Enhanced `ai/rag.py` with configurable embedding models
+- [x] Multi-collection support (tools, docs, conversations, chimepedia)
+- [x] 5 embedding model options (MiniLM, MPNet, BGE, Nomic, Multilingual)
+- [x] Category-based filtering for Chimepedia
+- [x] Unit tests (17 tests passing)
 
-**Testing:** User tests retrievers with different sources
+**Testing:** ✅ All 17 tests passing (100% success rate)
 
-#### Sub-Phase 6.9.2: Cache Manager
+**Key Features:**
+- ✅ Unified RetrieverInterface implementation
+- ✅ Multi-collection querying
+- ✅ Configurable embedding models (not hardcoded!)
+- ✅ Chimepedia as RAG collection (fast & factual)
+- ✅ Health checks & statistics
+
+**Files Created:**
+```
+backend/ai/retrievers/
+├── rag_retriever.py             ← NEW (200+ lines)
+├── chimepedia_retriever.py      ← NEW (250+ lines)
+└── __init__.py                  ← UPDATED
+
+backend/ai/
+└── rag.py                       ← ENHANCED (+150 lines)
+
+backend/tests/
+└── test_retrievers.py           ← NEW (400+ lines, 17 tests)
+```
+
+#### ✅ Sub-Phase 6.9.2: Cache Manager (COMPLETE)
+**Status:** ✅ Complete  
+**Date:** January 26, 2025  
 **Deliverables:**
-- `ai/cache/cache_manager.py` - Redis/SQLite cache
-- Cache key generation (query hash + context)
-- TTL & invalidation strategies
+- [x] `ai/cache/cache_manager.py` - SQLite cache with TTL + LRU (600+ lines)
+- [x] `ai/cache/__init__.py` - Module exports
+- [x] Persistent cache storage (survives restarts)
+- [x] TTL-based expiration (Flash: 15 min, Pro: 1 hour)
+- [x] LRU eviction (max 1000 entries, configurable)
+- [x] Mode-specific strategies (flash vs pro)
+- [x] Hit/miss tracking & statistics
+- [x] Unit tests (18 tests passing)
 
-**Testing:** User tests cache hit/miss scenarios
+**Testing:** ✅ All 18 tests passing (100% success rate)
+
+**Key Features:**
+- ✅ SQLite-based persistent cache
+- ✅ TTL + LRU combined eviction
+- ✅ Mode-aware caching (different TTL per mode)
+- ✅ Cache key generation (query + context hash)
+- ✅ Complex value serialization (JSON)
+- ✅ Health checks & comprehensive statistics
+
+**Files Created:**
+```
+backend/ai/cache/
+├── __init__.py                  ← NEW
+└── cache_manager.py             ← NEW (600+ lines)
+
+backend/tests/
+└── test_cache_manager.py        ← NEW (450+ lines, 18 tests)
+```
+
+**Total Phase 6.9.1 + 6.9.2:**
+- ✅ 35/35 tests passing (100%)
+- ✅ Core retriever & cache functionality complete
+- ✅ 1500+ lines of production code
+- ✅ Fully documented & tested
 
 #### Sub-Phase 6.9.3: Vector Cache (Mini-Vector Store)
+**Status:** 📋 Planned  
 **Deliverables:**
 - `ai/cache/vector_cache.py` - Semantic similarity lookup
 - Small vector index for common queries
@@ -574,8 +635,9 @@ backend/tests/
 **Testing:** User tests semantic cache lookup
 
 #### Sub-Phase 6.9.4: Cache Agent Integration
+**Status:** 📋 Planned  
 **Deliverables:**
-- `ai/agents/cache_agent.py` - Cache lookup in flow
+- Integration with FlowExecutor
 - Flash+ mode with cache-first strategy
 - Persona-aware cached responses
 
@@ -583,12 +645,76 @@ backend/tests/
 
 ---
 
-### 🆕 Phase 6.10: Persona Modular System
+### 🆕 Phase 6.9.5: RAG Studio Integration (Priority!)
+**Status:** 📋 Next - Critical for Testing  
+**Duration:** ~1-2 days  
+**Goal:** Fix RAG Studio execution dengan new system (testing ground!)
+
+**Why This First:**
+- ✅ RAG Studio visual editor already complete
+- ✅ Test panel perfect untuk isolated testing
+- ✅ Fix bugs di RAG Studio dulu (terisolasi, aman)
+- ✅ Once stable → integrate ke chat tabs
+
+**Strategy:**
+```
+Phase 6.9.5: Fix RAG Studio (isolated testing)
+    ↓
+Test thoroughly di RAG Studio test panel
+    ↓
+Once stable & working
+    ↓
+Phase 6.10: Integrate to Chat Tabs
+    ↓
+Production ready!
+```
+
+#### Sub-Phase 6.9.5.1: Connect RAG Studio to New System
+**Deliverables:**
+- Replace old workflow_engine.py execution dengan new FlowExecutor
+- Connect Test Panel ke new flow system
+- Support both Flash & Pro flows
+- Real-time execution feedback
+
+**Testing:** User tests workflows di RAG Studio test panel
+
+#### Sub-Phase 6.9.5.2: Debug & Stabilize
+**Deliverables:**
+- Fix any bugs found during RAG Studio testing
+- Optimize flow execution
+- Improve error messages
+- Add execution logging
+
+**Testing:** User validates stability & performance
+
+---
+
+### 🆕 Phase 6.10: Chat Tabs Integration
+**Status:** 📋 Planned (After RAG Studio stable)  
+**Duration:** ~1 day  
+**Goal:** Integrate proven system to chat tabs
+
+**Prerequisites:**
+- ✅ RAG Studio working smoothly
+- ✅ All bugs fixed & tested
+- ✅ Performance validated
+
+**Deliverables:**
+- Connect chat_routes.py to new FlowExecutor
+- Manual mode selection UI (Flash/Pro toggle)
+- Display execution results
+- Maintain backward compatibility
+
+**Testing:** User tests chat dengan new system
+
+---
+
+### 🆕 Phase 6.11: Persona Modular System
 **Status:** 📋 Planned  
 **Duration:** ~2-3 days  
 **Goal:** Modular persona pipeline dengan flow sendiri
 
-#### Sub-Phase 6.10.1: Persona Loader
+#### Sub-Phase 6.11.1: Persona Loader
 **Deliverables:**
 - Enhanced persona loading from database
 - Persona config injection into flow
@@ -596,7 +722,7 @@ backend/tests/
 
 **Testing:** User tests persona loading & context
 
-#### Sub-Phase 6.10.2: Persona Brain Agent
+#### Sub-Phase 6.11.2: Persona Brain Agent
 **Deliverables:**
 - `ai/agents/persona_agent.py` - Persona-aware generation
 - Style, tone, personality application
@@ -604,7 +730,7 @@ backend/tests/
 
 **Testing:** User tests different personas (Nour, Sarah, etc.)
 
-#### Sub-Phase 6.10.3: Persona Flow Configs
+#### Sub-Phase 6.11.3: Persona Flow Configs
 **Deliverables:**
 - `ai/flows/persona/sarah.json` - Sarah flow
 - `ai/flows/persona/nour.json` - Nour flow
@@ -614,12 +740,13 @@ backend/tests/
 
 ---
 
-### 🆕 Phase 6.11: Observability & Analytics
+### 🆕 Phase 6.12: Observability & Analytics
 **Status:** 📋 Planned  
 **Duration:** ~2 days  
 **Goal:** Logging, metrics, dan auto-optimization insights
 
-#### Sub-Phase 6.11.1: Enhanced Logging
+#### Sub-Phase 6.12.1: Enhanced Logging
+#### Sub-Phase 6.12.1: Enhanced Logging
 **Deliverables:**
 - `ai/observability/logger.py` - Structured logging
 - Log every agent execution (timing, input/output)
@@ -627,7 +754,7 @@ backend/tests/
 
 **Testing:** User reviews log output
 
-#### Sub-Phase 6.11.2: Performance Metrics
+#### Sub-Phase 6.12.2: Performance Metrics
 **Deliverables:**
 - `ai/observability/metrics.py` - Metrics collection
 - Agent timing, success rate, cache hit rate
@@ -635,7 +762,7 @@ backend/tests/
 
 **Testing:** User reviews metrics dashboard
 
-#### Sub-Phase 6.11.3: Flow Analyzer
+#### Sub-Phase 6.12.3: Flow Analyzer
 **Deliverables:**
 - `ai/observability/analyzer.py` - Flow analysis
 - Identify bottlenecks
@@ -645,7 +772,7 @@ backend/tests/
 
 ---
 
-### 🆕 Phase 6.12: Legacy Integration & Migration
+### 🆕 Phase 6.13: Legacy Integration & Migration
 **Status:** 📋 Planned  
 **Duration:** ~2 days  
 **Goal:** Backward compatibility dengan visual editor
@@ -1217,16 +1344,20 @@ class ExecutionContext:
 | 6.7.2: Flow Loader | 1 day | 6.7.1 | ✅ Complete | User test loading |
 | 6.7.3: Flow Executor | 1 day | 6.7.2 | ✅ Complete | User test execution |
 | 6.7.4: Basic Agents | 1 day | 6.7.3 | ✅ Complete | User test end-to-end |
-| 6.8.1: Intent Classifier | 1 day | 6.7.4 | 📋 Planned | User test intent |
-| 6.8.2: Complexity Analyzer | 1 day | 6.8.1 | 📋 Planned | User test scoring |
-| 6.8.3: Mode Selector | 1 day | 6.8.2 | 📋 Planned | User test routing |
-| 6.9.1: Retrievers | 1-2 days | 6.7.4 | 📋 Planned | User test retrieval |
-| 6.9.2: Cache Manager | 1 day | 6.9.1 | 📋 Planned | User test cache |
-| 6.9.3: Vector Cache | 1 day | 6.9.2 | 📋 Planned | User test semantic |
-| 6.9.4: Cache Agent | 1 day | 6.9.3 | 📋 Planned | User test Flash+ |
-| 6.10.1: Persona Loader | 1 day | 6.7.4 | 📋 Planned | User test personas |
-| 6.10.2: Persona Brain | 1 day | 6.10.1 | 📋 Planned | User test styles |
-| 6.10.3: Persona Flows | 1 day | 6.10.2 | 📋 Planned | User test flows |
+| 6.8.1: Intent Classifier | 1 day | 6.7.4 | ✅ Complete | User test intent |
+| 6.8.2: Complexity Analyzer | 1 day | 6.8.1 | ✅ Complete | User test scoring |
+| 6.8.3: Context-Aware Layer | 1 day | 6.8.2 | ✅ Complete | User test context |
+| 6.8.4: Mode Selector | 1 day | 6.8.3 | ✅ Complete | User test routing |
+| 6.9.1: Retrievers | 1 day | 6.7.4 | ✅ Complete | User test retrieval |
+| 6.9.2: Cache Manager | 1 day | 6.9.1 | ✅ Complete | User test cache |
+| 6.9.3: Vector Cache | 1 day | 6.9.2 | ⏸️ Optional | User test semantic |
+| 6.9.4: Cache Agent | 1 day | 6.9.3 | ⏸️ Optional | User test Flash+ |
+| 6.9.5.1: RAG Studio Connect | 1 day | 6.9.2 | 📋 **NEXT** | User test RAG Studio |
+| 6.9.5.2: Debug & Stabilize | 1 day | 6.9.5.1 | 📋 Planned | User validate stability |
+| 6.10: Chat Integration | 1 day | 6.9.5.2 | 📋 Planned | User test chat |
+| 6.11.1: Persona Loader | 1 day | 6.10 | 📋 Planned | User test personas |
+| 6.11.2: Persona Brain | 1 day | 6.11.1 | 📋 Planned | User test styles |
+| 6.11.3: Persona Flows | 1 day | 6.11.2 | 📋 Planned | User test flows |
 | 6.11.1: Logging | 1 day | All | 📋 Planned | User review logs |
 | 6.11.2: Metrics | 1 day | 6.11.1 | 📋 Planned | User review metrics |
 | 6.11.3: Analyzer | 1 day | 6.11.2 | 📋 Planned | User review insights |
@@ -1234,8 +1365,8 @@ class ExecutionContext:
 | 6.12.2: Editor Convert | 1 day | 6.12.1 | 📋 Planned | User test convert |
 
 **Total Estimated:** ~20-25 days (incremental, with user testing each phase)  
-**Completed:** 5 days (Phase 6.0 + 6.7.1-6.7.4) ✅  
-**Progress:** 25% (5/20 days)
+**Completed:** 11 days (Phase 6.0 + 6.7.1-6.7.4 + 6.8.1-6.8.4 + 6.9.1-6.9.2) ✅  
+**Progress:** 55% (11/20 days)
 
 ---
 
