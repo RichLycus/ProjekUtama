@@ -1,0 +1,67 @@
+# Character Schema Definition for ChimeraAI
+# This schema defines the structure for agent and user character YAML files
+
+character_schema:
+  version: "1.0.0"
+  description: "Schema for immersive AI character definitions"
+  
+  required_fields:
+    - name          # Character name (string)
+    - role          # Character role/profession (string)
+    - description   # Brief character description (multiline string)
+    - personality   # Personality traits and speaking style (multiline string)
+  
+  optional_fields:
+    - background           # Character backstory (multiline string)
+    - abilities           # Special abilities or skills (multiline string)
+    - interaction_rules   # Rules for interaction (multiline string)
+    - example_dialogue    # Example conversation snippets (multiline string)
+    - memory_tags         # Tags for memory/emotion (array)
+    - scene              # Scene context (multiline string)
+    - task_mode          # Behavior in task mode (multiline string)
+    - metadata           # Version, author, avatar info (object)
+
+  field_types:
+    name: string
+    role: string
+    description: multiline_string
+    personality: multiline_string
+    background: multiline_string
+    abilities: multiline_string
+    interaction_rules: multiline_string
+    example_dialogue: multiline_string
+    memory_tags: array[string]
+    scene: multiline_string
+    task_mode: multiline_string
+    metadata:
+      version: string
+      created_at: date
+      updated_at: date
+      author: string
+      avatar_color: hex_color
+      tags: array[string]
+
+  placeholders:
+    - "{{user}}"  # Replaced with user's name or character name
+    - "{{char}}"  # Replaced with AI character's name
+    
+  validation_rules:
+    - name: "Name must not be empty"
+    - role: "Role should be descriptive"
+    - description: "Description minimum 50 characters"
+    - personality: "Personality minimum 30 characters"
+    - memory_tags: "At least 1 tag recommended"
+
+  best_practices:
+    - "Use multiline strings (|) for long text"
+    - "Be specific about personality and speaking style"
+    - "Include example_dialogue for consistency"
+    - "Use memory_tags for emotional context"
+    - "Add scene for immersive roleplay"
+    - "Define interaction_rules clearly"
+    - "Test with actual conversations"
+    
+  examples:
+    - "See agents/lycus.yaml for default persona"
+    - "See agents/catherine.yaml for romantic AI example"
+    - "See users/default_user.yaml for user character example"

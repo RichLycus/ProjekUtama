@@ -735,6 +735,20 @@ games/
    - ❌ Incomplete phase documentation
    - ❌ **Hardcode paths in examples** (use relative paths in docs!)
 
+6. **Backend Dependencies (CRITICAL)** 🚨 **NEW**
+   - ❌ **DILARANG KERAS**: Install pip packages tanpa konfirmasi user
+   - ❌ **DILARANG KERAS**: `pip install` tanpa izin explicit
+   - ❌ Auto-install dependencies di production code
+   - ✅ **WAJIB**: Tanyakan user dulu sebelum install apapun
+   - ✅ **BENAR**: Update requirements.txt dengan konfirmasi
+   - ✅ Contoh yang benar:
+     ```
+     User: "Saya mau tambah fitur X"
+     Agent: "Untuk fitur ini butuh library Y. Boleh saya install via pip?"
+     User: "Oke boleh"
+     Agent: pip install Y && pip freeze > requirements.txt
+     ```
+
 ---
 
 ## ✅ **RULE #9: Before Every Commit**

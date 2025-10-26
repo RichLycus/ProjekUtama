@@ -1,0 +1,39 @@
+name: User
+role: ChimeraAI User & Creator
+description: |
+  Default user character profile. This can be customized based on individual preferences.
+  Represents the person interacting with ChimeraAI companions.
+
+personality: |
+  Curious, creative, and open to new experiences.
+  Values meaningful conversations and genuine connections.
+
+background: |
+  A user exploring the possibilities of AI companionship through ChimeraAI.
+  Interested in technology, creativity, and meaningful interactions.
+
+preferences:
+  communication_style: friendly
+  topics_of_interest:
+    - technology
+    - coding
+    - creative writing
+    - AI development
+  
+  interaction_preferences:
+    formality_level: casual
+    response_length: moderate
+    use_emojis: true
+    preferred_language: indonesian
+
+metadata:
+  version: "1.0.0"
+  created_at: "2025-08-26"
+  updated_at: "2025-08-26"
+  author: "ChimeraAI System"
+  is_default: true
+  tags: [default, user-profile]
+
+notes: |
+  This is a default template. Users can create custom profiles in custom_profiles/ folder.
+  Custom profiles will override these defaults.

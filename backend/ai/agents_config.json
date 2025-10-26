@@ -1,0 +1,315 @@
+{
+  "agents": {
+    "preprocessor": {
+      "name": "Text Preprocessor",
+      "description": "Normalize and clean user input text",
+      "icon": "🔧",
+      "config_schema": {
+        "normalize_whitespace": {
+          "type": "boolean",
+          "label": "Normalize Whitespace",
+          "description": "Remove extra spaces and normalize line breaks",
+          "default": true
+        },
+        "max_length": {
+          "type": "number",
+          "label": "Max Length",
+          "description": "Maximum text length (characters)",
+          "default": 1000,
+          "min": 100,
+          "max": 10000,
+          "step": 100
+        },
+        "remove_emojis": {
+          "type": "boolean",
+          "label": "Remove Emojis",
+          "description": "Remove emoji characters from text",
+          "default": false
+        }
+      }
+    },
+    "llm_agent": {
+      "name": "LLM Generator",
+      "description": "Generate responses using Language Model",
+      "icon": "🤖",
+      "config_schema": {
+        "model": {
+          "type": "dropdown",
+          "label": "Model",
+          "description": "Ollama model to use for generation",
+          "default": "gemma2:2b",
+          "source": "ollama_list",
+          "options": [
+            "gemma2:2b",
+            "qwen2.5:7b",
+            "mistral:7b",
+            "llama3.2:3b",
+            "deepseek-r1:7b"
+          ]
+        },
+        "temperature": {
+          "type": "slider",
+          "label": "Temperature",
+          "description": "Controls randomness (0=focused, 2=creative)",
+          "default": 0.7,
+          "min": 0.0,
+          "max": 2.0,
+          "step": 0.1
+        },
+        "max_tokens": {
+          "type": "number",
+          "label": "Max Tokens",
+          "description": "Maximum response length",
+          "default": 2000,
+          "min": 100,
+          "max": 8000,
+          "step": 100
+        },
+        "top_p": {
+          "type": "slider",
+          "label": "Top P",
+          "description": "Nucleus sampling threshold",
+          "default": 0.9,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.05
+        },
+        "stream": {
+          "type": "boolean",
+          "label": "Stream Response",
+          "description": "Stream response token by token",
+          "default": false
+        }
+      }
+    },
+    "persona": {
+      "name": "Persona Formatter",
+      "description": "Apply persona-specific formatting and style",
+      "icon": "🎭",
+      "config_schema": {
+        "persona": {
+          "type": "dropdown",
+          "label": "Persona",
+          "description": "Persona character to apply",
+          "default": "lycus",
+          "source": "persona_list",
+          "options": [
+            "lycus",
+            "aria",
+            "default"
+          ]
+        },
+        "format": {
+          "type": "dropdown",
+          "label": "Output Format",
+          "description": "Response format type",
+          "default": "text",
+          "options": [
+            "text",
+            "markdown",
+            "json"
+          ]
+        },
+        "include_metadata": {
+          "type": "boolean",
+          "label": "Include Metadata",
+          "description": "Add metadata to response",
+          "default": false
+        },
+        "apply_style": {
+          "type": "boolean",
+          "label": "Apply Style",
+          "description": "Apply persona-specific writing style",
+          "default": true
+        }
+      }
+    },
+    "router": {
+      "name": "Smart Router",
+      "description": "Classify intent and route to appropriate flow",
+      "icon": "🚦",
+      "config_schema": {
+        "enable_intent_classification": {
+          "type": "boolean",
+          "label": "Enable Intent Classification",
+          "description": "Classify user intent before routing",
+          "default": true
+        },
+        "enable_complexity_analysis": {
+          "type": "boolean",
+          "label": "Enable Complexity Analysis",
+          "description": "Analyze query complexity",
+          "default": true
+        },
+        "enable_context_scoring": {
+          "type": "boolean",
+          "label": "Enable Context Scoring",
+          "description": "Score context relevance",
+          "default": true
+        }
+      }
+    },
+    "rag": {
+      "name": "RAG Retriever",
+      "description": "Retrieve relevant context from knowledge base",
+      "icon": "📚",
+      "config_schema": {
+        "collections": {
+          "type": "multiselect",
+          "label": "Collections",
+          "description": "Knowledge base collections to search",
+          "default": ["tools", "docs"],
+          "options": [
+            "tools",
+            "docs",
+            "conversations",
+            "chimepedia"
+          ]
+        },
+        "top_k": {
+          "type": "number",
+          "label": "Top K Results",
+          "description": "Number of results to retrieve",
+          "default": 5,
+          "min": 1,
+          "max": 20,
+          "step": 1
+        },
+        "min_score": {
+          "type": "slider",
+          "label": "Min Score",
+          "description": "Minimum relevance score (0-1)",
+          "default": 0.5,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.05
+        },
+        "embedding_model": {
+          "type": "dropdown",
+          "label": "Embedding Model",
+          "description": "Model for text embeddings",
+          "default": "all-MiniLM-L6-v2",
+          "options": [
+            "all-MiniLM-L6-v2",
+            "all-mpnet-base-v2",
+            "bge-base-en-v1.5",
+            "nomic-embed-text-v1.5",
+            "paraphrase-multilingual-MiniLM-L12-v2"
+          ]
+        }
+      }
+    },
+    "cache_lookup": {
+      "name": "Cache Lookup",
+      "description": "Check cache for previously generated responses",
+      "icon": "💾",
+      "config_schema": {
+        "enable_cache": {
+          "type": "boolean",
+          "label": "Enable Cache",
+          "description": "Use cache for lookups",
+          "default": true
+        },
+        "ttl": {
+          "type": "number",
+          "label": "TTL (seconds)",
+          "description": "Cache time-to-live",
+          "default": 900,
+          "min": 60,
+          "max": 3600,
+          "step": 60
+        }
+      }
+    },
+    "cache_store": {
+      "name": "Cache Store",
+      "description": "Store generated responses in cache",
+      "icon": "💾",
+      "config_schema": {
+        "enable_cache": {
+          "type": "boolean",
+          "label": "Enable Cache",
+          "description": "Store responses in cache",
+          "default": true
+        },
+        "ttl": {
+          "type": "number",
+          "label": "TTL (seconds)",
+          "description": "Cache time-to-live",
+          "default": 900,
+          "min": 60,
+          "max": 3600,
+          "step": 60
+        }
+      }
+    },
+    "execution": {
+      "name": "Tool Execution",
+      "description": "Check and execute tool/function calls",
+      "icon": "⚙️",
+      "config_schema": {
+        "enable_tools": {
+          "type": "boolean",
+          "label": "Enable Tools",
+          "description": "Allow tool execution",
+          "default": true
+        },
+        "max_iterations": {
+          "type": "number",
+          "label": "Max Iterations",
+          "description": "Maximum tool execution iterations",
+          "default": 5,
+          "min": 1,
+          "max": 10,
+          "step": 1
+        },
+        "timeout": {
+          "type": "number",
+          "label": "Timeout (seconds)",
+          "description": "Tool execution timeout",
+          "default": 30,
+          "min": 5,
+          "max": 120,
+          "step": 5
+        }
+      }
+    },
+    "formatter": {
+      "name": "Output Formatter",
+      "description": "Format and structure final output",
+      "icon": "✨",
+      "config_schema": {
+        "format": {
+          "type": "dropdown",
+          "label": "Output Format",
+          "description": "Format type for output",
+          "default": "text",
+          "options": [
+            "text",
+            "markdown",
+            "json",
+            "html"
+          ]
+        },
+        "include_metadata": {
+          "type": "boolean",
+          "label": "Include Metadata",
+          "description": "Add metadata to output",
+          "default": false
+        },
+        "pretty_print": {
+          "type": "boolean",
+          "label": "Pretty Print",
+          "description": "Format output for readability",
+          "default": true
+        }
+      }
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "created_at": "2025-08-26",
+    "updated_at": "2025-08-26",
+    "description": "Agent configuration schema for ChimeraAI Flow Editor"
+  }
+}

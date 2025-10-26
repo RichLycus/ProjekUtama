@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Save, AlertCircle, CheckCircle } from 'lucide-react';
 import { BACKEND_URL } from '../lib/backend';
+import AgentConfigForm from '../components/rag-studio/editor/AgentConfigForm';
 
 interface FlowStep {
   id: string;
@@ -450,119 +451,12 @@ export default function FlowConfigEditorPage() {
                     Agent Configuration
                   </label>
                   
-                  {/* LLM Agent Config */}
-                  {selectedStep.agent === 'llm_agent' && (
-                    <div className="space-y-4 bg-white p-4 rounded-lg border border-gray-200">
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Model</label>
-                        <input
-                          type="text"
-                          value={selectedStep.config.model || 'gemma2:2b'}
-                          onChange={(e) => updateStepConfig(selectedStepIndex!, 'model', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          placeholder="gemma2:2b"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Temperature</label>
-                        <input
-                          type="number"
-                          value={selectedStep.config.temperature || 0.7}
-                          onChange={(e) => updateStepConfig(selectedStepIndex!, 'temperature', parseFloat(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          step="0.1"
-                          min="0"
-                          max="2"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Max Tokens</label>
-                        <input
-                          type="number"
-                          value={selectedStep.config.max_tokens || 2000}
-                          onChange={(e) => updateStepConfig(selectedStepIndex!, 'max_tokens', parseInt(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          min="100"
-                          max="8000"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Persona Agent Config */}
-                  {selectedStep.agent === 'persona' && (
-                    <div className="space-y-4 bg-white p-4 rounded-lg border border-gray-200">
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Persona</label>
-                        <input
-                          type="text"
-                          value={selectedStep.config.persona || 'lycus'}
-                          onChange={(e) => updateStepConfig(selectedStepIndex!, 'persona', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Format</label>
-                        <select
-                          value={selectedStep.config.format || 'text'}
-                          onChange={(e) => updateStepConfig(selectedStepIndex!, 'format', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                        >
-                          <option value="text">Text</option>
-                          <option value="markdown">Markdown</option>
-                          <option value="json">JSON</option>
-                        </select>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="include_metadata"
-                          checked={selectedStep.config.include_metadata || false}
-                          onChange={(e) => updateStepConfig(selectedStepIndex!, 'include_metadata', e.target.checked)}
-                          className="w-4 h-4 text-blue-600"
-                        />
-                        <label htmlFor="include_metadata" className="text-xs text-gray-600">
-                          Include Metadata
-                        </label>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Preprocessor Config */}
-                  {selectedStep.agent === 'preprocessor' && (
-                    <div className="space-y-4 bg-white p-4 rounded-lg border border-gray-200">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="normalize_whitespace"
-                          checked={selectedStep.config.normalize_whitespace !== false}
-                          onChange={(e) => updateStepConfig(selectedStepIndex!, 'normalize_whitespace', e.target.checked)}
-                          className="w-4 h-4 text-blue-600"
-                        />
-                        <label htmlFor="normalize_whitespace" className="text-xs text-gray-600">
-                          Normalize Whitespace
-                        </label>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Max Length</label>
-                        <input
-                          type="number"
-                          value={selectedStep.config.max_length || 1000}
-                          onChange={(e) => updateStepConfig(selectedStepIndex!, 'max_length', parseInt(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                          min="100"
-                          max="10000"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Generic config for other agents */}
-                  {!['llm_agent', 'persona', 'preprocessor'].includes(selectedStep.agent) && (
-                    <div className="text-sm text-gray-500 bg-white p-4 rounded-lg border border-gray-200">
-                      No specific configuration needed for this agent
-                    </div>
-                  )}
+                  {/* Use modern AgentConfigForm component */}
+                  <AgentConfigForm
+                    agentType={selectedStep.agent}
+                    config={selectedStep.config}
+                    onChange={(key, value) => updateStepConfig(selectedStepIndex!, key, value)}
+                  />
                 </div>
 
                 {/* Raw JSON View */}

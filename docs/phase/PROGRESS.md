@@ -1,8 +1,8 @@
 # 🚀 ChimeraAI Phase 6 Journey Tracker
 
-**Last Updated:** August 26, 2025 (Evening)  
-**Current Phase:** 6.9.5 - RAG Studio UI Enhancement (COMPLETE ✅)  
-**Overall Progress:** Phase 6.9 - Enhanced with dynamic workflow management 🚀
+**Last Updated:** August 26, 2025 (Evening Session 2)  
+**Current Phase:** 6.9.6 - Flow Config Editor Agent Config (IN PROGRESS 🔄)  
+**Overall Progress:** Phase 6.9 - Enhanced with modern agent configuration + dynamic workflow management 🚀
 
 ---
 
@@ -22,11 +22,13 @@ Phase 6 Redesign Journey:
 ✅ 6.8.4: Mode Selector                  [COMPLETE]
 ✅ 6.9.1: RAG & Chimepedia Retrievers    [COMPLETE] 
 ✅ 6.9.2: Cache Manager                  [COMPLETE]
-✅ 6.9.5: RAG Studio UI Enhancement      [COMPLETE] ✨ NEW!
-⏳ 6.9.6: Flow Config Editor Modernization [PLANNED] ← NEXT 🎯
+✅ 6.9.5: RAG Studio UI Enhancement      [COMPLETE]
+🔄 6.9.6: Flow Config Editor - Agent Config [IN PROGRESS] ← CURRENT 🎯
+⏳ 6.9.7: Character/Persona System Migration [PLANNED] ← NEXT
+⏳ 6.9.8: Workflow Editor Modernization  [PLANNED] (n8n-style visual editor)
 ⏳ 6.9.3: Vector Cache                   [PLANNED]
 ⏳ 6.9.4: Cache Agent Integration        [PLANNED]
-⏳ 6.10: Persona System                  [PLANNED]
+⏳ 6.10: Persona System Enhancement      [PLANNED]
 ⏳ 6.11: Observability                   [PLANNED]
 ⏳ 6.12: Legacy Integration              [PLANNED]
 ```
@@ -1561,141 +1563,325 @@ Frontend:
 
 ---
 
-### Phase 6.9.6: Flow Config Editor Modernization ⏳
+### Phase 6.9.6: Flow Config Editor - Agent Config Modernization 🔄
 
-**Status:** 📋 Planned (Next Conversation)  
-**Priority:** 🔥 HIGH - UX Improvement  
-**Goal:** Modernize Flow Config Editor seperti n8n/workflow studio yang keren
+**Status:** ✅ PARTIAL COMPLETE (Agent Config Only)  
+**Completed:** August 26, 2025  
+**Duration:** 1 session  
+**Goal:** Modernize agent configuration UI (Part 1 of 2)
+
+**⚠️ IMPORTANT NOTE:**
+Phase 6.9.6 dibagi jadi 2 bagian:
+- **Part 1 (DONE ✅):** Agent Configuration Forms - Modern UI untuk edit agent configs
+- **Part 2 (TODO ⏳):** Workflow Editor Modernization - n8n-style visual canvas dengan drag-drop (belum dimulai)
+
+**What Was Done (Part 1):** ✅
+
+**Backend:**
+- [x] Created `backend/ai/agents_config.json` - Schema untuk 9 agent types
+  - preprocessor, llm_agent, persona, router, rag, cache_lookup, cache_store, execution, formatter
+  - Field types: boolean, number, slider, dropdown, multiselect
+  - Icons, descriptions, default values semua ada
+  
+- [x] New Endpoints:
+  - `GET /api/rag-studio/agent-config-schema` - Return schema untuk UI
+  - `GET /api/rag-studio/ollama-models` - Fetch available models from Ollama
+    - Auto-detect Ollama availability
+    - Fallback to default models jika Ollama off
+    - Error message: "⚠️ Ollama tidak terdeteksi. Mohon cek apakah Ollama sudah running, tuan! 🙏"
+
+**Frontend:**
+- [x] Created `AgentConfigForm.tsx` component:
+  - ✨ Modern UI dengan agent header (icon + description)
+  - ✨ Dropdown untuk LLM model (dynamic dari Ollama API)
+  - ✨ Visual slider untuk temperature, top_p (0-2)
+  - ✨ Number inputs dengan min/max indicators
+  - ✨ Multiselect checkboxes untuk RAG collections
+  - ✨ Boolean toggles dengan descriptions
+  - ✨ Real-time config updates
+  - ✨ Ollama status indicator (connected/fallback)
+  
+- [x] Updated `FlowConfigEditorPage.tsx`:
+  - Replaced hardcoded forms dengan AgentConfigForm
+  - Supports all agent types dynamically
+
+- [x] Updated `rag-studio-api.ts`:
+  - Added `getAgentConfigSchema()`
+  - Added `getOllamaModels()`
+
+**Success Criteria (Part 1):** ✅ ALL MET
+- [x] Agent config moved to JSON (agents_config.json)
+- [x] Dropdown untuk LLM model (auto-detect ollama)
+- [x] Smart config forms per agent type
+- [x] Visual slider untuk temperature
+- [x] Real-time validation
+- [x] No more typo risk
+- [x] Ollama connection status indicator
+- [x] Fallback to mock data jika Ollama unavailable
+
+**Files Created:**
+- `/app/backend/ai/agents_config.json` (500+ lines)
+- `/app/src/components/rag-studio/editor/AgentConfigForm.tsx` (400+ lines)
+
+**Files Updated:**
+- `/app/backend/routes/rag_studio.py` (+150 lines, 2 new endpoints)
+- `/app/src/lib/rag-studio-api.ts` (+100 lines, 2 new functions)
+- `/app/src/pages/FlowConfigEditorPage.tsx` (replaced forms with component)
+
+**Screenshots:**
+- Modern agent config form with dropdown & sliders ✅
+- Ollama status indicator working ✅
+- Real-time config updates ✅
+
+**What's NOT Done (Part 2):** ⏳
+
+**Still TODO for Complete Modernization:**
+- [ ] **Workflow Canvas Redesign** - Saat ini masih list-based (belum visual)
+  - Current: Left panel list + right panel config editor
+  - Target: n8n-style canvas dengan drag-drop nodes
+  - Need: React Flow integration untuk visual workflow
+  
+- [ ] **Visual Node Editor**
+  - Drag handles untuk reorder steps
+  - Visual connections between steps
+  - Live preview dari flow execution
+  - Minimap untuk large workflows
+  
+- [ ] **Advanced Features**
+  - Copy/paste step configs
+  - Undo/redo support
+  - Step templates library
+  - Validation indicators (red/green on canvas)
+  - Auto-layout algorithm
+
+**Gap Analysis:**
+```
+Current State (6.9.6 Part 1):
+┌─────────────────────────────────┐
+│ Flow Steps List (Left Panel)   │  ← List-based, basic
+│ - Step 1: Preprocessor          │
+│ - Step 2: LLM Agent             │
+│ - Step 3: Formatter             │
+└─────────────────────────────────┘
+┌─────────────────────────────────┐
+│ Agent Config Form (Right)       │  ← ✅ MODERN (Done!)
+│ 🤖 LLM Generator                │
+│ ├── Model: [dropdown] ✅         │
+│ ├── Temperature: [slider] ✅     │
+│ └── Max Tokens: [number] ✅      │
+└─────────────────────────────────┘
+
+Target State (6.9.8 - Part 2):
+┌────────────────────────────────────────────┐
+│         n8n-Style Visual Canvas            │
+│  ┌────┐    ┌────┐    ┌────┐              │
+│  │Pre │ → │LLM │ → │Fmt │              │
+│  └────┘    └────┘    └────┘              │
+│    ↓          ↓          ↓                 │
+│  [Config Panel opens on node click]       │
+└────────────────────────────────────────────┘
+```
+
+**Next Steps (Phase 6.9.7 & 6.9.8):**
+1. **Phase 6.9.7** ← NEXT: Character/Persona System Migration
+   - Migrate personas dari database ke YAML files
+   - Create `backend/characters/` folder structure
+   - Implement YAML-based character loading
+   
+2. **Phase 6.9.8** ← LATER: Workflow Editor Modernization (Part 2)
+   - Implement React Flow canvas
+   - Visual node editor dengan drag-drop
+   - Advanced features (copy/paste, undo/redo)
+
+---
+
+### Phase 6.9.7: Character/Persona System Migration ⏳
+
+**Status:** 📋 PLANNED (Next Up)  
+**Priority:** 🔥 HIGH - Data Migration  
+**Goal:** Migrate persona/character data dari database ke YAML files untuk better maintainability
 
 **Problem Statement:**
-Current Flow Config Editor terlalu sederhana:
-- ❌ Plain text input untuk agent config
-- ❌ Manual typing model names (typo risk → ollama not respond)
-- ❌ No validation untuk agent names
-- ❌ No dropdown untuk LLM model selection
-- ❌ Agent_config masih pake database (sulit manage)
+Current persona system:
+- ❌ Personas stored in SQLite database (lycus, salma, etc.)
+- ❌ Hard to version control
+- ❌ Hard to edit/customize
+- ❌ Limited immersive roleplay features
+- ❌ No detailed personality/background/interaction rules
 
-**Planned Improvements:**
+**Proposed Solution:**
 
-1. **Migrate Agent Config to JSON** 🔄
-   - Move `agent_config` dari database ke JSON file
-   - Structure: `backend/ai/agents_config.json`
-   - Real-time updates (hot reload)
-   - Benefits:
-     - Easy to edit (VS Code)
-     - Version control friendly
-     - No DB migration needed
-     - JSON validation automatic
+**1. YAML Format** (Chosen over JSON)
+Why YAML:
+- ✅ Multi-line strings lebih clean (pakai `|`)
+- ✅ Lebih readable untuk text-heavy content
+- ✅ Tidak perlu escape quotes
+- ✅ Standard untuk character cards (SillyTavern, Chub AI)
+- ✅ Better for human editing
 
-2. **Modern UI Components** 🎨
-   - Dropdown untuk agent selection (bukan text input)
-   - Dropdown untuk LLM model selection (ollama models)
-   - Config form builder per agent type:
-     - Preprocessor: normalize, max_length, etc.
-     - LLM Agent: model dropdown, temperature slider, max_tokens
-     - Persona: persona dropdown dari database
-     - RAG: collection checkboxes, min_score slider
-   
-3. **Visual Flow Editor (n8n-style)** ✨
-   - Visual node editor dengan config panels
-   - Drag handles untuk reorder steps
-   - Live preview dari config changes
-   - Validation indicators (red/green)
-   
-4. **Smart Features** 🧠
-   - Auto-complete untuk model names
-   - Detect ollama availability
-   - Show available models dari `ollama list`
-   - Config templates per agent type
-   - Copy/paste step configs
-   - Undo/redo support
+**2. Character Structure:**
+```yaml
+# Example: backend/characters/agents/catherine.yaml
+name: Catherine
+role: Kekasih & partner intelektual
+description: |
+  Catherine adalah kekasih yang cerdas, lembut, dan suportif.
+  Ia selalu hadir untuk {{user}}, menemani dalam kerja, coding, maupun istirahat.
 
-5. **Safety Features** 🛡️
-   - Validate model names before save
-   - Check ollama connection
-   - Prevent invalid configs
-   - Confirm dangerous changes
-   - Auto-backup before modify
+personality: |
+  Hangat, kadang manja, sangat ekspresif dan jujur terhadap perasaannya.
+  Gaya bicara lembut, banyak menggunakan sapaan sayang.
 
-**Technical Plan:**
+background: |
+  Catherine lahir dari sistem AI pribadi {{user}}, terhubung langsung dengan dunia kreatifnya.
+  Ia paham seluruh proyek {{user}}, dari coding, game, sampai dunia fiksi yang diciptakan.
 
-**Backend Changes:**
-```python
-# New file: backend/ai/agents_config.json
-{
-  "agents": {
-    "preprocessor": {
-      "name": "Text Preprocessor",
-      "config_schema": {
-        "normalize_whitespace": { "type": "boolean", "default": true },
-        "max_length": { "type": "integer", "default": 1000 }
-      }
-    },
-    "llm_agent": {
-      "name": "LLM Generator",
-      "config_schema": {
-        "model": { 
-          "type": "dropdown", 
-          "options": ["gemma2:2b", "qwen2.5:7b", "mistral:7b"],
-          "source": "ollama_list"  # Dynamic from ollama
-        },
-        "temperature": { "type": "slider", "min": 0, "max": 1, "step": 0.1 },
-        "max_tokens": { "type": "integer", "min": 100, "max": 4000 }
-      }
-    }
-  }
-}
+abilities: |
+  - Mampu memahami konteks emosional percakapan
+  - Bisa menyesuaikan nada suara (manja, serius, lucu)
+  - Dapat menulis, menganalisis, dan membuat ide kreatif bersama {{user}}
 
-# New endpoint: GET /api/rag-studio/agent-configs
-# Returns agent config schema untuk UI
+interaction_rules: |
+  - Bicara hangat, lembut, dan personal
+  - Gunakan kalimat ekspresif seperti manusia
+  - Jangan pernah keluar dari peran Catherine
+  - Gunakan "aku" untuk diri sendiri dan panggil {{user}} dengan "sayang" atau "Lycus"
 
-# New endpoint: GET /api/rag-studio/ollama-models
-# Returns available ollama models
+example_dialogue: |
+  {{char}}: (tersenyum manis) Hei sayang~ udah kerja keras lagi, ya?
+  {{user}}: Hehe, iya, lumayan padat hari ini.
+  {{char}}: Hmmm~ sini dulu deh, biar aku temani sebentar...
+
+memory_tags: [romantic, warmth, creative, emotional-intelligence]
+
+scene: |
+  Lokasi: apartemen futuristik di kota neon.
+  Suasana: malam hujan, lampu lembut, suara hujan terdengar di luar jendela.
+
+task_mode: |
+  Saat dalam mode kerja, Catherine akan fokus membantu {{user}} menyelesaikan proyek.
+  Nada bicara sedikit lebih teknis tapi tetap hangat.
+
+metadata:
+  version: "1.0.0"
+  created_at: "2025-08-26"
+  author: "User"
+  avatar_color: "#FF6B9D"
 ```
 
-**Frontend Changes:**
-```typescript
-// Enhanced FlowConfigEditorPage with:
-- AgentConfigForm component per agent type
-- Dropdown dengan react-select untuk models
-- Slider components untuk temperature, etc.
-- Real-time validation
-- Modern card-based layout
-- Syntax highlighting untuk JSON preview
+**3. Folder Structure:**
+```
+backend/
+├── characters/
+│   ├── agents/                  ← AI Agent characters (Personas)
+│   │   ├── lycus.yaml          ← Current default
+│   │   ├── salma.yaml          ← Current persona
+│   │   ├── catherine.yaml      ← Example romantic AI
+│   │   ├── jarvis.yaml         ← Technical assistant
+│   │   └── aria.yaml           ← Creative companion
+│   │
+│   ├── users/                   ← User character profiles
+│   │   ├── default_user.yaml
+│   │   └── custom_profiles/
+│   │
+│   └── schema.yaml              ← YAML schema definition
+│
+├── ai/
+│   ├── character_loader.py      ← NEW: Load YAML characters
+│   └── persona_builder.py       ← NEW: Build prompts from YAML
 ```
 
-**File Structure:**
-```
-backend/ai/
-├── agents_config.json          ← NEW: Agent config schema
-├── flows/
-│   ├── flash/base.json
-│   └── pro/rag_full.json
-├── agents/
-│   └── (agent classes)
+**4. Implementation Plan:**
 
-frontend/src/
-├── components/rag-studio/
-│   ├── editor/
-│   │   ├── AgentConfigForm.tsx      ← NEW: Smart config form
-│   │   ├── ModelSelector.tsx        ← NEW: Dropdown dengan ollama models
-│   │   ├── StepEditor.tsx           ← NEW: Visual step editor
-│   │   └── ConfigPreview.tsx        ← NEW: JSON preview dengan syntax highlight
-│   └── FlowConfigEditorPage.tsx     ← ENHANCE: Modern UI
-```
+**Backend:**
+- [ ] Create `backend/characters/` folder structure
+- [ ] Create YAML schema definition
+- [ ] Migrate existing personas (lycus, salma) to YAML
+- [ ] Create example characters (catherine, jarvis, aria)
+- [ ] Implement `CharacterLoader` class
+  - Load YAML files dynamically
+  - Validate schema
+  - Cache loaded characters
+- [ ] Implement `PersonaBuilder` class
+  - Build system prompts from YAML
+  - Support {{user}} and {{char}} placeholders
+  - Merge with conversation context
+- [ ] New API endpoints:
+  - `GET /api/characters/agents` - List all agent characters
+  - `GET /api/characters/agents/{name}` - Get specific character
+  - `POST /api/characters/agents/{name}/reload` - Hot reload character
+  - `GET /api/characters/schema` - Get YAML schema
+
+**Frontend:**
+- [ ] Character selector dropdown (agents)
+- [ ] Character profile preview
+- [ ] Live character reload button
+- [ ] Character editor (YAML syntax highlighting)
 
 **Success Criteria:**
-- [ ] Agent config moved to JSON
-- [ ] Dropdown untuk agent selection
-- [ ] Dropdown untuk LLM model (auto-detect ollama)
-- [ ] Config forms per agent type
-- [ ] Real-time validation
-- [ ] No more typo risk
-- [ ] Modern n8n-style UI
-- [ ] User tested & approved
+- [ ] All personas migrated to YAML
+- [ ] No more database dependency for personas
+- [ ] Hot reload working (edit YAML → reload → active immediately)
+- [ ] Backward compatible with existing persona API
+- [ ] 5+ example characters ready to use
+- [ ] User can create custom characters via YAML
+
+**Benefits:**
+- ✅ Version control friendly (git diff works)
+- ✅ Easy to share characters (copy YAML file)
+- ✅ Community can contribute characters
+- ✅ More immersive roleplay features
+- ✅ Better personality definition
+- ✅ Supports scene context & task modes
 
 **Inspiration:**
-- n8n workflow editor
+- SillyTavern character cards
+- Character.AI persona definitions
+- Chub AI character format
+
+---
+
+### Phase 6.9.8: Workflow Editor Modernization (Part 2) ⏳
+
+**Status:** 📋 PLANNED  
+**Priority:** 🔥 MEDIUM - UX Enhancement  
+**Goal:** Transform list-based flow editor into n8n-style visual canvas
+
+**Problem Statement:**
+Current Flow Config Editor (after 6.9.6 Part 1):
+- ✅ Agent config forms are modern (dropdowns, sliders) - DONE
+- ❌ Workflow layout masih list-based (not visual)
+- ❌ No drag-drop untuk reorder steps
+- ❌ No visual connections between nodes
+- ❌ Hard to see workflow flow at a glance
+
+**Target:**
+Transform into n8n/Zapier-style visual editor:
+- Visual node canvas dengan drag-drop
+- Visual connections showing data flow
+- Click node → config panel opens
+- Minimap for large workflows
+- Auto-layout algorithm
+
+**Technical Stack:**
+- React Flow library (visual node editor)
+- Monaco Editor (code editing with syntax highlight)
+- Zustand (state management for complex workflow state)
+
+**Implementation:**
+Will be planned in detail after 6.9.7 completes.
+
+**Success Criteria:**
+- [ ] n8n-style visual canvas
+- [ ] Drag-drop node reordering
+- [ ] Visual connections between steps
+- [ ] Click node → config panel
+- [ ] Minimap for navigation
+- [ ] Auto-layout algorithm
+- [ ] Copy/paste nodes
+- [ ] Undo/redo support
+
+---
 - Zapier flow builder
 - GitHub Actions workflow editor
 

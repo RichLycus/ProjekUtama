@@ -1346,3 +1346,132 @@ async def get_available_agents():
     except Exception as e:
         logger.error(f"❌ Failed to get available agents: {str(e)}")
         raise HTTPException(500, f"Failed to get available agents: {str(e)}")
+
+
+@router.get("/api/rag-studio/agent-config-schema")
+async def get_agent_config_schema():
+    """
+    Get agent configuration schema from agents_config.json
+    
+    Returns: Complete schema for all agents with UI field definitions
+    """
+    try:
+        from pathlib import Path
+        import json
+        
+        config_path = Path(__file__).parent.parent / "ai" / "agents_config.json"
+        
+        if not config_path.exists():
+            # Return mock schema if file not found
+            logger.warning("⚠️ agents_config.json not found, returning minimal schema")
+            return {
+                "success": True,
+                "schema": {
+                    "agents": {},
+                    "metadata": {
+                        "version": "1.0.0",
+                        "status": "missing"
+                    }
+                },
+                "message": "Schema file not found - using defaults"
+            }
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            schema = json.load(f)
+        
+        logger.info(f"✅ Loaded agent config schema: {len(schema.get('agents', {}))} agents")
+        
+        return {
+            "success": True,
+            "schema": schema
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to load agent config schema: {str(e)}")
+        # Return minimal schema on error
+        return {
+            "success": False,
+            "schema": {
+                "agents": {},
+                "metadata": {
+                    "version": "1.0.0",
+                    "status": "error",
+                    "error": str(e)
+                }
+            },
+            "message": f"Error loading schema: {str(e)}"
+        }
+
+
+@router.get("/api/rag-studio/ollama-models")
+async def get_ollama_models():
+    """
+    Fetch available models from Ollama
+    
+    Returns: List of installed Ollama models with metadata
+    """
+    try:
+        import httpx
+        
+        # Try to connect to Ollama API
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get("http://localhost:11434/api/tags")
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    models = data.get("models", [])
+                    
+                    # Format model list
+                    model_list = [
+                        {
+                            "name": model.get("name", ""),
+                            "size": model.get("size", 0),
+                            "modified_at": model.get("modified_at", ""),
+                            "details": model.get("details", {})
+                        }
+                        for model in models
+                    ]
+                    
+                    logger.info(f"✅ Found {len(model_list)} Ollama models")
+                    
+                    return {
+                        "success": True,
+                        "models": model_list,
+                        "count": len(model_list),
+                        "status": "available"
+                    }
+                else:
+                    raise Exception(f"Ollama API returned status {response.status_code}")
+                    
+        except (httpx.ConnectError, httpx.TimeoutException) as e:
+            # Ollama not running or not accessible
+            logger.warning("⚠️ Ollama not available, returning default models")
+            
+            # Return default/fallback models
+            default_models = [
+                {"name": "gemma2:2b", "size": 0, "status": "not_verified"},
+                {"name": "qwen2.5:7b", "size": 0, "status": "not_verified"},
+                {"name": "mistral:7b", "size": 0, "status": "not_verified"},
+                {"name": "llama3.2:3b", "size": 0, "status": "not_verified"},
+                {"name": "deepseek-r1:7b", "size": 0, "status": "not_verified"}
+            ]
+            
+            return {
+                "success": True,
+                "models": default_models,
+                "count": len(default_models),
+                "status": "fallback",
+                "message": "⚠️ Ollama tidak terdeteksi. Model default ditampilkan. Mohon cek apakah Ollama sudah running, tuan! 🙏"
+            }
+            
+    except Exception as e:
+        logger.error(f"❌ Failed to fetch Ollama models: {str(e)}")
+        
+        # Return error with helpful message
+        return {
+            "success": False,
+            "models": [],
+            "count": 0,
+            "status": "error",
+            "message": f"❌ Error: {str(e)}. Mohon cek koneksi Ollama, tuan! 🙏"
+        }

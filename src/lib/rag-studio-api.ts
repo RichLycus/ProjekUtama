@@ -605,3 +605,86 @@ export async function refreshBackend(): Promise<{ success: boolean; message?: st
   }
 }
 
+// ============================================
+// AGENT CONFIG API (Phase 6.9.6)
+// ============================================
+
+export interface AgentConfigSchema {
+  agents: Record<string, {
+    name: string
+    description: string
+    icon: string
+    config_schema: Record<string, any>
+  }>
+  metadata: {
+    version: string
+    created_at: string
+    updated_at: string
+    description: string
+    status?: string
+    error?: string
+  }
+}
+
+export interface OllamaModel {
+  name: string
+  size: number
+  modified_at?: string
+  details?: Record<string, any>
+  status?: string
+}
+
+/**
+ * Get agent configuration schema
+ */
+export async function getAgentConfigSchema(): Promise<{ success: boolean; schema?: AgentConfigSchema; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/agent-config-schema`)
+    const data = await response.json()
+    
+    if (!response.ok && !data.schema) {
+      return { success: false, error: data.message || 'Failed to fetch agent config schema' }
+    }
+    
+    return { 
+      success: data.success, 
+      schema: data.schema,
+      message: data.message 
+    }
+  } catch (error) {
+    console.error('Failed to fetch agent config schema:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Get available Ollama models
+ */
+export async function getOllamaModels(): Promise<{ 
+  success: boolean; 
+  models?: OllamaModel[]; 
+  status?: string;
+  message?: string; 
+  error?: string 
+}> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/ollama-models`)
+    const data = await response.json()
+    
+    // Even if status is "fallback", it's still a success (just with warning)
+    return { 
+      success: data.success !== false,
+      models: data.models || [],
+      status: data.status,
+      message: data.message
+    }
+  } catch (error) {
+    console.error('Failed to fetch Ollama models:', error)
+    return { 
+      success: false, 
+      models: [],
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }
+  }
+}
+
