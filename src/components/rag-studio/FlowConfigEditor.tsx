@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, ChevronUp, ChevronDown, Save, AlertCircle, CheckCircle } from 'lucide-react';
+import { BACKEND_URL } from '../../lib/backend';
 
 interface FlowStep {
   id: string;
@@ -55,7 +56,7 @@ const FlowConfigEditor: React.FC<FlowConfigEditorProps> = ({ mode, onClose, onSa
   const loadFlowConfig = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/rag-studio/flow-configs/${mode}`);
+      const response = await fetch(`${BACKEND_URL}/api/rag-studio/flow-configs/${mode}`);
       const data = await response.json();
       
       if (data.success) {
@@ -72,7 +73,7 @@ const FlowConfigEditor: React.FC<FlowConfigEditorProps> = ({ mode, onClose, onSa
 
   const loadAvailableAgents = async () => {
     try {
-      const response = await fetch('/api/rag-studio/available-agents');
+      const response = await fetch(`${BACKEND_URL}/api/rag-studio/available-agents`);
       const data = await response.json();
       
       if (data.success) {
@@ -91,7 +92,7 @@ const FlowConfigEditor: React.FC<FlowConfigEditorProps> = ({ mode, onClose, onSa
       setError(null);
       setSuccess(null);
 
-      const response = await fetch(`/api/rag-studio/flow-configs/${mode}`, {
+      const response = await fetch(`${BACKEND_URL}/api/rag-studio/flow-configs/${mode}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -283,6 +283,157 @@ Sebelum mulai development di container:
 □ Port 3000 accessible
 ```
 
+### **🚨 CRITICAL: Frontend Directory & Supervisor Config**
+
+**⚠️ COMMON MISTAKE - Frontend Directory:**
+
+```bash
+❌ SALAH: /app/frontend
+✅ BENAR: /app
+
+# Ini Electron app, struktur foldernya:
+/app/
+├── src/                  ← Frontend source code (React + TypeScript)
+├── public/               ← Static assets
+├── electron/             ← Electron main process
+├── backend/              ← FastAPI backend
+├── package.json          ← Frontend dependencies
+├── vite.config.ts        ← Electron mode config
+├── vite.config.web.ts    ← Web mode config ⭐
+└── start_web.sh          ← Startup script
+```
+
+**⚠️ CRITICAL: Correct Supervisor Config**
+
+**File**: `/etc/supervisor/conf.d/supervisord.conf`
+
+**Frontend Section - MUST BE:**
+```ini
+[program:frontend]
+command=npx vite --config vite.config.web.ts --host 0.0.0.0 --port 3000
+environment=HOST="0.0.0.0",PORT="3000"
+directory=/app                    ← MUST be /app (NOT /app/frontend!)
+autostart=true
+autorestart=true
+stdout_logfile=/var/log/supervisor/frontend.out.log
+stderr_logfile=/var/log/supervisor/frontend.err.log
+```
+
+**Backend Section - Reference:**
+```ini
+[program:backend]
+command=/root/.venv/bin/uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+directory=/app/backend            ← Backend IS in /app/backend
+autostart=true
+autorestart=true
+stdout_logfile=/var/log/supervisor/backend.out.log
+stderr_logfile=/var/log/supervisor/backend.err.log
+```
+
+**🔄 After Config Change:**
+```bash
+# Reload supervisor config
+sudo supervisorctl reread
+sudo supervisorctl update
+
+# Restart frontend
+sudo supervisorctl restart frontend
+
+# Check status
+sudo supervisorctl status
+```
+
+### **🐛 Troubleshooting Frontend Issues**
+
+**Issue: "couldn't chdir to /app/frontend: ENOENT"**
+```bash
+# Cause: Wrong directory in supervisor config
+# Fix: Change directory=/app/frontend → directory=/app
+
+# Steps:
+1. Edit /etc/supervisor/conf.d/supervisord.conf
+2. Change [program:frontend] directory to /app
+3. sudo supervisorctl reread && sudo supervisorctl update
+4. sudo supervisorctl restart frontend
+```
+
+**Issue: "Cannot find package 'vite'"**
+```bash
+# Cause: Dependencies not installed
+# Fix: Install dependencies
+
+cd /app
+yarn install
+sudo supervisorctl restart frontend
+```
+
+**Issue: "Failed to load config from vite.config.web.ts"**
+```bash
+# Cause 1: Wrong directory (not in /app)
+# Cause 2: Missing dependencies
+
+# Fix:
+cd /app
+yarn install
+sudo supervisorctl restart frontend
+```
+
+**Issue: Frontend API calls return HTML instead of JSON**
+```bash
+# Cause: Not using BACKEND_URL in fetch calls
+# Fix: Always import and use BACKEND_URL
+
+# ❌ SALAH:
+fetch('/api/endpoint')
+
+# ✅ BENAR:
+import { BACKEND_URL } from '@/lib/backend'
+fetch(`${BACKEND_URL}/api/endpoint`)
+```
+
+### **📝 Frontend Development Best Practices**
+
+**1. Always Use BACKEND_URL:**
+```typescript
+// Import BACKEND_URL
+import { BACKEND_URL } from '@/lib/backend'
+
+// Use in fetch calls
+const response = await fetch(`${BACKEND_URL}/api/rag-studio/workflows`)
+```
+
+**2. Check Backend First:**
+```bash
+# Before debugging frontend, verify backend is running
+sudo supervisorctl status backend
+curl http://localhost:8001/health
+
+# Check backend logs if not working
+tail -f /var/log/supervisor/backend.err.log
+```
+
+**3. Frontend Hot Reload:**
+```bash
+# Vite has hot reload enabled
+# Only restart when:
+- Installing new dependencies (yarn add package)
+- Changing .env file
+- Changing vite.config.web.ts
+
+# Otherwise, just save file and it auto-reloads!
+```
+
+**4. Dependencies Management:**
+```bash
+# Use yarn (NOT npm!)
+✅ yarn add package-name
+✅ yarn install
+❌ npm install package-name  # DON'T use npm!
+
+# After adding dependency:
+sudo supervisorctl restart frontend
+```
+
 ---
 
 ## 🗂️ **RULE #1: File Organization (WAJIB)**
