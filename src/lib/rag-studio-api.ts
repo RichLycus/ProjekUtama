@@ -521,3 +521,87 @@ export async function getUserCharacters(): Promise<{ success: boolean; character
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
+
+
+// ============================================
+// FLOW CONFIG API
+// ============================================
+
+export interface FlowInfo {
+  id: string
+  name: string
+  description: string
+  category: string
+  version: string
+  file_path: string
+  step_count: number
+}
+
+/**
+ * Get available flows from backend (scans flows directory)
+ */
+export async function getAvailableFlows(): Promise<{ success: boolean; flows?: FlowInfo[]; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/available-flows`)
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to fetch available flows' }
+    }
+    
+    return { success: true, flows: data.flows || [] }
+  } catch (error) {
+    console.error('Failed to fetch available flows:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Get detailed flow config
+ */
+export async function getFlowConfig(category: string, flowName: string): Promise<{ success: boolean; flow_config?: any; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/flow-config/${category}/${flowName}`)
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to fetch flow config' }
+    }
+    
+    return { success: true, flow_config: data.flow_config }
+  } catch (error) {
+    console.error('Failed to fetch flow config:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Refresh backend - reload all flow configs from disk
+ */
+export async function refreshBackend(): Promise<{ success: boolean; message?: string; refreshed?: any[]; errors?: string[]; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/rag-studio/refresh-backend`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    const data = await response.json()
+    
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to refresh backend' }
+    }
+    
+    return { 
+      success: true, 
+      message: data.message,
+      refreshed: data.refreshed,
+      errors: data.errors
+    }
+  } catch (error) {
+    console.error('Failed to refresh backend:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+

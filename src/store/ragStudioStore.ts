@@ -1,12 +1,14 @@
 import { create } from 'zustand'
-import { Workflow, getWorkflows, getWorkflow, batchUpdatePositions, deleteConnection, getAllWorkflows, createWorkflow, deleteWorkflow, updateNode } from '@/lib/rag-studio-api'
+import { Workflow, getWorkflows, getWorkflow, batchUpdatePositions, deleteConnection, getAllWorkflows, createWorkflow, deleteWorkflow, updateNode, getAvailableFlows, getFlowConfig, type FlowInfo } from '@/lib/rag-studio-api'
 import toast from 'react-hot-toast'
 
 interface RAGStudioStore {
   // State
   workflows: Record<string, Workflow>
   allWorkflows: Workflow[]
+  availableFlows: FlowInfo[]  // NEW: Available flows from flows/ directory
   currentWorkflow: Workflow | null
+  currentFlowConfig: any | null  // NEW: Current flow config from JSON
   loading: boolean
   error: string | null
   hasUnsavedChanges: boolean
@@ -14,8 +16,10 @@ interface RAGStudioStore {
   // Actions
   loadWorkflows: () => Promise<void>
   loadAllWorkflows: () => Promise<void>
+  loadAvailableFlows: () => Promise<void>  // NEW: Load flows from flows/ directory
   loadWorkflow: (mode: 'flash' | 'pro' | 'code_rag') => Promise<void>
   loadWorkflowById: (workflowId: string) => Promise<void>
+  loadFlowByMode: (mode: string) => Promise<void>  // NEW: Load flow config from JSON
   setCurrentWorkflow: (workflow: Workflow | null) => void
   resetWorkflow: (mode: 'flash' | 'pro' | 'code_rag') => Promise<void>
   saveNodePositions: (positions: Array<{ node_id: string; position_x: number; position_y: number }>) => Promise<boolean>
@@ -29,7 +33,9 @@ interface RAGStudioStore {
 export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
   workflows: {},
   allWorkflows: [],
+  availableFlows: [],
   currentWorkflow: null,
+  currentFlowConfig: null,
   loading: false,
   error: null,
   hasUnsavedChanges: false,
@@ -72,6 +78,27 @@ export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
     }
   },
   
+  // NEW: Load available flows from flows/ directory
+  loadAvailableFlows: async () => {
+    set({ loading: true, error: null })
+    
+    try {
+      const result = await getAvailableFlows()
+      
+      if (result.success && result.flows) {
+        set({ availableFlows: result.flows, loading: false })
+        console.log('[RAG Studio] Available flows loaded:', result.flows)
+      } else {
+        set({ error: result.error || 'Failed to load available flows', loading: false })
+        toast.error('Failed to load available flows')
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+      set({ error: errorMsg, loading: false })
+      toast.error('Failed to load available flows')
+    }
+  },
+  
   loadWorkflow: async (mode: 'flash' | 'pro' | 'code_rag') => {
     set({ loading: true, error: null })
     
@@ -105,6 +132,107 @@ export const useRAGStudioStore = create<RAGStudioStore>((set, get) => ({
       console.error('[RAG Studio] Exception:', error)
       set({ error: errorMsg, loading: false })
       toast.error('Failed to load workflow')
+    }
+  },
+  
+  // NEW: Load flow config from JSON file (flows/ directory)
+  loadFlowByMode: async (mode: string) => {
+    set({ loading: true, error: null })
+    
+    try {
+      console.log('[RAG Studio] Loading flow config for mode:', mode)
+      
+      // Get available flows to find the matching one
+      const flowsResult = await getAvailableFlows()
+      
+      if (flowsResult.success && flowsResult.flows) {
+        // Find matching flow by category
+        const matchingFlow = flowsResult.flows.find(f => f.category === mode)
+        
+        if (matchingFlow) {
+          console.log('[RAG Studio] Found matching flow:', matchingFlow)
+          
+          // Extract flow filename without extension
+          const flowFileName = matchingFlow.file_path.split('/').pop()?.replace('.json', '') || 'base'
+          
+          // Get detailed flow config
+          const configResult = await getFlowConfig(mode, flowFileName)
+          
+          if (configResult.success && configResult.flow_config) {
+            const flowConfig = configResult.flow_config
+            console.log('[RAG Studio] Flow config loaded:', flowConfig)
+            
+            // Convert flow config steps to workflow nodes
+            const nodes = flowConfig.steps.map((step: any, index: number) => ({
+              id: step.id || `step_${index}`,
+              workflow_id: matchingFlow.id,
+              node_type: step.agent,  // Use 'agent' field from JSON (preprocessor, llm_agent, etc.)
+              node_name: step.description || step.id,  // Use description as name
+              position: index,
+              position_x: 100,  // Default position
+              position_y: 100 + (index * 120),  // Vertical spacing
+              width: 200,
+              height: 80,
+              config: JSON.stringify(step.config || {}),
+              is_enabled: true,
+              created_at: new Date().toISOString()
+            }))
+            
+            // Convert steps to connections (sequential flow)
+            const connections = flowConfig.steps.slice(0, -1).map((step: any, index: number) => ({
+              id: `conn_${index}`,
+              workflow_id: matchingFlow.id,
+              from_node_id: flowConfig.steps[index].id,
+              to_node_id: flowConfig.steps[index + 1].id,
+              condition: null,
+              created_at: new Date().toISOString()
+            }))
+            
+            // Create workflow object
+            const workflow: Workflow = {
+              id: matchingFlow.id,
+              mode: mode as any,
+              name: matchingFlow.name,
+              description: matchingFlow.description,
+              version: parseInt(matchingFlow.version) || 1,
+              is_active: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              nodes: nodes,
+              connections: connections
+            }
+            
+            console.log('[RAG Studio] Workflow created with', nodes.length, 'nodes')
+            
+            set({ 
+              currentWorkflow: workflow, 
+              currentFlowConfig: flowConfig,
+              loading: false, 
+              hasUnsavedChanges: false 
+            })
+          } else {
+            const errorMsg = configResult.error || 'Failed to load flow config details'
+            console.error('[RAG Studio] Error:', errorMsg)
+            set({ error: errorMsg, loading: false })
+            toast.error(errorMsg)
+          }
+        } else {
+          const errorMsg = `No flow config found for mode: ${mode}`
+          console.error('[RAG Studio] Error:', errorMsg)
+          set({ error: errorMsg, loading: false })
+          toast.error(errorMsg)
+        }
+      } else {
+        const errorMsg = flowsResult.error || 'Failed to load flow configs'
+        console.error('[RAG Studio] Error:', errorMsg)
+        set({ error: errorMsg, loading: false })
+        toast.error(errorMsg)
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[RAG Studio] Exception:', error)
+      set({ error: errorMsg, loading: false })
+      toast.error('Failed to load flow config')
     }
   },
   

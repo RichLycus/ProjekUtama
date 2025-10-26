@@ -239,8 +239,8 @@ export default function FlowConfigEditorPage() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b shadow-sm">
+      {/* Fixed Header - Will not scroll with content */}
+      <div className="sticky top-0 z-50 flex-shrink-0 bg-white border-b shadow-sm">
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button

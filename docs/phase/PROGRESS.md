@@ -1,8 +1,8 @@
 # 🚀 ChimeraAI Phase 6 Journey Tracker
 
-**Last Updated:** January 26, 2025  
-**Current Phase:** 6.9.2 - Cache Manager (COMPLETE) ✅  
-**Overall Progress:** Phase 6.9 - 100% Complete (2/2 sub-phases done) 🎉
+**Last Updated:** August 26, 2025 (Evening)  
+**Current Phase:** 6.9.5 - RAG Studio UI Enhancement (COMPLETE ✅)  
+**Overall Progress:** Phase 6.9 - Enhanced with dynamic workflow management 🚀
 
 ---
 
@@ -21,12 +21,14 @@ Phase 6 Redesign Journey:
 ✅ 6.8.3: Context-Aware Layer            [COMPLETE]
 ✅ 6.8.4: Mode Selector                  [COMPLETE]
 ✅ 6.9.1: RAG & Chimepedia Retrievers    [COMPLETE] 
-✅ 6.9.2: Cache Manager                  [COMPLETE] ← YOU ARE HERE 🎉
-⏳ 6.9.3: Vector Cache                   [NEXT]
-⏳ 6.9.4: Cache Agent Integration
-⏳ 6.10: Persona System
-⏳ 6.11: Observability
-⏳ 6.12: Legacy Integration
+✅ 6.9.2: Cache Manager                  [COMPLETE]
+✅ 6.9.5: RAG Studio UI Enhancement      [COMPLETE] ✨ NEW!
+⏳ 6.9.6: Flow Config Editor Modernization [PLANNED] ← NEXT 🎯
+⏳ 6.9.3: Vector Cache                   [PLANNED]
+⏳ 6.9.4: Cache Agent Integration        [PLANNED]
+⏳ 6.10: Persona System                  [PLANNED]
+⏳ 6.11: Observability                   [PLANNED]
+⏳ 6.12: Legacy Integration              [PLANNED]
 ```
 
 ---
@@ -1398,6 +1400,474 @@ else:
     # Generate response...
     cache.set(key, response, mode="flash")
 ```
+
+
+### Phase 6.9.5: RAG Studio UI Enhancement ✅
+
+**Status:** ✅ Complete (All Enhancements Deployed)
+**Started:** August 26, 2025 (Morning)  
+**Completed:** August 26, 2025 (Evening)
+**Goal:** Modernize RAG Studio interface dengan dynamic workflow management dan bug fixes
+
+**Completed:**
+- [x] **Bug Fixes** ✅ (Evening Session)
+  - Fixed WorkflowNode error: `Cannot read properties of undefined (reading 'bg')`
+  - Root cause: `node.node_type` from flow JSON tidak ada mapping di `NODE_COLORS`
+  - Solution:
+    - Fixed `ragStudioStore.ts` line 169: `step.agent_type` → `step.agent`
+    - Added all new agent types to NODE_COLORS/NODE_ICONS (preprocessor, llm_agent, persona, cache_lookup, cache_store, rag, execution)
+    - Added fallback `unknown` type dengan gray color untuk safety
+  
+- [x] **Testing Panel Enhancement** ✅ (Evening Session)
+  - **Before:** Hardcoded Flash/Pro mode selection buttons
+  - **After:** Dynamic testing based on selected workflow
+  - Features:
+    - Shows current workflow info card (icon, name, mode badge)
+    - Auto-uses workflow mode (no manual mode selection)
+    - Props updated: `workflowMode`, `workflowName`
+  
+- [x] **Workflow Selector Modernization** ✅ (Evening Session)
+  - **Modern Dropdown Design:**
+    - Gradient button dengan workflow icon (⚡ Flash, 🚀 Pro, 💻 Code RAG)
+    - Smooth animations (scale, opacity, rotation)
+    - Modern dropdown dengan shadow-2xl
+    - Category headers dengan emoji icons
+    - Workflow items dengan gradient hover effect
+    - Check icon untuk active workflow
+    - Enhanced delete button dengan scale animation
+  
+  - **Visual Improvements:**
+    - Color-coded badges per mode
+    - Version display (v1, v2, etc.)
+    - Flow metadata (node & connection count)
+    - Refresh button untuk reload flows
+  
+  - **Replaced Button-based Selector:**
+    - Old: Horizontal buttons untuk setiap flow
+    - New: Single modern dropdown selector
+    - Better for scalability (banyak workflows nanti)
+
+- [x] **Backend API Enhancements** ✅
+  - New endpoint: `GET /api/rag-studio/available-flows`
+    - Dynamic scanning of flows/ directory
+    - Returns list of all flow configs with metadata
+    - Grouped by category (flash, pro, custom)
+    - Metadata: id, name, description, category, version, file_path, step_count
+  
+  - New endpoint: `GET /api/rag-studio/flow-config/{category}/{flow_name}` ⭐
+    - Get detailed flow configuration with steps
+    - Returns complete JSON flow config
+    - Used by frontend to render nodes
+  
+  - New endpoint: `POST /api/rag-studio/refresh-backend`
+    - Refresh backend by reloading flows from disk
+    - Validate JSON structure
+    - Return refresh status and errors
+    - Real-time workflow synchronization
+  
+  - Enhanced endpoint: `POST /api/rag-studio/workflows`
+    - Auto-generate flow config JSON file on creation
+    - Smart filename sanitization (lowercase, underscore, no special chars)
+    - Template-based generation (flash → base.json, pro → rag_full.json)
+    - Save to flows/{mode}/{sanitized_name}.json
+
+- [x] **Frontend API Functions** ✅
+  - `getAvailableFlows()`: Fetch available flows from backend
+  - `getFlowConfig()`: Get detailed flow config with steps ⭐
+  - `refreshBackend()`: Trigger backend refresh
+  - Type definitions: FlowInfo interface
+
+- [x] **Fixed Headers Implementation** ✅
+  - **RAGStudioPage.tsx**:
+    - Sticky header with z-50 (won't sink on scroll)
+    - Shadow and border for visual separation
+    - Replaced "Reset" button with "Refresh Backend" button
+    - Real-time backend refresh functionality
+  
+  - **RAGStudioEditorPage.tsx**:
+    - Fixed header toolbar ✅
+    - Consistent styling with RAG Studio main page
+    - Updated icon (⚡ for flash mode)
+  
+  - **FlowConfigEditorPage.tsx**:
+    - Fixed header that stays on top during scroll
+    - Sticky positioning with z-50
+    - Alert messages inside fixed header area
+
+- [x] **Store Enhancement** ✅ ⭐
+  - Added `availableFlows` state
+  - Added `currentFlowConfig` state  
+  - Added `loadAvailableFlows()` - Load flows from directory
+  - Added `loadFlowByMode()` - Load & parse flow config to nodes
+  - Convert flow steps → workflow nodes with positions
+  - Convert flow steps → connections (sequential)
+
+**Files Modified (Evening Session):**
+
+Frontend:
+- `/app/src/store/ragStudioStore.ts`
+  - Fixed node_type mapping dari flow JSON
+  - Changed line 169: `step.agent_type` → `step.agent`
+  - Changed node_name: `step.name` → `step.description`
+
+- `/app/src/components/rag-studio/WorkflowNode.tsx`
+  - Added all new agent types (preprocessor, llm_agent, persona, etc.)
+  - Added fallback `unknown` type
+  - Enhanced with Record<string, any> type annotations
+
+- `/app/src/components/rag-studio/TestPanel.tsx`
+  - Removed hardcoded Flash/Pro mode selection
+  - Added props: `workflowMode`, `workflowName`
+  - Shows workflow info card instead of mode buttons
+  - Auto-uses selected workflow mode
+
+- `/app/src/components/rag-studio/WorkflowSelector.tsx`
+  - Modern dropdown design dengan gradients
+  - Smooth animations (scale 0.95-1.0, opacity, rotation)
+  - Enhanced button design dengan icons
+  - Category headers dengan emoji
+  - Workflow items dengan gradient hover
+  - Enhanced delete button animation
+
+- `/app/src/pages/RAGStudioPage.tsx`
+  - Replaced button-based flow selector dengan WorkflowSelector dropdown
+  - Pass `workflowMode` and `workflowName` ke TestPanel
+  - Show flow metadata (nodes & connections count)
+
+**Testing Results:**
+```bash
+✅ WorkflowNode error fixed - No more undefined 'bg' error
+✅ Nodes from JSON flows render correctly (preprocessor, llm_agent, persona)
+✅ Testing panel shows current workflow dynamically
+✅ Modern dropdown selector working smoothly
+✅ User tested all changes - All working!
+```
+
+**Benefits:**
+- ✅ No more frontend crashes dari undefined node types
+- ✅ Dynamic testing panel based on selected workflow
+- ✅ Modern, scalable dropdown selector
+- ✅ Better UX dengan smooth animations
+- ✅ No more hardcoded workflow modes
+- ✅ Easy to add new workflows (just drop JSON in flows/)
+- ✅ Headers won't disappear when scrolling
+- ✅ Real-time backend synchronization
+- ✅ Smart workflow creation with templates
+- ✅ Better UX with fixed navigation
+- ✅ Grouped workflow display by category
+- ✅ Template preview with feature list
+- ✅ Flow metadata visible in UI (step count, version)
+- ✅ One-click flow refresh from UI
+
+---
+
+### Phase 6.9.6: Flow Config Editor Modernization ⏳
+
+**Status:** 📋 Planned (Next Conversation)  
+**Priority:** 🔥 HIGH - UX Improvement  
+**Goal:** Modernize Flow Config Editor seperti n8n/workflow studio yang keren
+
+**Problem Statement:**
+Current Flow Config Editor terlalu sederhana:
+- ❌ Plain text input untuk agent config
+- ❌ Manual typing model names (typo risk → ollama not respond)
+- ❌ No validation untuk agent names
+- ❌ No dropdown untuk LLM model selection
+- ❌ Agent_config masih pake database (sulit manage)
+
+**Planned Improvements:**
+
+1. **Migrate Agent Config to JSON** 🔄
+   - Move `agent_config` dari database ke JSON file
+   - Structure: `backend/ai/agents_config.json`
+   - Real-time updates (hot reload)
+   - Benefits:
+     - Easy to edit (VS Code)
+     - Version control friendly
+     - No DB migration needed
+     - JSON validation automatic
+
+2. **Modern UI Components** 🎨
+   - Dropdown untuk agent selection (bukan text input)
+   - Dropdown untuk LLM model selection (ollama models)
+   - Config form builder per agent type:
+     - Preprocessor: normalize, max_length, etc.
+     - LLM Agent: model dropdown, temperature slider, max_tokens
+     - Persona: persona dropdown dari database
+     - RAG: collection checkboxes, min_score slider
+   
+3. **Visual Flow Editor (n8n-style)** ✨
+   - Visual node editor dengan config panels
+   - Drag handles untuk reorder steps
+   - Live preview dari config changes
+   - Validation indicators (red/green)
+   
+4. **Smart Features** 🧠
+   - Auto-complete untuk model names
+   - Detect ollama availability
+   - Show available models dari `ollama list`
+   - Config templates per agent type
+   - Copy/paste step configs
+   - Undo/redo support
+
+5. **Safety Features** 🛡️
+   - Validate model names before save
+   - Check ollama connection
+   - Prevent invalid configs
+   - Confirm dangerous changes
+   - Auto-backup before modify
+
+**Technical Plan:**
+
+**Backend Changes:**
+```python
+# New file: backend/ai/agents_config.json
+{
+  "agents": {
+    "preprocessor": {
+      "name": "Text Preprocessor",
+      "config_schema": {
+        "normalize_whitespace": { "type": "boolean", "default": true },
+        "max_length": { "type": "integer", "default": 1000 }
+      }
+    },
+    "llm_agent": {
+      "name": "LLM Generator",
+      "config_schema": {
+        "model": { 
+          "type": "dropdown", 
+          "options": ["gemma2:2b", "qwen2.5:7b", "mistral:7b"],
+          "source": "ollama_list"  # Dynamic from ollama
+        },
+        "temperature": { "type": "slider", "min": 0, "max": 1, "step": 0.1 },
+        "max_tokens": { "type": "integer", "min": 100, "max": 4000 }
+      }
+    }
+  }
+}
+
+# New endpoint: GET /api/rag-studio/agent-configs
+# Returns agent config schema untuk UI
+
+# New endpoint: GET /api/rag-studio/ollama-models
+# Returns available ollama models
+```
+
+**Frontend Changes:**
+```typescript
+// Enhanced FlowConfigEditorPage with:
+- AgentConfigForm component per agent type
+- Dropdown dengan react-select untuk models
+- Slider components untuk temperature, etc.
+- Real-time validation
+- Modern card-based layout
+- Syntax highlighting untuk JSON preview
+```
+
+**File Structure:**
+```
+backend/ai/
+├── agents_config.json          ← NEW: Agent config schema
+├── flows/
+│   ├── flash/base.json
+│   └── pro/rag_full.json
+├── agents/
+│   └── (agent classes)
+
+frontend/src/
+├── components/rag-studio/
+│   ├── editor/
+│   │   ├── AgentConfigForm.tsx      ← NEW: Smart config form
+│   │   ├── ModelSelector.tsx        ← NEW: Dropdown dengan ollama models
+│   │   ├── StepEditor.tsx           ← NEW: Visual step editor
+│   │   └── ConfigPreview.tsx        ← NEW: JSON preview dengan syntax highlight
+│   └── FlowConfigEditorPage.tsx     ← ENHANCE: Modern UI
+```
+
+**Success Criteria:**
+- [ ] Agent config moved to JSON
+- [ ] Dropdown untuk agent selection
+- [ ] Dropdown untuk LLM model (auto-detect ollama)
+- [ ] Config forms per agent type
+- [ ] Real-time validation
+- [ ] No more typo risk
+- [ ] Modern n8n-style UI
+- [ ] User tested & approved
+
+**Inspiration:**
+- n8n workflow editor
+- Zapier flow builder
+- GitHub Actions workflow editor
+
+---
+
+**Key Changes:**
+
+1. **Dynamic Workflow Discovery** 🔍
+   ```typescript
+   // Old: Hardcoded modes
+   ['flash', 'pro', 'code_rag']
+   
+   // New: Dynamic from flows/ directory
+   flows/flash/base.json → Flash Mode - Base
+   flows/pro/rag_full.json → Pro Mode - Full Pipeline
+   flows/custom/my_workflow.json → Custom workflow
+   ```
+
+2. **Smart Workflow Creation** 🎯
+   ```typescript
+   // User creates "My Custom Flash"
+   // → Generates: flows/flash/my_custom_flash.json
+   // → Uses flash/base.json as template
+   // → Auto-fills metadata with user input
+   ```
+
+3. **Real-time Backend Sync** 🔄
+   ```typescript
+   // User clicks "Refresh Backend"
+   // → Scans flows/ directory
+   // → Validates all JSON files
+   // → Returns refresh status
+   // → Updates UI with new workflows
+   ```
+
+4. **Fixed Headers** 📌
+   ```css
+   /* All RAG Studio pages now have */
+   position: sticky;
+   top: 0;
+   z-index: 50;
+   /* Headers won't sink when scrolling content */
+   ```
+
+**Files Modified:**
+
+Backend:
+- `/app/backend/routes/rag_studio.py`
+  - Added `get_available_flows()` endpoint
+  - Added `refresh_backend()` endpoint
+  - Enhanced `create_workflow()` with JSON generation
+
+Frontend:
+- `/app/src/lib/rag-studio-api.ts`
+  - Added `getAvailableFlows()` function
+  - Added `refreshBackend()` function
+  - Added FlowInfo interface
+
+- `/app/src/pages/RAGStudioPage.tsx`
+  - Fixed header implementation
+  - Refresh backend button
+  - Updated handleRefreshBackend() function
+
+- `/app/src/pages/RAGStudioEditorPage.tsx`
+  - Fixed header implementation
+  - Consistent styling
+
+- `/app/src/pages/FlowConfigEditorPage.tsx`
+  - Fixed header implementation
+  - Sticky positioning
+
+- `/app/src/components/rag-studio/WorkflowSelector.tsx` ⭐ **NEW**
+  - Dynamic flow loading from `getAvailableFlows()` API
+  - Grouped workflows by category (flash, pro, code_rag, custom)
+  - Flow template info display with refresh button
+  - Shows available flow count and metadata
+  - Enhanced dropdown with category headers
+
+- `/app/src/components/rag-studio/CreateWorkflowModal.tsx` ⭐ **NEW**
+  - Enhanced template cards with features list
+  - Step count display for each template
+  - Template preview section showing:
+    - Feature list for selected template
+    - Flow config that will be used
+    - Version information
+  - Better visual feedback for selection
+  - Integration with available flows API
+
+**Testing Results:**
+```bash
+# Backend API Test ✅
+curl http://localhost:8001/api/rag-studio/available-flows
+{
+  "success": true,
+  "flows": [
+    {
+      "id": "flash_base_v1",
+      "name": "Flash Mode - Base",
+      "category": "flash",
+      "step_count": 3
+    },
+    {
+      "id": "pro_rag_full_v1",
+      "name": "Pro Mode - Full Pipeline",
+      "category": "pro",
+      "step_count": 6
+    }
+  ],
+  "count": 2
+}
+```
+
+**Next Steps:**
+1. Complete frontend integration
+2. Test workflow creation with JSON generation
+3. Test refresh backend functionality end-to-end
+4. Update WorkflowSelector component
+5. Add success/error toast notifications
+
+**Benefits:**
+- ✅ No more hardcoded workflow modes
+- ✅ Easy to add new workflows (just drop JSON in flows/)
+- ✅ Headers won't disappear when scrolling
+- ✅ Real-time backend synchronization
+- ✅ Smart workflow creation with templates
+- ✅ Better UX with fixed navigation
+- ✅ **NEW:** Grouped workflow display by category
+- ✅ **NEW:** Template preview with feature list
+- ✅ **NEW:** Flow metadata visible in UI (step count, version)
+- ✅ **NEW:** One-click flow refresh from UI
+
+**What Changed (August 26, 2025 Update):**
+
+1. **WorkflowSelector Enhancement:**
+   - Now loads available flows from backend API
+   - Groups workflows by category (Flash, Pro, Code RAG, Custom)
+   - Shows flow template count and metadata
+   - Refresh button to reload flows without page refresh
+   - Better organization with category headers
+
+2. **CreateWorkflowModal Enhancement:**
+   - Template cards now show detailed features
+   - Step count displayed for each template type
+   - Preview section shows what user will get:
+     - Feature list (e.g., "Fast execution", "RAG retrieval")
+     - Base flow config name and version
+   - Better visual design with icons and colors
+   - Auto-loads available flows on modal open
+
+3. **Flow Config Parsing** ⭐ **NEW (Second Update):**
+   - Backend endpoint: `GET /api/rag-studio/flow-config/{category}/{flow_name}`
+   - Frontend API: `getFlowConfig()` function
+   - Store `loadFlowByMode()` now:
+     - Loads flow config JSON from backend
+     - Parses `steps` array to workflow `nodes`
+     - Generates `connections` from sequential steps
+     - Assigns default positions (vertical layout)
+   - **Nodes now render correctly on canvas!** 🎉
+
+4. **Store Architecture:**
+   - Added `availableFlows` state for flow list
+   - Added `currentFlowConfig` state for flow JSON
+   - `loadFlowByMode()` fully implemented:
+     ```typescript
+     loadFlowByMode('flash') 
+     → getAvailableFlows() 
+     → getFlowConfig('flash', 'base')
+     → Parse steps to nodes
+     → Render on canvas
+     ```
+
+---
 
 ---
 

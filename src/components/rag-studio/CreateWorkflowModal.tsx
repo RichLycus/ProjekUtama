@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { X, Zap, Brain, Code, User } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Zap, Brain, Code, User, Sparkles, ArrowRight, Info } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getAvailableFlows, type FlowInfo } from '@/lib/rag-studio-api'
 
 interface CreateWorkflowModalProps {
   isOpen: boolean
@@ -20,7 +21,9 @@ const WORKFLOW_TEMPLATES = [
     color: 'text-yellow-600',
     bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
     borderColor: 'border-yellow-300 dark:border-yellow-700',
-    description: 'Quick response with basic RAG retrieval'
+    description: 'Quick response with basic RAG retrieval',
+    features: ['Fast execution (~1-2s)', 'Basic preprocessing', 'Simple LLM generation', 'Lightweight persona'],
+    stepCount: 3
   },
   {
     id: 'pro',
@@ -29,7 +32,9 @@ const WORKFLOW_TEMPLATES = [
     color: 'text-purple-600',
     bgColor: 'bg-purple-50 dark:bg-purple-900/20',
     borderColor: 'border-purple-300 dark:border-purple-700',
-    description: 'Deep analysis with advanced reasoning'
+    description: 'Deep analysis with advanced reasoning',
+    features: ['Deep preprocessing', 'Intent routing', 'RAG retrieval', 'Advanced tool execution', 'Complex reasoning', 'Rich persona'],
+    stepCount: 6
   },
   {
     id: 'code_rag',
@@ -38,7 +43,9 @@ const WORKFLOW_TEMPLATES = [
     color: 'text-cyan-600',
     bgColor: 'bg-cyan-50 dark:bg-cyan-900/20',
     borderColor: 'border-cyan-300 dark:border-cyan-700',
-    description: 'Specialized for code-related queries'
+    description: 'Specialized for code-related queries',
+    features: ['Code-specific preprocessing', 'Syntax-aware retrieval', 'Code generation', 'Example formatting'],
+    stepCount: 4
   },
   {
     id: 'custom',
@@ -47,7 +54,9 @@ const WORKFLOW_TEMPLATES = [
     color: 'text-indigo-600',
     bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
     borderColor: 'border-indigo-300 dark:border-indigo-700',
-    description: 'Start from scratch with empty workflow'
+    description: 'Start from scratch with empty workflow',
+    features: ['Build your own flow', 'Add custom nodes', 'Configure connections', 'Flexible architecture'],
+    stepCount: 0
   }
 ]
 
@@ -56,6 +65,33 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreate }: Creat
   const [description, setDescription] = useState('')
   const [selectedMode, setSelectedMode] = useState<string>('custom')
   const [isCreating, setIsCreating] = useState(false)
+  const [availableFlows, setAvailableFlows] = useState<FlowInfo[]>([])
+  
+  // Get selected template details
+  const selectedTemplate = WORKFLOW_TEMPLATES.find(t => t.id === selectedMode)
+  
+  // Load available flows to show what will be created
+  useEffect(() => {
+    if (isOpen) {
+      loadFlows()
+    }
+  }, [isOpen])
+  
+  const loadFlows = async () => {
+    try {
+      const result = await getAvailableFlows()
+      if (result.success && result.flows) {
+        setAvailableFlows(result.flows)
+      }
+    } catch (error) {
+      console.error('Failed to load flows:', error)
+    }
+  }
+  
+  // Find matching flow template
+  const matchingFlow = availableFlows.find(f => 
+    f.category === selectedMode || f.id.startsWith(selectedMode)
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -201,7 +237,7 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreate }: Creat
                             relative p-4 rounded-lg border-2 transition-all text-left
                             disabled:opacity-50 disabled:cursor-not-allowed
                             ${isSelected 
-                              ? `${template.bgColor} ${template.borderColor}` 
+                              ? `${template.bgColor} ${template.borderColor} ring-2 ring-offset-2 ring-${template.color.replace('text-', '')}` 
                               : 'bg-gray-50 dark:bg-dark-surface border-gray-200 dark:border-dark-border hover:border-gray-300 dark:hover:border-gray-600'
                             }
                           `}
@@ -217,6 +253,12 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreate }: Creat
                               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 {template.description}
                               </p>
+                              {template.stepCount > 0 && (
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 flex items-center gap-1">
+                                  <Sparkles className="w-3 h-3" />
+                                  {template.stepCount} steps
+                                </p>
+                              )}
                             </div>
                           </div>
                           
@@ -232,6 +274,37 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreate }: Creat
                     })}
                   </div>
                 </div>
+                
+                {/* Template Preview */}
+                {selectedTemplate && selectedMode !== 'custom' && (
+                  <div className={`p-4 rounded-lg border-2 ${selectedTemplate.borderColor} ${selectedTemplate.bgColor}`}>
+                    <div className="flex items-start gap-2 mb-3">
+                      <Info className={`w-4 h-4 ${selectedTemplate.color} mt-0.5`} />
+                      <div className="flex-1">
+                        <h4 className={`font-semibold text-sm ${selectedTemplate.color} mb-1`}>
+                          What you'll get:
+                        </h4>
+                        <ul className="space-y-1">
+                          {selectedTemplate.features.map((feature, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
+                              <ArrowRight className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                              <span>{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                    
+                    {matchingFlow && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <p className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                          <Code className="w-3 h-3" />
+                          <span>Based on: <span className="font-mono">{matchingFlow.name}</span> (v{matchingFlow.version})</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </form>
 
               {/* Footer */}

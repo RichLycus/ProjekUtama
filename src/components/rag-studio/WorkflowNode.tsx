@@ -15,15 +15,29 @@ interface WorkflowNodeProps {
   onClick: () => void
 }
 
-const NODE_ICONS = {
+const NODE_ICONS: Record<string, any> = {
+  // Legacy types
   input: KeyRound,
   router: GitBranch,
   rag_retriever: Database,
   llm: Cpu,
-  output: FileOutput
+  output: FileOutput,
+  
+  // New agent types from JSON flows
+  preprocessor: KeyRound,
+  llm_agent: Cpu,
+  persona: FileOutput,
+  cache_lookup: Database,
+  cache_store: Database,
+  rag: Database,
+  execution: Settings,
+  
+  // Default fallback
+  unknown: Settings
 }
 
-const NODE_COLORS = {
+const NODE_COLORS: Record<string, any> = {
+  // Legacy types
   input: {
     bg: 'bg-blue-100 dark:bg-blue-900/30',
     border: 'border-blue-300 dark:border-blue-700',
@@ -53,12 +67,65 @@ const NODE_COLORS = {
     border: 'border-pink-300 dark:border-pink-700',
     text: 'text-pink-600 dark:text-pink-400',
     hover: 'hover:border-pink-400 dark:hover:border-pink-600'
+  },
+  
+  // New agent types colors
+  preprocessor: {
+    bg: 'bg-blue-100 dark:bg-blue-900/30',
+    border: 'border-blue-300 dark:border-blue-700',
+    text: 'text-blue-600 dark:text-blue-400',
+    hover: 'hover:border-blue-400 dark:hover:border-blue-600'
+  },
+  llm_agent: {
+    bg: 'bg-orange-100 dark:bg-orange-900/30',
+    border: 'border-orange-300 dark:border-orange-700',
+    text: 'text-orange-600 dark:text-orange-400',
+    hover: 'hover:border-orange-400 dark:hover:border-orange-600'
+  },
+  persona: {
+    bg: 'bg-pink-100 dark:bg-pink-900/30',
+    border: 'border-pink-300 dark:border-pink-700',
+    text: 'text-pink-600 dark:text-pink-400',
+    hover: 'hover:border-pink-400 dark:hover:border-pink-600'
+  },
+  cache_lookup: {
+    bg: 'bg-cyan-100 dark:bg-cyan-900/30',
+    border: 'border-cyan-300 dark:border-cyan-700',
+    text: 'text-cyan-600 dark:text-cyan-400',
+    hover: 'hover:border-cyan-400 dark:hover:border-cyan-600'
+  },
+  cache_store: {
+    bg: 'bg-cyan-100 dark:bg-cyan-900/30',
+    border: 'border-cyan-300 dark:border-cyan-700',
+    text: 'text-cyan-600 dark:text-cyan-400',
+    hover: 'hover:border-cyan-400 dark:hover:border-cyan-600'
+  },
+  rag: {
+    bg: 'bg-green-100 dark:bg-green-900/30',
+    border: 'border-green-300 dark:border-green-700',
+    text: 'text-green-600 dark:text-green-400',
+    hover: 'hover:border-green-400 dark:hover:border-green-600'
+  },
+  execution: {
+    bg: 'bg-purple-100 dark:bg-purple-900/30',
+    border: 'border-purple-300 dark:border-purple-700',
+    text: 'text-purple-600 dark:text-purple-400',
+    hover: 'hover:border-purple-400 dark:hover:border-purple-600'
+  },
+  
+  // Default fallback for unknown types
+  unknown: {
+    bg: 'bg-gray-100 dark:bg-gray-900/30',
+    border: 'border-gray-300 dark:border-gray-700',
+    text: 'text-gray-600 dark:text-gray-400',
+    hover: 'hover:border-gray-400 dark:hover:border-gray-600'
   }
 }
 
 export default function WorkflowNode({ node, onClick }: WorkflowNodeProps) {
-  const Icon = NODE_ICONS[node.node_type]
-  const colors = NODE_COLORS[node.node_type]
+  // Get icon and colors with fallback to 'unknown' type
+  const Icon = NODE_ICONS[node.node_type] || NODE_ICONS.unknown
+  const colors = NODE_COLORS[node.node_type] || NODE_COLORS.unknown
   
   // Parse config if it's a string
   let config: Record<string, any> = {}

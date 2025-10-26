@@ -99,44 +99,43 @@ export default function RAGStudioEditorPage() {
   return (
     <ReactFlowProvider>
       <div className="h-screen flex flex-col bg-gray-50 dark:bg-dark-surface">
-      {/* Header Toolbar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card shadow-sm">
-        {/* Left: Back Button */}
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-dark-surface-hover rounded-lg transition-colors text-gray-700 dark:text-gray-300"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back</span>
-        </button>
-        
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-            <span className="text-2xl">🎨</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              {currentWorkflow.name}
-            </h1>
-            <p className="text-sm text-secondary">
-              {getModeName(mode)} • Visual Editor
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          {hasUnsavedChanges && (
-            <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
-              <div className="w-2 h-2 rounded-full bg-amber-600 dark:bg-amber-400 animate-pulse" />
-              <span>Auto-saving...</span>
+        {/* Fixed Header Toolbar - Will not scroll with content */}
+        <div className="sticky top-0 z-50 flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-dark-border bg-white dark:bg-dark-card shadow-sm">
+          {/* Left: Back Button */}
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-dark-surface-hover rounded-lg transition-colors text-gray-700 dark:text-gray-300"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+          
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+              <span className="text-2xl">⚡</span>
             </div>
-          )}
-          <div className="w-24">
-            {/* Spacer for alignment */}
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                {currentWorkflow.name}
+              </h1>
+              <p className="text-sm text-secondary">
+                {getModeName(mode)} • Quick response: Preprocessor → LLM → Persona (persona stays alive!)
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {hasUnsavedChanges && (
+              <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                <div className="w-2 h-2 rounded-full bg-amber-600 dark:bg-amber-400 animate-pulse" />
+                <span>Auto-saving...</span>
+              </div>
+            )}
+            <div className="w-24">
+              {/* Spacer for alignment */}
+            </div>
           </div>
         </div>
-      </div>
-      
         {/* Editor Canvas */}
         <div className="flex-1 overflow-hidden">
           <WorkflowEditor

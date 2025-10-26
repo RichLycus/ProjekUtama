@@ -169,7 +169,7 @@ async def get_workflow(workflow_id: str):
 @router.post("/api/rag-studio/workflows")
 async def create_workflow(workflow_data: WorkflowCreate):
     """
-    Create a new workflow
+    Create a new workflow AND generate flow config JSON file
     
     Request body:
     {
@@ -178,8 +178,17 @@ async def create_workflow(workflow_data: WorkflowCreate):
         "description": "Description here",
         "version": 1
     }
+    
+    This will:
+    1. Create workflow in database
+    2. Generate flow config JSON file in flows/{mode}/{sanitized_name}.json
+    3. Use template based on mode (flash template or pro template)
     """
     try:
+        from pathlib import Path
+        import json
+        import re
+        
         workflow_id = f"wf_{workflow_data.mode}_{uuid.uuid4().hex[:8]}"
         now = datetime.now().isoformat()
         
@@ -196,13 +205,71 @@ async def create_workflow(workflow_data: WorkflowCreate):
         
         workflow_db.insert_workflow(workflow)
         
+        # Generate flow config JSON file
+        base_dir = Path(__file__).parent.parent / "ai" / "flows"
+        mode_dir = base_dir / workflow_data.mode
+        mode_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Sanitize name for filename (lowercase, replace spaces with underscore, remove special chars)
+        sanitized_name = re.sub(r'[^a-z0-9_]', '', workflow_data.name.lower().replace(' ', '_'))
+        if not sanitized_name:
+            sanitized_name = "custom_workflow"
+        
+        flow_file_path = mode_dir / f"{sanitized_name}.json"
+        
+        # Load template based on mode
+        if workflow_data.mode == "flash":
+            template_path = base_dir / "flash" / "base.json"
+        elif workflow_data.mode == "pro":
+            template_path = base_dir / "pro" / "rag_full.json"
+        else:
+            # For custom modes, use flash as template
+            template_path = base_dir / "flash" / "base.json"
+        
+        # Load template
+        if template_path.exists():
+            with open(template_path, 'r', encoding='utf-8') as f:
+                flow_config = json.load(f)
+        else:
+            # Fallback minimal template
+            flow_config = {
+                "flow_id": "",
+                "name": "",
+                "description": "",
+                "version": "1.0.0",
+                "metadata": {},
+                "profile": {},
+                "config": {},
+                "steps": [],
+                "error_handling": {},
+                "optimization": {}
+            }
+        
+        # Update template with new workflow data
+        flow_config["flow_id"] = workflow_id
+        flow_config["name"] = workflow_data.name
+        flow_config["description"] = workflow_data.description or "Custom workflow"
+        flow_config["metadata"]["author"] = "User Created"
+        flow_config["metadata"]["created_at"] = now.split('T')[0]
+        flow_config["metadata"]["updated_at"] = now.split('T')[0]
+        
+        # Save flow config JSON
+        with open(flow_file_path, 'w', encoding='utf-8') as f:
+            json.dump(flow_config, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"✅ Created workflow: {workflow_id}")
+        logger.info(f"✅ Generated flow config: {flow_file_path}")
+        
         return {
             "success": True,
             "workflow_id": workflow_id,
-            "workflow": workflow
+            "workflow": workflow,
+            "flow_config_path": str(flow_file_path.relative_to(base_dir))
         }
     except Exception as e:
         logger.error(f"Error creating workflow: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(500, f"Failed to create workflow: {str(e)}")
 
 
@@ -1037,6 +1104,165 @@ async def update_flow_config(mode: str, updates: FlowConfigUpdate):
         import traceback
         logger.error(traceback.format_exc())
         raise HTTPException(500, f"Failed to update flow config: {str(e)}")
+
+
+@router.get("/api/rag-studio/flow-config/{category}/{flow_name}")
+async def get_flow_config(category: str, flow_name: str):
+    """
+    Get detailed flow config for a specific flow
+    
+    Args:
+        category: Flow category (flash, pro, custom, etc.)
+        flow_name: Flow filename without .json extension
+    
+    Returns: Complete flow configuration with steps
+    """
+    try:
+        from pathlib import Path
+        import json
+        
+        base_dir = Path(__file__).parent.parent / "ai" / "flows"
+        flow_file = base_dir / category / f"{flow_name}.json"
+        
+        if not flow_file.exists():
+            raise HTTPException(404, f"Flow config not found: {category}/{flow_name}")
+        
+        with open(flow_file, 'r', encoding='utf-8') as f:
+            flow_data = json.load(f)
+        
+        logger.info(f"✅ Loaded flow config: {category}/{flow_name}")
+        
+        return {
+            "success": True,
+            "flow_config": flow_data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to load flow config: {str(e)}")
+        raise HTTPException(500, f"Failed to load flow config: {str(e)}")
+
+
+@router.get("/api/rag-studio/available-flows")
+async def get_available_flows():
+    """
+    Scan flows directory and return all available flow configs
+    
+    Returns: List of available flows grouped by category (folder name)
+    """
+    try:
+        from pathlib import Path
+        import json
+        
+        base_dir = Path(__file__).parent.parent / "ai" / "flows"
+        
+        if not base_dir.exists():
+            return {
+                "success": True,
+                "flows": [],
+                "message": "Flows directory not found"
+            }
+        
+        flows = []
+        
+        # Scan all subdirectories in flows/
+        for category_dir in base_dir.iterdir():
+            if not category_dir.is_dir():
+                continue
+            
+            category_name = category_dir.name
+            
+            # Scan all JSON files in this category
+            for flow_file in category_dir.glob("*.json"):
+                try:
+                    with open(flow_file, 'r', encoding='utf-8') as f:
+                        flow_data = json.load(f)
+                    
+                    flows.append({
+                        "id": flow_data.get("flow_id", flow_file.stem),
+                        "name": flow_data.get("name", flow_file.stem),
+                        "description": flow_data.get("description", ""),
+                        "category": category_name,
+                        "version": flow_data.get("version", "1.0.0"),
+                        "file_path": str(flow_file.relative_to(base_dir)),
+                        "step_count": len(flow_data.get("steps", []))
+                    })
+                except Exception as e:
+                    logger.warning(f"Failed to load flow {flow_file}: {str(e)}")
+                    continue
+        
+        logger.info(f"✅ Found {len(flows)} flows across categories")
+        
+        return {
+            "success": True,
+            "flows": flows,
+            "count": len(flows)
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to scan flows: {str(e)}")
+        raise HTTPException(500, f"Failed to scan flows: {str(e)}")
+
+
+@router.post("/api/rag-studio/refresh-backend")
+async def refresh_backend():
+    """
+    Refresh backend by reloading flow configs from disk
+    
+    Returns: Status message with refresh results
+    """
+    try:
+        from pathlib import Path
+        import json
+        
+        base_dir = Path(__file__).parent.parent / "ai" / "flows"
+        
+        if not base_dir.exists():
+            return {
+                "success": False,
+                "message": "Flows directory not found"
+            }
+        
+        refreshed_flows = []
+        errors = []
+        
+        # Scan and validate all flows
+        for category_dir in base_dir.iterdir():
+            if not category_dir.is_dir():
+                continue
+            
+            for flow_file in category_dir.glob("*.json"):
+                try:
+                    with open(flow_file, 'r', encoding='utf-8') as f:
+                        flow_data = json.load(f)
+                    
+                    # Validate basic structure
+                    required_keys = ["flow_id", "name", "steps"]
+                    if not all(key in flow_data for key in required_keys):
+                        errors.append(f"{flow_file.name}: Missing required keys")
+                        continue
+                    
+                    refreshed_flows.append({
+                        "name": flow_data["name"],
+                        "file": flow_file.name,
+                        "category": category_dir.name
+                    })
+                except Exception as e:
+                    errors.append(f"{flow_file.name}: {str(e)}")
+        
+        logger.info(f"✅ Refreshed {len(refreshed_flows)} flows")
+        if errors:
+            logger.warning(f"⚠️ {len(errors)} errors during refresh")
+        
+        return {
+            "success": True,
+            "message": f"Refreshed {len(refreshed_flows)} flows",
+            "refreshed": refreshed_flows,
+            "errors": errors,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to refresh backend: {str(e)}")
+        raise HTTPException(500, f"Failed to refresh backend: {str(e)}")
 
 
 @router.get("/api/rag-studio/available-agents")
