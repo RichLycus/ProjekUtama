@@ -85,6 +85,23 @@ class WorkflowUpdate(BaseModel):
     description: Optional[str] = None
     is_active: Optional[bool] = None
 
+class FlowConfigStep(BaseModel):
+    id: str
+    agent: str
+    description: str
+    config: Dict[str, Any]
+    condition: Optional[Dict[str, Any]] = None
+    timeout: int
+    critical: bool
+
+class FlowConfigUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    steps: Optional[List[FlowConfigStep]] = None
+    config: Optional[Dict[str, Any]] = None
+    error_handling: Optional[Dict[str, Any]] = None
+    optimization: Optional[Dict[str, Any]] = None
+
 # ============================================
 # WORKFLOW ENDPOINTS
 # ============================================
@@ -898,3 +915,208 @@ async def auto_layout_workflow(
     except Exception as e:
         logger.error(f"❌ Auto-layout failed: {str(e)}")
         raise HTTPException(500, f"Auto-layout failed: {str(e)}")
+
+
+# ============================================
+# FLOW CONFIG EDITOR ENDPOINTS
+# ============================================
+
+@router.get("/api/rag-studio/flow-configs/{mode}")
+async def get_flow_config(mode: str):
+    """
+    Load flow config JSON (flash or pro)
+    
+    Returns: Complete flow config for editing
+    """
+    try:
+        from pathlib import Path
+        import json
+        
+        if mode not in ["flash", "pro"]:
+            raise HTTPException(400, f"Invalid mode: {mode}. Must be 'flash' or 'pro'")
+        
+        # Determine file path
+        base_dir = Path(__file__).parent.parent / "ai" / "flows"
+        if mode == "flash":
+            config_path = base_dir / "flash" / "base.json"
+        else:
+            config_path = base_dir / "pro" / "rag_full.json"
+        
+        if not config_path.exists():
+            raise HTTPException(404, f"Flow config not found: {config_path}")
+        
+        # Load JSON
+        with open(config_path, 'r', encoding='utf-8') as f:
+            flow_config = json.load(f)
+        
+        logger.info(f"✅ Loaded flow config: {mode} ({len(flow_config.get('steps', []))} steps)")
+        
+        return {
+            "success": True,
+            "mode": mode,
+            "config": flow_config
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to load flow config: {str(e)}")
+        raise HTTPException(500, f"Failed to load flow config: {str(e)}")
+
+
+@router.put("/api/rag-studio/flow-configs/{mode}")
+async def update_flow_config(mode: str, updates: FlowConfigUpdate):
+    """
+    Update and save flow config JSON
+    
+    Request body:
+    {
+        "name": "Updated name",
+        "description": "Updated description",
+        "steps": [...],  // Updated steps array
+        "config": {...},  // Updated config
+        "error_handling": {...},
+        "optimization": {...}
+    }
+    """
+    try:
+        from pathlib import Path
+        import json
+        
+        if mode not in ["flash", "pro"]:
+            raise HTTPException(400, f"Invalid mode: {mode}. Must be 'flash' or 'pro'")
+        
+        # Determine file path
+        base_dir = Path(__file__).parent.parent / "ai" / "flows"
+        if mode == "flash":
+            config_path = base_dir / "flash" / "base.json"
+        else:
+            config_path = base_dir / "pro" / "rag_full.json"
+        
+        if not config_path.exists():
+            raise HTTPException(404, f"Flow config not found: {config_path}")
+        
+        # Load existing config
+        with open(config_path, 'r', encoding='utf-8') as f:
+            flow_config = json.load(f)
+        
+        # Update fields (only provided ones)
+        if updates.name is not None:
+            flow_config['name'] = updates.name
+        if updates.description is not None:
+            flow_config['description'] = updates.description
+        if updates.steps is not None:
+            flow_config['steps'] = [step.dict() for step in updates.steps]
+        if updates.config is not None:
+            flow_config['config'] = updates.config
+        if updates.error_handling is not None:
+            flow_config['error_handling'] = updates.error_handling
+        if updates.optimization is not None:
+            flow_config['optimization'] = updates.optimization
+        
+        # Update timestamp
+        from datetime import datetime
+        flow_config['metadata']['updated_at'] = datetime.now().strftime("%Y-%m-%d")
+        
+        # Save back to JSON
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(flow_config, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"✅ Updated flow config: {mode}")
+        logger.info(f"   Steps: {len(flow_config.get('steps', []))}")
+        
+        return {
+            "success": True,
+            "mode": mode,
+            "message": f"Flow config updated: {mode}",
+            "config": flow_config
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to update flow config: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(500, f"Failed to update flow config: {str(e)}")
+
+
+@router.get("/api/rag-studio/available-agents")
+async def get_available_agents():
+    """
+    Get list of available agents for flow editor
+    
+    Returns: List of agent types with descriptions
+    """
+    try:
+        # Get available agents from registry
+        from ai.flow.registry import AgentRegistry
+        from ai.agents.register_agents import register_all_agents
+        
+        registry = AgentRegistry()
+        register_all_agents(registry)
+        
+        agents = registry.list_agents()
+        
+        # Add descriptions
+        agent_info = {
+            "preprocessor": {
+                "name": "Preprocessor",
+                "description": "Normalize and clean user input",
+                "params": ["normalize_whitespace", "max_length"]
+            },
+            "llm_agent": {
+                "name": "LLM Agent",
+                "description": "Generate response with LLM",
+                "params": ["model", "temperature", "max_tokens"]
+            },
+            "persona": {
+                "name": "Persona",
+                "description": "Apply persona formatting",
+                "params": ["persona", "format", "include_metadata"]
+            },
+            "router": {
+                "name": "Router",
+                "description": "Classify intent and route",
+                "params": []
+            },
+            "rag": {
+                "name": "RAG",
+                "description": "Retrieve relevant context",
+                "params": []
+            },
+            "execution": {
+                "name": "Execution",
+                "description": "Check tool execution",
+                "params": []
+            },
+            "cache_lookup": {
+                "name": "Cache Lookup",
+                "description": "Check cache for response",
+                "params": []
+            },
+            "cache_store": {
+                "name": "Cache Store",
+                "description": "Store response in cache",
+                "params": []
+            }
+        }
+        
+        result = []
+        for agent_name in agents:
+            info = agent_info.get(agent_name, {
+                "name": agent_name.replace('_', ' ').title(),
+                "description": f"{agent_name} agent",
+                "params": []
+            })
+            result.append({
+                "id": agent_name,
+                **info
+            })
+        
+        return {
+            "success": True,
+            "agents": result,
+            "count": len(result)
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to get available agents: {str(e)}")
+        raise HTTPException(500, f"Failed to get available agents: {str(e)}")

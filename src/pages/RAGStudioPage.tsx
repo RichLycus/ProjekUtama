@@ -5,6 +5,7 @@ import WorkflowCanvas from '@/components/rag-studio/WorkflowCanvas'
 import WorkflowSelector from '@/components/rag-studio/WorkflowSelector'
 import CreateWorkflowModal from '@/components/rag-studio/CreateWorkflowModal'
 import TestPanel from '@/components/rag-studio/TestPanel'
+import FlowConfigEditor from '@/components/rag-studio/FlowConfigEditor'
 import { useRAGStudioStore } from '@/store/ragStudioStore'
 
 type WorkflowMode = 'flash' | 'pro' | 'code_rag'
@@ -15,6 +16,7 @@ export default function RAGStudioPage() {
   const [showTestPanel, setShowTestPanel] = useState(false)
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showFlowEditor, setShowFlowEditor] = useState(false)
   
   const { 
     currentWorkflow,
@@ -61,8 +63,17 @@ export default function RAGStudioPage() {
   }
   
   const handleEditWorkflow = () => {
-    // Navigate to visual editor
-    navigate(`/rag-studio/editor/${currentMode}`)
+    // Open Flow Config Editor instead of visual editor
+    setShowFlowEditor(true)
+  }
+  
+  const handleFlowEditorClose = () => {
+    setShowFlowEditor(false)
+  }
+  
+  const handleFlowEditorSave = () => {
+    // Reload workflow after save
+    loadWorkflow(currentMode)
   }
   
   const handleCreateWorkflow = async (data: {
@@ -198,6 +209,15 @@ export default function RAGStudioPage() {
         onClose={() => setShowCreateModal(false)}
         onCreate={handleCreateWorkflow}
       />
+      
+      {/* Flow Config Editor */}
+      {showFlowEditor && (
+        <FlowConfigEditor
+          mode={currentMode}
+          onClose={handleFlowEditorClose}
+          onSave={handleFlowEditorSave}
+        />
+      )}
     </div>
   )
 }
