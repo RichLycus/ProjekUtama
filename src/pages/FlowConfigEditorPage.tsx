@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Save, AlertCircle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Save, AlertCircle, CheckCircle, Minimize2, Maximize2, LayoutList, LayoutGrid } from 'lucide-react';
 import { BACKEND_URL } from '../lib/backend';
 import AgentConfigForm from '../components/rag-studio/editor/AgentConfigForm';
+import StepCard from '../components/rag-studio/editor/StepCard';
 
 interface FlowStep {
   id: string;
@@ -45,6 +46,11 @@ export default function FlowConfigEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
+  const [compactView, setCompactView] = useState(false);
+  const [editorFullscreen, setEditorFullscreen] = useState(false);
+  
+  const stepsListRef = useRef<HTMLDivElement>(null);
+  const selectedStepRef = useRef<HTMLDivElement>(null);
 
   // Load flow config
   useEffect(() => {
@@ -53,6 +59,16 @@ export default function FlowConfigEditorPage() {
       loadAvailableAgents();
     }
   }, [mode]);
+
+  // Auto-scroll to selected step
+  useEffect(() => {
+    if (selectedStepRef.current && stepsListRef.current) {
+      selectedStepRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+      });
+    }
+  }, [selectedStepIndex]);
 
   const loadFlowConfig = async () => {
     try {
@@ -293,96 +309,126 @@ export default function FlowConfigEditorPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden flex-col lg:flex-row">
         {/* Steps List */}
-        <div className="w-1/2 border-r bg-white overflow-y-auto p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Flow Steps ({config.steps.length})</h2>
-            <button
-              onClick={addStep}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm"
-            >
-              <Plus size={16} />
-              Add Step
-            </button>
+        <div 
+          ref={stepsListRef}
+          className={`${
+            editorFullscreen 
+              ? 'hidden' 
+              : compactView 
+                ? 'w-full lg:w-1/3' 
+                : 'w-full lg:w-1/2'
+          } border-r bg-white overflow-y-auto transition-all duration-300`}
+        >
+          <div className="p-4 lg:p-6 sticky top-0 bg-white border-b z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Flow Steps ({config.steps.length})
+                </h2>
+                
+                {/* View Mode Toggle */}
+                <button
+                  onClick={() => setCompactView(!compactView)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                  title={compactView ? 'Expand view' : 'Compact view'}
+                >
+                  {compactView ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
+                </button>
+              </div>
+              
+              <button
+                onClick={addStep}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md text-sm font-medium"
+              >
+                <Plus size={16} />
+                Add Step
+              </button>
+            </div>
+
+            {/* Progress Indicator */}
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500"
+                  style={{ 
+                    width: `${(config.steps.length / Math.max(config.steps.length, 5)) * 100}%` 
+                  }}
+                ></div>
+              </div>
+              <span className="font-medium whitespace-nowrap">
+                {config.steps.length} {config.steps.length === 1 ? 'step' : 'steps'}
+              </span>
+            </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="p-4 lg:p-6 space-y-4">
             {config.steps.map((step, index) => (
-              <div
+              <div 
                 key={step.id}
-                className={`border rounded-lg p-4 cursor-pointer transition ${
-                  selectedStepIndex === index
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-                onClick={() => setSelectedStepIndex(index)}
+                ref={selectedStepIndex === index ? selectedStepRef : null}
+                className="animate-fadeIn"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-mono text-gray-500">#{index + 1}</span>
-                      <span className="font-medium text-gray-900">{step.agent}</span>
-                      {step.critical && (
-                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded">
-                          Critical
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600">{step.description}</p>
-                  </div>
-                  
-                  <div className="flex items-center gap-1 ml-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveStep(index, 'up');
-                      }}
-                      disabled={index === 0}
-                      className="p-1 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <ChevronUp size={16} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveStep(index, 'down');
-                      }}
-                      disabled={index === config.steps.length - 1}
-                      className="p-1 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <ChevronDown size={16} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm('Delete this step?')) {
-                          deleteStep(index);
-                        }
-                      }}
-                      className="p-1 hover:bg-red-50 text-red-600 rounded"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 text-xs text-gray-500">
-                  <span>Timeout: {step.timeout}s</span>
-                  {Object.keys(step.config).length > 0 && (
-                    <span>{Object.keys(step.config).length} config(s)</span>
-                  )}
-                </div>
+                <StepCard
+                  step={step}
+                  index={index}
+                  isSelected={selectedStepIndex === index}
+                  isFirst={index === 0}
+                  isLast={index === config.steps.length - 1}
+                  onSelect={() => setSelectedStepIndex(index)}
+                  onMoveUp={() => moveStep(index, 'up')}
+                  onMoveDown={() => moveStep(index, 'down')}
+                  onDelete={() => deleteStep(index)}
+                />
               </div>
             ))}
+
+            {config.steps.length === 0 && (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-4">📝</div>
+                <p className="text-gray-500 mb-4">No steps yet</p>
+                <button
+                  onClick={addStep}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                >
+                  Add First Step
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Step Editor */}
-        <div className="w-1/2 overflow-y-auto p-6 bg-gray-50">
+        <div className={`${
+          editorFullscreen 
+            ? 'w-full' 
+            : compactView 
+              ? 'w-full lg:w-2/3' 
+              : 'w-full lg:w-1/2'
+        } overflow-y-auto transition-all duration-300 bg-gray-50`}>
           {selectedStep ? (
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800 mb-6">Edit Step #{selectedStepIndex! + 1}</h2>
+            <div className="p-4 lg:p-6 animate-fadeIn">
+              {/* Editor Header */}
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">
+                    Edit Step #{selectedStepIndex! + 1}
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Configure {selectedStep.agent} settings
+                  </p>
+                </div>
+                
+                <button
+                  onClick={() => setEditorFullscreen(!editorFullscreen)}
+                  className="p-2 hover:bg-gray-200 rounded-lg transition"
+                  title={editorFullscreen ? 'Exit fullscreen' : 'Fullscreen editor'}
+                >
+                  {editorFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                </button>
+              </div>
               
               <div className="space-y-6">
                 {/* Agent Type */}
@@ -472,9 +518,12 @@ export default function FlowConfigEditorPage() {
             </div>
           ) : (
             <div className="flex items-center justify-center h-full text-gray-500">
-              <div className="text-center">
-                <div className="text-4xl mb-4">👈</div>
-                <p className="text-lg">Select a step to edit</p>
+              <div className="text-center animate-fadeIn">
+                <div className="text-6xl mb-4">👈</div>
+                <p className="text-xl font-medium mb-2">Select a step to edit</p>
+                <p className="text-sm text-gray-500">
+                  Click on any step from the list to configure its settings
+                </p>
               </div>
             </div>
           )}
