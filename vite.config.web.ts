@@ -14,17 +14,28 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3000,
     fs: {
-      // Exclude backend files from Vite scanning
-      strict: true,
-      deny: ['**/backend/**', '**/.git/**'],
+      // Allow frontend_tools but exclude other backend files
+      strict: false,  // ← Changed to false for universal paths!
       allow: [
+        path.resolve(__dirname, '.'),  // ← Allow entire project root
         path.resolve(__dirname, 'src'),
         path.resolve(__dirname, 'public'),
-        path.resolve(__dirname, 'node_modules')
+        path.resolve(__dirname, 'node_modules'),
+        path.resolve(__dirname, 'backend'),  // ← Allow backend for frontend_tools access
       ]
     },
     watch: {
-      ignored: ['**/backend/**', '**/dist-electron/**', '**/build/**', '**/tests/**', '**/release/**', '**/docs/**', '**/.git/**']
+      // Watch frontend_tools for changes, ignore other backend files
+      ignored: [
+        '**/backend/!(frontend_tools)/**', 
+        '**/backend/frontend_tools/**/*.py',  // Ignore Python files in frontend_tools
+        '**/dist-electron/**', 
+        '**/build/**', 
+        '**/tests/**', 
+        '**/release/**', 
+        '**/docs/**', 
+        '**/.git/**'
+      ]
     }
   },
   optimizeDeps: {

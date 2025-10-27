@@ -436,6 +436,209 @@ sudo supervisorctl restart frontend
 
 ---
 
+## 🐍 **RULE #0.6: Backend Dependencies & Database (CRITICAL)**
+
+### **Backend Python Dependencies**
+
+**PENTING untuk AI Agent:** Setiap percakapan baru, **WAJIB install dependencies berikut** sebelum start development:
+
+```bash
+# Install ALL backend dependencies
+cd /app/backend
+/root/.venv/bin/pip install -r requirements.txt
+
+# CRITICAL dependencies (sering missing):
+/root/.venv/bin/pip install chromadb==1.2.1
+/root/.venv/bin/pip install sentence-transformers
+
+# Verify installation
+/root/.venv/bin/pip list | grep -E "chromadb|sentence-transformers"
+```
+
+**Why These Are Critical:**
+- `chromadb` → Required for RAG system (AI chat dengan context retrieval)
+- `sentence-transformers` → Required for vector embeddings (all-MiniLM-L6-v2 model)
+
+**Common Import Errors (MUST FIX FIRST!):**
+```python
+# Error 1:
+ModuleNotFoundError: No module named 'chromadb'
+# Fix: pip install chromadb==1.2.1
+
+# Error 2:
+ModuleNotFoundError: No module named 'sentence_transformers'
+# Fix: pip install sentence-transformers
+```
+
+---
+
+### **Database Schema & Path Management**
+
+**Database Location:**
+```
+/app/backend/data/chimera_tools.db  (SQLite database)
+```
+
+**CRITICAL: Database MUST Use Relative Paths!**
+
+```python
+# ❌ SALAH (Hardcoded absolute paths - not portable!):
+{
+  "backend_path": "/app/backend/sample_tools/devtools/greeting-speaker/backend/main.py",
+  "frontend_path": "/app/backend/frontend_tools/greeting-speaker/GreetingSpeaker.tsx"
+}
+
+# ✅ BENAR (Relative paths - portable across environments!):
+{
+  "backend_path": "sample_tools/devtools/greeting-speaker/backend/main.py",
+  "frontend_path": "frontend_tools/greeting-speaker/GreetingSpeaker.tsx"
+}
+```
+
+**Path Conversion System:**
+
+Database has built-in path conversion:
+```python
+# database.py automatically converts:
+# Storage: Relative paths (portable)
+# Runtime: Absolute paths (for actual file access)
+
+def get_absolute_path(self, relative_path: str) -> str:
+    """Convert relative → absolute at runtime"""
+    abs_path = self.backend_dir / relative_path
+    return str(abs_path)
+```
+
+---
+
+### **Database Tables Overview**
+
+**Main Tables:**
+1. **tools** - Dynamic tools system
+   - Stores tool metadata (name, category, paths, status)
+   - Paths MUST be relative (Golden Rule!)
+
+2. **conversations** - AI chat conversations
+   - Stores chat history with personas
+
+3. **messages** - Chat messages
+   - Linked to conversations
+
+4. **ai_models** - AI model configurations
+   - Ollama models (llama3, mistral, qwen, etc.)
+
+5. **personas** - AI personas (Lycus, Sarah, etc.)
+   - Personality traits and response styles
+
+6. **agent_configs** - Multi-agent system configs
+   - Router, RAG, Execution, Reasoning, Persona agents
+
+7. **games** - WebGL games storage
+
+---
+
+### **Common Database Issues & Fixes**
+
+**Issue 1: Tools Not Mounting (Path Error)**
+```bash
+# Symptom:
+WARNING: Tool 'Calculator': Backend file not found at /home/user/.../backend/backend/sample_tools/...
+                                                                          ^^^^^^^^ (double "backend")
+
+# Root Cause: Database has hardcoded absolute paths
+
+# Fix: Run migration script
+cd /app/backend
+python3 fix_tool_paths.py
+
+# This converts all paths from absolute → relative
+```
+
+**Issue 2: Backend Won't Start (Missing Dependencies)**
+```bash
+# Check logs:
+tail -f /var/log/supervisor/backend.err.log
+
+# Common errors:
+ModuleNotFoundError: No module named 'chromadb'
+ModuleNotFoundError: No module named 'sentence_transformers'
+
+# Fix:
+/root/.venv/bin/pip install chromadb==1.2.1 sentence-transformers
+sudo supervisorctl restart backend
+```
+
+**Issue 3: Database Locked**
+```bash
+# Symptom: sqlite3.OperationalError: database is locked
+
+# Fix: Check for zombie processes
+ps aux | grep uvicorn
+kill -9 <PID>
+
+sudo supervisorctl restart backend
+```
+
+---
+
+### **Backend Virtual Environment**
+
+**Location:** `/root/.venv/`
+
+**ALWAYS use venv pip:**
+```bash
+# ✅ BENAR:
+/root/.venv/bin/pip install package-name
+
+# ❌ SALAH (system pip):
+pip install package-name
+```
+
+**Update requirements.txt:**
+```bash
+# After installing new packages:
+/root/.venv/bin/pip freeze > /app/backend/requirements.txt
+```
+
+---
+
+### **Startup Checklist for New Conversations**
+
+**Before starting ANY development:**
+
+```bash
+# 1. Install backend dependencies
+cd /app/backend
+/root/.venv/bin/pip install -r requirements.txt
+
+# 2. Verify critical packages
+/root/.venv/bin/pip list | grep -E "chromadb|sentence-transformers|fastapi"
+
+# 3. Check database exists
+ls -la /app/backend/data/chimera_tools.db
+
+# 4. Verify backend status
+sudo supervisorctl status backend
+curl http://localhost:8001/api/health
+
+# 5. Check for path issues in database
+cd /app/backend
+python3 -c "from database import SQLiteDB; db = SQLiteDB(); print('DB OK')"
+```
+
+**If backend fails to start:**
+```bash
+# Check logs:
+tail -n 50 /var/log/supervisor/backend.err.log
+
+# Common fixes:
+1. Install missing deps: /root/.venv/bin/pip install <package>
+2. Fix paths: python3 fix_tool_paths.py
+3. Restart: sudo supervisorctl restart backend
+```
+
+---
+
 ## 🗂️ **RULE #1: File Organization (WAJIB)**
 
 ### 📁 Struktur Folder yang HARUS Diikuti:

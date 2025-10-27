@@ -1,109 +1,97 @@
-/**
- * Sapaan Login/Shutdown Tool
- * 
- * Automatic greeting speaker with espeak - Indonesian language
- * Menggunakan dependencies utama: lucide-react, Tailwind CSS
- */
+import React, { useState, useEffect } from 'react';
+import { Sunrise, Sunset, Volume2, Play, Loader2 } from 'lucide-react';
 
-import React, { useState, useEffect } from 'react'
-import { Volume2, Sunrise, Power } from 'lucide-react'
-
-interface GreetingSpeakerProps {
-  toolId: string
-  toolData?: any
-}
-
-const GreetingSpeaker: React.FC<GreetingSpeakerProps> = ({ toolId }) => {
-  const [greeting, setGreeting] = useState('')
-  const [isSpeaking, setIsSpeaking] = useState(false)
-  const [espeakAvailable, setEspeakAvailable] = useState<boolean | null>(null)
-  const [eventType, setEventType] = useState('login')
-  const [timeOfDay, setTimeOfDay] = useState('morning')
-  const [autoSpoken, setAutoSpoken] = useState(false)
-  const [lastSpoken, setLastSpoken] = useState<string | null>(null)
+const Tool = () => {
+  const [greeting, setGreeting] = useState('');
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [espeakAvailable, setEspeakAvailable] = useState(null);
+  const [eventType, setEventType] = useState('login');
+  const [timeOfDay, setTimeOfDay] = useState('morning');
+  const [autoSpoken, setAutoSpoken] = useState(false);
+  const [lastSpoken, setLastSpoken] = useState(null);
 
   // Get time icon based on time of day
   const getTimeIcon = () => {
     switch (timeOfDay) {
       case 'morning':
-        return <span className="text-4xl">🌅</span>
+        return <span className="text-4xl">🌅</span>;
       case 'afternoon':
-        return <span className="text-4xl">☀️</span>
+        return <span className="text-4xl">☀️</span>;
       case 'evening':
-        return <span className="text-4xl">🌆</span>
+        return <span className="text-4xl">🌆</span>;
       case 'night':
-        return <span className="text-4xl">🌙</span>
+        return <span className="text-4xl">🌙</span>;
       default:
-        return <span className="text-4xl">🕐</span>
+        return <span className="text-4xl">🕐</span>;
     }
-  }
+  };
 
   // Check espeak availability
   useEffect(() => {
-    checkEspeak()
-  }, [])
+    checkEspeak();
+  }, []);
 
   // Auto-speak on login (once)
   useEffect(() => {
     if (espeakAvailable && !autoSpoken) {
       setTimeout(() => {
-        handleSpeak('login', true)
-        setAutoSpoken(true)
-      }, 1000)
+        handleSpeak('login', true);
+        setAutoSpoken(true);
+      }, 1000);
     }
-  }, [espeakAvailable, autoSpoken])
+  }, [espeakAvailable]);
 
   const checkEspeak = async () => {
     try {
-      const response = await fetch(`http://localhost:8001/tools/${toolId}/check-espeak`)
-      const data = await response.json()
-      setEspeakAvailable(data.available)
+      const response = await fetch(`${window.location.origin}/tools/greeting_speaker/check-espeak`);
+      const data = await response.json();
+      setEspeakAvailable(data.available);
     } catch (error) {
-      console.error('Error checking espeak:', error)
-      setEspeakAvailable(false)
+      console.error('Error checking espeak:', error);
+      setEspeakAvailable(false);
     }
-  }
+  };
 
-  const fetchGreeting = async (type: string) => {
+  const fetchGreeting = async (type) => {
     try {
-      const response = await fetch(`http://localhost:8001/tools/${toolId}/greetings/${type}`)
-      const data = await response.json()
+      const response = await fetch(`${window.location.origin}/tools/greeting_speaker/greetings/${type}`);
+      const data = await response.json();
       if (data.success) {
-        setGreeting(data.greeting)
-        setTimeOfDay(data.time_of_day)
-        setEventType(type)
+        setGreeting(data.greeting);
+        setTimeOfDay(data.time_of_day);
+        setEventType(type);
       }
     } catch (error) {
-      console.error('Error fetching greeting:', error)
+      console.error('Error fetching greeting:', error);
     }
-  }
+  };
 
-  const handleSpeak = async (type: string, isAuto = false) => {
-    setIsSpeaking(true)
+  const handleSpeak = async (type, isAuto = false) => {
+    setIsSpeaking(true);
     try {
       const response = await fetch(
-        `http://localhost:8001/tools/${toolId}/speak?event_type=${type}`,
+        `${window.location.origin}/tools/greeting_speaker/speak?event_type=${type}`,
         { method: 'POST' }
-      )
-      const data = await response.json()
+      );
+      const data = await response.json();
       
       if (data.success) {
-        setGreeting(data.text_spoken)
-        setTimeOfDay(type === 'shutdown' ? 'shutdown' : data.time_of_day || 'morning')
-        setEventType(type)
-        setLastSpoken(new Date().toLocaleTimeString('id-ID'))
+        setGreeting(data.text_spoken);
+        setTimeOfDay(type === 'shutdown' ? 'shutdown' : data.time_of_day || 'morning');
+        setEventType(type);
+        setLastSpoken(new Date().toLocaleTimeString('id-ID'));
       }
     } catch (error) {
-      console.error('Error speaking:', error)
+      console.error('Error speaking:', error);
     } finally {
-      setIsSpeaking(false)
+      setIsSpeaking(false);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       {/* Header */}
-      <header className="bg-white dark:bg-dark-surface border-b border-gray-200 dark:border-dark-border shadow-sm">
+      <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -114,28 +102,26 @@ const GreetingSpeaker: React.FC<GreetingSpeakerProps> = ({ toolId }) => {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   Sapaan Login/Shutdown
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Sapaan otomatis dengan espeak - Bahasa Indonesia
-                </p>
+                <p className="text-sm text-gray-500">Sapaan otomatis dengan espeak - Bahasa Indonesia</p>
               </div>
             </div>
             
             {/* Espeak Status */}
             <div className="flex items-center space-x-2">
               {espeakAvailable === null ? (
-                <div className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center space-x-2">
+                <div className="px-4 py-2 bg-gray-100 rounded-lg flex items-center space-x-2">
                   <span className="text-xl">⏳</span>
-                  <span className="text-sm text-gray-600 dark:text-gray-300">Checking...</span>
+                  <span className="text-sm text-gray-600">Checking...</span>
                 </div>
               ) : espeakAvailable ? (
-                <div className="px-4 py-2 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center space-x-2">
+                <div className="px-4 py-2 bg-green-100 rounded-lg flex items-center space-x-2">
                   <span className="text-xl">✅</span>
-                  <span className="text-sm text-green-700 dark:text-green-300 font-medium">espeak Ready</span>
+                  <span className="text-sm text-green-700 font-medium">espeak Ready</span>
                 </div>
               ) : (
-                <div className="px-4 py-2 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center space-x-2">
+                <div className="px-4 py-2 bg-red-100 rounded-lg flex items-center space-x-2">
                   <span className="text-xl">❌</span>
-                  <span className="text-sm text-red-700 dark:text-red-300 font-medium">espeak Not Found</span>
+                  <span className="text-sm text-red-700 font-medium">espeak Not Found</span>
                 </div>
               )}
             </div>
@@ -147,20 +133,18 @@ const GreetingSpeaker: React.FC<GreetingSpeakerProps> = ({ toolId }) => {
       <div className="max-w-6xl mx-auto px-6 py-12">
         {/* Current Greeting Display */}
         {greeting && (
-          <div className="mb-8 bg-white dark:bg-dark-surface rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-dark-border">
+          <div className="mb-8 bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
             <div className="flex items-start space-x-4">
               <div className="flex-shrink-0">
                 {getTimeIcon()}
               </div>
               <div className="flex-1">
-                <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                  Sapaan Terakhir:
-                </h2>
-                <p className="text-3xl font-bold text-gray-900 dark:text-white leading-relaxed">
+                <h2 className="text-xl font-semibold text-gray-800 mb-2">Sapaan Terakhir:</h2>
+                <p className="text-3xl font-bold text-gray-900 leading-relaxed">
                   {greeting}
                 </p>
                 {lastSpoken && (
-                  <div className="mt-4 flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                  <div className="mt-4 flex items-center space-x-2 text-sm text-gray-500">
                     <span className="text-lg">🕐</span>
                     <span>Diucapkan pada: {lastSpoken}</span>
                   </div>
@@ -180,14 +164,14 @@ const GreetingSpeaker: React.FC<GreetingSpeakerProps> = ({ toolId }) => {
         {/* Action Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Login Greeting */}
-          <div className="bg-white dark:bg-dark-surface rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-dark-border hover:shadow-xl transition-shadow">
+          <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200 hover:shadow-xl transition-shadow">
             <div className="flex items-center space-x-3 mb-6">
               <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center">
                 <Sunrise className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Sapaan Login</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Sapaan saat masuk aplikasi</p>
+                <h3 className="text-xl font-bold text-gray-800">Sapaan Login</h3>
+                <p className="text-sm text-gray-500">Sapaan saat masuk aplikasi</p>
               </div>
             </div>
             
@@ -213,7 +197,7 @@ const GreetingSpeaker: React.FC<GreetingSpeakerProps> = ({ toolId }) => {
               <button
                 onClick={() => fetchGreeting('login')}
                 disabled={isSpeaking}
-                className="w-full px-6 py-3 bg-white dark:bg-dark-background border-2 border-green-500 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 disabled:border-gray-300 disabled:text-gray-400 font-medium rounded-xl transition-all disabled:cursor-not-allowed"
+                className="w-full px-6 py-3 bg-white border-2 border-green-500 text-green-600 hover:bg-green-50 disabled:border-gray-300 disabled:text-gray-400 font-medium rounded-xl transition-all disabled:cursor-not-allowed"
               >
                 Lihat Teks Sapaan Saja
               </button>
@@ -221,14 +205,14 @@ const GreetingSpeaker: React.FC<GreetingSpeakerProps> = ({ toolId }) => {
           </div>
 
           {/* Shutdown Greeting */}
-          <div className="bg-white dark:bg-dark-surface rounded-2xl shadow-lg p-8 border border-gray-200 dark:border-dark-border hover:shadow-xl transition-shadow">
+          <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200 hover:shadow-xl transition-shadow">
             <div className="flex items-center space-x-3 mb-6">
               <div className="w-12 h-12 bg-gradient-to-br from-red-400 to-pink-500 rounded-xl flex items-center justify-center">
                 <Power className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Sapaan Shutdown</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Sapaan saat keluar aplikasi</p>
+                <h3 className="text-xl font-bold text-gray-800">Sapaan Shutdown</h3>
+                <p className="text-sm text-gray-500">Sapaan saat keluar aplikasi</p>
               </div>
             </div>
             
@@ -254,7 +238,7 @@ const GreetingSpeaker: React.FC<GreetingSpeakerProps> = ({ toolId }) => {
               <button
                 onClick={() => fetchGreeting('shutdown')}
                 disabled={isSpeaking}
-                className="w-full px-6 py-3 bg-white dark:bg-dark-background border-2 border-red-500 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:border-gray-300 disabled:text-gray-400 font-medium rounded-xl transition-all disabled:cursor-not-allowed"
+                className="w-full px-6 py-3 bg-white border-2 border-red-500 text-red-600 hover:bg-red-50 disabled:border-gray-300 disabled:text-gray-400 font-medium rounded-xl transition-all disabled:cursor-not-allowed"
               >
                 Lihat Teks Sapaan Saja
               </button>
@@ -292,7 +276,7 @@ const GreetingSpeaker: React.FC<GreetingSpeakerProps> = ({ toolId }) => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default GreetingSpeaker
+export default Tool;

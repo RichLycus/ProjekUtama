@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Advanced Calculator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .calculator-container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 600px;
+      width: 100%;
+    }
+    h1 {
+      text-align: center;
+      color: #667eea;
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .input-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #555;
+      font-weight: 600;
+    }
+    input {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+      font-family: 'Courier New', monospace;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    button {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+    button:active {
+      transform: translateY(0);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .result {
+      margin-top: 30px;
+      padding: 25px;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      border-radius: 15px;
+      text-align: center;
+      display: none;
+      animation: slideIn 0.3s ease-out;
+    }
+    .result.show {
+      display: block;
+    }
+    .result h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    .result-value {
+      font-size: 40px;
+      font-weight: bold;
+      color: #333;
+      font-family: 'Courier New', monospace;
+    }
+    .result-details {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #666;
+    }
+    .error {
+      background: linear-gradient(135deg, #fee 0%, #fcc 100%);
+      color: #c33;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      display: none;
+      animation: shake 0.3s;
+    }
+    .error.show {
+      display: block;
+    }
+    .examples {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f9f9fb;
+      border-radius: 10px;
+    }
+    .examples h4 {
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+    .examples code {
+      display: block;
+      padding: 5px 10px;
+      background: white;
+      border-radius: 5px;
+      margin: 5px 0;
+      font-family: 'Courier New', monospace;
+      color: #764ba2;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .examples code:hover {
+      background: #667eea;
+      color: white;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      75% { transform: translateX(10px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator-container">
+    <h1>🧮 Advanced Calculator</h1>
+    <p class="subtitle">Scientific calculator with trigonometry, logarithms, and more</p>
+    
+    <div class="input-group">
+      <label for="expression">Expression</label>
+      <input 
+        type="text" 
+        id="expression" 
+        placeholder="e.g., sqrt(16) + sin(pi/2)"
+        value="sqrt(16) + sin(pi/2)"
+      />
+    </div>
+    
+    <div class="input-group">
+      <label for="precision">Precision (decimal places: 0-15)</label>
+      <input 
+        type="number" 
+        id="precision" 
+        value="10" 
+        min="0" 
+        max="15"
+      />
+    </div>
+    
+    <button onclick="calculate()" id="calcBtn">Calculate</button>
+    
+    <div class="result" id="result">
+      <h3>Result</h3>
+      <div class="result-value" id="resultValue">0</div>
+      <div class="result-details" id="resultDetails"></div>
+    </div>
+    
+    <div class="error" id="error"></div>
+
+    <div class="examples">
+      <h4>💡 Example Expressions (click to try):</h4>
+      <code onclick="tryExample('sqrt(16) + 4')">sqrt(16) + 4</code>
+      <code onclick="tryExample('sin(pi/2) * 10')">sin(pi/2) * 10</code>
+      <code onclick="tryExample('2 ** 8')">2 ** 8</code>
+      <code onclick="tryExample('log10(1000)')">log10(1000)</code>
+      <code onclick="tryExample('cos(pi) + exp(1)')">cos(pi) + exp(1)</code>
+    </div>
+  </div>
+
+  <script>
+    // Get tool ID from window context (injected by executor)
+    const TOOL_ID = window.TOOL_ID || 'current-tool-id';
+    const API_BASE = `http://localhost:8001/tools/${TOOL_ID}`;
+    
+    async function calculate() {
+      const expr = document.getElementById('expression').value;
+      const prec = parseInt(document.getElementById('precision').value) || 10;
+      const resultDiv = document.getElementById('result');
+      const resultValue = document.getElementById('resultValue');
+      const resultDetails = document.getElementById('resultDetails');
+      const errorDiv = document.getElementById('error');
+      const calcBtn = document.getElementById('calcBtn');
+
+      // Hide previous results
+      resultDiv.classList.remove('show');
+      errorDiv.classList.remove('show');
+      
+      // Validate input
+      if (!expr.trim()) {
+        errorDiv.textContent = '⚠️ Please enter an expression';
+        errorDiv.classList.add('show');
+        return;
+      }
+
+      // Disable button
+      calcBtn.disabled = true;
+      calcBtn.textContent = 'Calculating...';
+
+      try {
+        // Fetch to backend endpoint
+        const response = await fetch(`${API_BASE}/calculate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            expression: expr, 
+            precision: prec 
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.status === 'success') {
+          // Show success result
+          resultValue.textContent = data.result;
+          resultDetails.innerHTML = `
+            <strong>Expression:</strong> ${data.expression}<br>
+            <strong>Precision:</strong> ${data.precision} decimal places
+          `;
+          resultDiv.classList.add('show');
+        } else {
+          // Show error from backend
+          errorDiv.textContent = `❌ ${data.detail || data.message || 'Unknown error'}`;
+          errorDiv.classList.add('show');
+        }
+      } catch (err) {
+        // Network or parsing error
+        errorDiv.textContent = `❌ Network error: ${err.message}`;
+        errorDiv.classList.add('show');
+      } finally {
+        // Re-enable button
+        calcBtn.disabled = false;
+        calcBtn.textContent = 'Calculate';
+      }
+    }
+
+    function tryExample(expr) {
+      document.getElementById('expression').value = expr;
+      calculate();
+    }
+
+    // Allow Enter key to trigger calculation
+    document.getElementById('expression').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') calculate();
+    });
+
+    document.getElementById('precision').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') calculate();
+    });
+  </script>
+</body>
+</html>

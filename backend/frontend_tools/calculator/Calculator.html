@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .calculator {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        .result.show {
+            display: block;
+        }
+        .result h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .result-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+        .error.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <h1>🧮 Simple Calculator</h1>
+        
+        <div class="input-group">
+            <label for="num1">First Number</label>
+            <input type="number" id="num1" value="10" step="any">
+        </div>
+        
+        <div class="input-group">
+            <label for="operation">Operation</label>
+            <select id="operation">
+                <option value="add">➕ Add</option>
+                <option value="subtract">➖ Subtract</option>
+                <option value="multiply">✖️ Multiply</option>
+                <option value="divide">➗ Divide</option>
+            </select>
+        </div>
+        
+        <div class="input-group">
+            <label for="num2">Second Number</label>
+            <input type="number" id="num2" value="5" step="any">
+        </div>
+        
+        <button onclick="calculate()">Calculate</button>
+        
+        <div class="result" id="result">
+            <h3>Result</h3>
+            <div class="result-value" id="resultValue">0</div>
+        </div>
+        
+        <div class="error" id="error"></div>
+    </div>
+
+    <script>
+        function calculate() {
+            const num1 = parseFloat(document.getElementById('num1').value);
+            const num2 = parseFloat(document.getElementById('num2').value);
+            const operation = document.getElementById('operation').value;
+            
+            const result = document.getElementById('result');
+            const resultValue = document.getElementById('resultValue');
+            const error = document.getElementById('error');
+            
+            // Hide previous results
+            result.classList.remove('show');
+            error.classList.remove('show');
+            
+            // Validate inputs
+            if (isNaN(num1) || isNaN(num2)) {
+                error.textContent = 'Please enter valid numbers';
+                error.classList.add('show');
+                return;
+            }
+            
+            let calculatedResult;
+            let operationSymbol;
+            
+            switch(operation) {
+                case 'add':
+                    calculatedResult = num1 + num2;
+                    operationSymbol = '+';
+                    break;
+                case 'subtract':
+                    calculatedResult = num1 - num2;
+                    operationSymbol = '-';
+                    break;
+                case 'multiply':
+                    calculatedResult = num1 * num2;
+                    operationSymbol = '×';
+                    break;
+                case 'divide':
+                    if (num2 === 0) {
+                        error.textContent = 'Cannot divide by zero!';
+                        error.classList.add('show');
+                        return;
+                    }
+                    calculatedResult = num1 / num2;
+                    operationSymbol = '÷';
+                    break;
+            }
+            
+            // Round to 6 decimal places
+            calculatedResult = Math.round(calculatedResult * 1000000) / 1000000;
+            
+            resultValue.textContent = `${num1} ${operationSymbol} ${num2} = ${calculatedResult}`;
+            result.classList.add('show');
+        }
+        
+        // Allow Enter key to calculate
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                calculate();
+            }
+        });
+    </script>
+</body>
+</html>

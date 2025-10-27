@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, Upload, FileCode, AlertCircle, CheckCircle, Loader, Code2, FileText, AlertTriangle } from 'lucide-react'
+import { X, Upload, FileArchive, AlertCircle, CheckCircle, Loader, AlertTriangle, FolderTree } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { BACKEND_URL } from '@/lib/backend'
 
@@ -9,10 +9,13 @@ interface UploadToolModalProps {
   onSuccess: () => void
 }
 
-interface ExtractedMetadata {
-  name: string
-  category: string
-  description: string
+interface ZipContents {
+  hasBackend: boolean
+  hasFrontend: boolean
+  backendFiles: string[]
+  frontendFiles: string[]
+  valid: boolean
+  errors: string[]
 }
 
 interface ExistingTool {
@@ -33,9 +36,8 @@ interface NameCheckResult {
 }
 
 export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadToolModalProps) {
-  const [backendFile, setBackendFile] = useState<File | null>(null)
-  const [frontendFile, setFrontendFile] = useState<File | null>(null)
-  const [extractedMeta, setExtractedMeta] = useState<ExtractedMetadata | null>(null)
+  const [zipFile, setZipFile] = useState<File | null>(null)
+  const [zipContents, setZipContents] = useState<ZipContents | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('DevTools')
@@ -46,11 +48,10 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
   const [checking, setChecking] = useState(false)
   const [nameCheckResult, setNameCheckResult] = useState<NameCheckResult | null>(null)
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false)
-  const backendFileInputRef = useRef<HTMLInputElement>(null)
-  const frontendFileInputRef = useRef<HTMLInputElement>(null)
+  const zipFileInputRef = useRef<HTMLInputElement>(null)
   const checkTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const categories = ['Office', 'DevTools', 'Multimedia', 'Utilities', 'Security', 'Network', 'Data']
+  const categories = ['Office', 'DevTools', 'Multimedia', 'Utilities', 'Security', 'Network', 'Data', 'Converters']
 
   // Real-time name checking with debounce
   useEffect(() => {
@@ -83,72 +84,77 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
     }
   }, [name])
 
-  const extractMetadata = async (fileContent: string) => {
-    // Extract metadata from docstring
-    const docstringMatch = fileContent.match(/"""([\s\S]*?)"""/);
-    if (docstringMatch) {
-      const docstring = docstringMatch[1]
-      const nameMatch = docstring.match(/NAME:\s*(.+)/i)
-      const catMatch = docstring.match(/CATEGORY:\s*(.+)/i)
-      const descMatch = docstring.match(/DESCRIPTION:\s*(.+)/i)
-      
-      if (nameMatch || catMatch || descMatch) {
-        const meta = {
-          name: nameMatch ? nameMatch[1].trim() : '',
-          category: catMatch ? catMatch[1].trim() : 'DevTools',
-          description: descMatch ? descMatch[1].trim() : ''
-        }
-        setExtractedMeta(meta)
-        if (meta.name) setName(meta.name)
-        if (meta.category) setCategory(meta.category)
-        if (meta.description) setDescription(meta.description)
-      }
-    }
-  }
-
-  const handleBackendFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0]
-    if (selectedFile) {
-      if (!selectedFile.name.endsWith('.py')) {
-        toast.error('Backend file must be a Python (.py) file')
-        return
-      }
-      
-      setBackendFile(selectedFile)
-      
-      // Read and extract metadata from backend file
+  const validateZipStructure = (file: File): Promise<ZipContents> => {
+    return new Promise((resolve) => {
       const reader = new FileReader()
-      reader.onload = async (event) => {
-        const content = event.target?.result as string
-        await extractMetadata(content)
+      
+      reader.onload = (e) => {
+        try {
+          // Simple validation by checking file entries
+          // For full validation, we'll let backend handle it
+          const result: ZipContents = {
+            hasBackend: true,  // Assume valid, backend will validate
+            hasFrontend: true,
+            backendFiles: [],
+            frontendFiles: [],
+            valid: true,
+            errors: []
+          }
+          
+          resolve(result)
+        } catch (error) {
+          resolve({
+            hasBackend: false,
+            hasFrontend: false,
+            backendFiles: [],
+            frontendFiles: [],
+            valid: false,
+            errors: ['Failed to read ZIP file']
+          })
+        }
       }
-      reader.readAsText(selectedFile)
-    }
+      
+      reader.onerror = () => {
+        resolve({
+          hasBackend: false,
+          hasFrontend: false,
+          backendFiles: [],
+          frontendFiles: [],
+          valid: false,
+          errors: ['Failed to read ZIP file']
+        })
+      }
+      
+      reader.readAsArrayBuffer(file)
+    })
   }
 
-  const handleFrontendFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleZipFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
-      const validExts = ['.jsx', '.tsx', '.html', '.js']
-      const hasValidExt = validExts.some(ext => selectedFile.name.endsWith(ext))
-      if (!hasValidExt) {
-        toast.error('Frontend file must be .jsx, .tsx, .html, or .js')
+      if (!selectedFile.name.endsWith('.zip')) {
+        toast.error('File must be a ZIP archive (.zip)')
         return
       }
       
-      setFrontendFile(selectedFile)
+      setZipFile(selectedFile)
+      
+      // Validate ZIP structure
+      const contents = await validateZipStructure(selectedFile)
+      setZipContents(contents)
+      
+      // Auto-extract tool name from ZIP filename (remove .zip extension)
+      const zipName = selectedFile.name.replace('.zip', '')
+      if (!name) {
+        setName(zipName)
+      }
     }
   }
 
   const handleUpload = async (forceOverwrite = false) => {
-    // Validate both files are selected
-    if (!backendFile) {
-      toast.error('⚠️ Please select a backend file (.py)')
-      return
-    }
-
-    if (!frontendFile) {
-      toast.error('⚠️ Please select a frontend file (.jsx, .tsx, .html, .js)')
+    // Validate ZIP file selected
+    if (!zipFile) {
+      toast.error('⚠️ Please select a ZIP file')
       return
     }
 
@@ -179,89 +185,63 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
     }
 
     setUploading(true)
-    const toastId = toast.loading('Uploading dual tool (backend + frontend)...')
+    const toastId = toast.loading('📦 Uploading ZIP archive...')
 
     try {
-      if (window.electronAPI) {
-        // Electron mode - read files and send content
-        const backendContent = await backendFile.text()
-        const frontendContent = await frontendFile.text()
+      const formData = new FormData()
+      formData.append('file', zipFile)
+      formData.append('name', name.trim())
+      formData.append('description', description.trim() || name.trim())
+      formData.append('category', category.trim())
+      formData.append('version', version.trim())
+      formData.append('author', author.trim())
+      formData.append('force_overwrite', forceOverwrite.toString())
+      
+      const response = await fetch(`${BACKEND_URL}/api/tools/upload-zip`, {
+        method: 'POST',
+        body: formData
+      })
+      
+      const result = await response.json()
+      
+      if (response.ok && result.success) {
+        setValidationResult(result.validation)
         
-        const formData = {
-          backend_file: backendContent,
-          backend_filename: backendFile.name,
-          frontend_file: frontendContent,
-          frontend_filename: frontendFile.name,
-          name: name.trim(),
-          description: description.trim() || name.trim(),
-          category: category.trim(),
-          version: version.trim(),
-          author: author.trim(),
-          force_overwrite: forceOverwrite
-        }
-
-        const result = await window.electronAPI.uploadDualTool(formData)
+        const message = result.overwritten 
+          ? `✅ Tool "${result.slug}" berhasil diperbarui!` 
+          : `✅ Tool "${result.slug}" berhasil diupload!`
         
-        if (result.success) {
-          setValidationResult(result.validation)
-          
-          const message = result.overwritten 
-            ? '✅ Tool berhasil diperbarui!' 
-            : '✅ Tool berhasil diupload!'
-          
-          if (result.validation.valid) {
-            toast.success(message, { id: toastId })
-            setTimeout(() => {
-              onSuccess()
-              handleClose()
-            }, 1500)
-          } else {
-            toast.error('⚠️ Tool uploaded but validation failed', { id: toastId })
-          }
+        if (result.validation.valid) {
+          toast.success(message, { id: toastId })
+          setTimeout(() => {
+            onSuccess()
+            handleClose()
+          }, 1500)
         } else {
-          toast.error('❌ Upload failed: ' + result.error, { id: toastId })
+          toast.error('⚠️ Tool uploaded but validation failed', { id: toastId })
         }
       } else {
-        // Web mode - direct HTTP call
-        const httpFormData = new FormData()
-        httpFormData.append('backend_file', backendFile)
-        httpFormData.append('frontend_file', frontendFile)
-        httpFormData.append('name', name.trim())
-        httpFormData.append('description', description.trim() || name.trim())
-        httpFormData.append('category', category.trim())
-        httpFormData.append('version', version.trim())
-        httpFormData.append('author', author.trim())
-        httpFormData.append('force_overwrite', forceOverwrite.toString())
+        // Handle validation errors from backend
+        const errorMsg = result.detail?.error || result.detail || result.error || 'Upload failed'
+        const details = result.detail?.details || []
         
-        const response = await fetch(`${BACKEND_URL}/api/tools/upload`, {
-          method: 'POST',
-          body: httpFormData
-        })
-        
-        const result = await response.json()
-        
-        if (response.ok && result.success) {
-          setValidationResult(result.validation)
-          
-          const message = result.overwritten 
-            ? `✅ Tool "${result.slug}" berhasil diperbarui!` 
-            : `✅ Tool "${result.slug}" berhasil diupload!`
-          
-          if (result.validation.valid) {
-            toast.success(message, { id: toastId })
-            setTimeout(() => {
-              onSuccess()
-              handleClose()
-            }, 1500)
-          } else {
-            toast.error('⚠️ Tool uploaded but validation failed', { id: toastId })
-          }
+        if (details.length > 0) {
+          toast.error(
+            <div>
+              <p className="font-bold">{errorMsg}</p>
+              <ul className="text-xs mt-1">
+                {details.map((err: string, i: number) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            </div>,
+            { id: toastId, duration: 5000 }
+          )
         } else {
-          // Show detailed error message from backend
-          const errorMsg = result.detail || result.error || result.message || 'Upload failed'
           toast.error(`❌ ${errorMsg}`, { id: toastId })
-          console.error('Upload error:', result)
         }
+        
+        console.error('Upload error:', result)
       }
       
       setUploading(false)
@@ -274,9 +254,8 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
   }
 
   const handleClose = () => {
-    setBackendFile(null)
-    setFrontendFile(null)
-    setExtractedMeta(null)
+    setZipFile(null)
+    setZipContents(null)
     setName('')
     setDescription('')
     setCategory('DevTools')
@@ -302,8 +281,8 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
                 <Upload className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h2 className="text-xl font-display font-bold">Upload Dual Tool</h2>
-                <p className="text-sm text-secondary">Upload backend (.py) + frontend (.jsx/.tsx/.html/.js)</p>
+                <h2 className="text-xl font-display font-bold">Upload Tool (ZIP Archive)</h2>
+                <p className="text-sm text-secondary">Upload tool as single ZIP file</p>
               </div>
             </div>
             <button
@@ -321,93 +300,69 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
             <div className="flex items-start gap-3 p-4 bg-primary/10 border-2 border-primary/30 rounded-lg">
               <AlertCircle className="w-6 h-6 text-primary flex-shrink-0 mt-0.5" />
               <div className="text-sm">
-                <p className="font-bold text-primary text-base mb-2">⚠️ Mandatory: Upload 2 Files</p>
-                <ul className="list-disc list-inside space-y-1 text-secondary">
-                  <li><strong>Backend File:</strong> Python script (.py) with backend logic</li>
-                  <li><strong>Frontend File:</strong> UI file (.jsx, .tsx, .html, .js) for user interface</li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Dual File Upload */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Backend File */}
-              <div>
-                <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                  <Code2 className="w-4 h-4 text-primary" />
-                  Backend File (.py) *
-                </label>
-                <input
-                  ref={backendFileInputRef}
-                  type="file"
-                  accept=".py"
-                  onChange={handleBackendFileSelect}
-                  className="hidden"
-                  data-testid="backend-file-input"
-                />
-                <button
-                  onClick={() => backendFileInputRef.current?.click()}
-                  className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-200 dark:border-dark-border rounded-xl hover:border-primary hover:bg-primary/5 transition-all"
-                  data-testid="select-backend-file-button"
-                >
-                  <FileCode className="w-8 h-8 text-primary" />
-                  <div className="text-center">
-                    <p className="font-medium text-sm">
-                      {backendFile ? `✅ ${backendFile.name}` : 'Click to select Python file'}
-                    </p>
-                    {backendFile && (
-                      <p className="text-xs text-secondary mt-1">
-                        {(backendFile.size / 1024).toFixed(2)} KB
-                      </p>
-                    )}
-                  </div>
-                </button>
-              </div>
-
-              {/* Frontend File */}
-              <div>
-                <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary" />
-                  Frontend File (.jsx/.tsx/.html/.js) *
-                </label>
-                <input
-                  ref={frontendFileInputRef}
-                  type="file"
-                  accept=".jsx,.tsx,.html,.js"
-                  onChange={handleFrontendFileSelect}
-                  className="hidden"
-                  data-testid="frontend-file-input"
-                />
-                <button
-                  onClick={() => frontendFileInputRef.current?.click()}
-                  className="w-full flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-gray-200 dark:border-dark-border rounded-xl hover:border-primary hover:bg-primary/5 transition-all"
-                  data-testid="select-frontend-file-button"
-                >
-                  <FileCode className="w-8 h-8 text-primary" />
-                  <div className="text-center">
-                    <p className="font-medium text-sm">
-                      {frontendFile ? `✅ ${frontendFile.name}` : 'Click to select UI file'}
-                    </p>
-                    {frontendFile && (
-                      <p className="text-xs text-secondary mt-1">
-                        {(frontendFile.size / 1024).toFixed(2)} KB
-                      </p>
-                    )}
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Auto-extracted Metadata Notice */}
-            {extractedMeta && (
-              <div className="flex items-start gap-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-green-500">Metadata extracted from backend file</p>
-                  <p className="text-secondary">Fields have been auto-filled. You can edit them below.</p>
+                <p className="font-bold text-primary text-base mb-2">📦 ZIP Structure Required</p>
+                <div className="bg-black/20 rounded-lg p-3 font-mono text-xs mt-2">
+                  <div className="text-secondary">tool-name.zip</div>
+                  <div className="ml-3">├── <span className="text-primary">backend/</span></div>
+                  <div className="ml-6">└── main.py <span className="text-yellow-500">(exactly 1 .py file)</span></div>
+                  <div className="ml-3">└── <span className="text-primary">frontend/</span></div>
+                  <div className="ml-6">└── Component.tsx <span className="text-yellow-500">(exactly 1 file)</span></div>
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* ZIP File Upload */}
+            <div>
+              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                <FileArchive className="w-4 h-4 text-primary" />
+                ZIP Archive (.zip) *
+              </label>
+              <input
+                ref={zipFileInputRef}
+                type="file"
+                accept=".zip"
+                onChange={handleZipFileSelect}
+                className="hidden"
+                data-testid="zip-file-input"
+              />
+              <button
+                onClick={() => zipFileInputRef.current?.click()}
+                className="w-full flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-gray-200 dark:border-dark-border rounded-xl hover:border-primary hover:bg-primary/5 transition-all"
+                data-testid="select-zip-file-button"
+              >
+                <FileArchive className={`w-12 h-12 ${zipFile ? 'text-green-500' : 'text-primary'}`} />
+                <div className="text-center">
+                  {zipFile ? (
+                    <>
+                      <p className="font-medium text-sm text-green-600 dark:text-green-500">
+                        ✅ {zipFile.name}
+                      </p>
+                      <p className="text-xs text-secondary mt-1">
+                        {(zipFile.size / 1024).toFixed(2)} KB
+                      </p>
+                      {zipContents && zipContents.valid && (
+                        <div className="mt-3 p-3 bg-green-500/10 rounded-lg text-left">
+                          <p className="text-xs font-medium text-green-600 dark:text-green-500 mb-2">
+                            <FolderTree className="w-3 h-3 inline-block mr-1" />
+                            ZIP akan divalidasi oleh backend
+                          </p>
+                          <p className="text-xs text-secondary">
+                            Pastikan struktur ZIP sesuai (backend/ dan frontend/ folders)
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium">Click to select ZIP file</p>
+                      <p className="text-xs text-secondary mt-1">
+                        or drag and drop here
+                      </p>
+                    </>
+                  )}
+                </div>
+              </button>
+            </div>
 
             {/* Form Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -418,7 +373,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g., Sapaan Login"
+                    placeholder="e.g., JSON Formatter"
                     className="w-full px-4 py-2 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-lg focus:outline-none focus:border-primary"
                     data-testid="tool-name-input"
                   />
@@ -438,10 +393,10 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
                         <div className="text-sm flex-1">
                           <p className="font-medium text-yellow-600 dark:text-yellow-500">⚠️ Nama sudah digunakan</p>
                           <p className="text-xs text-secondary mt-1">
-                            Tool <strong>"{nameCheckResult.tool?.name}"</strong> akan disimpan sebagai: <strong className="text-primary">{nameCheckResult.slug}.py</strong>
+                            Tool <strong>"{nameCheckResult.tool?.name}"</strong> akan disimpan sebagai: <strong className="text-primary">{nameCheckResult.slug}</strong>
                           </p>
                           <p className="text-xs text-secondary mt-1">
-                            File existing akan diganti saat upload.
+                            Tool directory existing akan diganti saat upload.
                           </p>
                         </div>
                       </div>
@@ -451,7 +406,10 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
                         <div className="text-sm">
                           <p className="font-medium text-green-600 dark:text-green-500">✅ Nama tersedia</p>
                           <p className="text-xs text-secondary mt-1">
-                            File akan disimpan sebagai: <strong className="text-primary">{nameCheckResult.slug}.py</strong>
+                            Tool akan disimpan dengan slug: <strong className="text-primary">{nameCheckResult.slug}</strong>
+                          </p>
+                          <p className="text-xs text-secondary mt-1 font-mono">
+                            sample_tools/{category.toLowerCase()}/{nameCheckResult.slug}/
                           </p>
                         </div>
                       </div>
@@ -557,7 +515,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
             </button>
             <button
               onClick={() => handleUpload(false)}
-              disabled={!backendFile || !frontendFile || uploading}
+              disabled={!zipFile || uploading}
               className="px-6 py-2 bg-primary hover:bg-secondary text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               data-testid="upload-button"
             >
@@ -586,9 +544,9 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
                 <AlertTriangle className="w-6 h-6 text-yellow-500" />
               </div>
               <div>
-                <h3 className="text-xl font-bold mb-2">⚠️ File Sudah Ada</h3>
+                <h3 className="text-xl font-bold mb-2">⚠️ Tool Sudah Ada</h3>
                 <p className="text-sm text-secondary">
-                  Tool dengan nama ini sudah ada. File lama akan diganti dengan file baru.
+                  Tool dengan nama ini sudah ada. Tool directory lama akan dihapus dan diganti dengan ZIP baru.
                 </p>
               </div>
             </div>
@@ -620,12 +578,11 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
 
             <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-6">
               <p className="text-sm text-red-600 dark:text-red-400 font-medium">
-                ⚠️ File berikut akan dihapus dan diganti:
+                ⚠️ Tool directory akan dihapus:
               </p>
-              <ul className="text-xs text-secondary mt-2 space-y-1">
-                <li>• {nameCheckResult.tool.backend_path}</li>
-                <li>• {nameCheckResult.tool.frontend_path}</li>
-              </ul>
+              <p className="text-xs text-secondary mt-2 font-mono">
+                sample_tools/{nameCheckResult.tool.category.toLowerCase()}/{nameCheckResult.slug}/
+              </p>
             </div>
 
             <div className="flex gap-3">
@@ -647,7 +604,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
                     Processing...
                   </>
                 ) : (
-                  'Ganti File'
+                  'Ganti Tool'
                 )}
               </button>
             </div>

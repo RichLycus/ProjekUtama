@@ -5,7 +5,15 @@
  * with full access to main app dependencies (lucide-react, Tailwind, etc.)
  * 
  * NO MANUAL REGISTRATION NEEDED! 🎉
- * Tools are auto-discovered from /app/src/components/tools/dynamic/ directory
+ * Tools are auto-discovered from /app/backend/frontend_tools/ directory
+ * 
+ * Structure: /app/backend/frontend_tools/{tool-slug}/{ComponentName}.tsx
+ * 
+ * Benefits:
+ * - Clean separation: src/ = app code, backend/frontend_tools/ = tool components
+ * - Easy management: All tool files in one place
+ * - Scalability: 1000 tools won't pollute src/
+ * - Upload-friendly: ZIP upload auto-extracts to backend/frontend_tools/
  */
 
 import React, { lazy, Suspense, ComponentType } from 'react'
@@ -28,12 +36,15 @@ const ToolLoadingFallback = () => (
 )
 
 /**
- * Auto-discover all tool components using Vite's glob import
+ * Auto-discover tool components using Vite's glob import
  * 
- * This automatically imports ALL .tsx files from the tools/dynamic directory
+ * ONLY scans React/JS modules (.tsx, .jsx) - Vite can only import these!
+ * HTML tools (.html) are loaded via API endpoint (see loadToolComponent)
+ * 
+ * Structure: frontend_tools/{tool-slug}/{ComponentName}.tsx
  * Vite will create separate chunks for code splitting
  */
-const toolModules = import.meta.glob('../components/tools/dynamic/*.tsx')
+const toolModules = import.meta.glob('../../backend/frontend_tools/**/*.{tsx,jsx}')
 
 console.log('🔍 Auto-discovered tool modules:', Object.keys(toolModules))
 
@@ -46,13 +57,14 @@ const buildDynamicRegistry = () => {
   
   Object.keys(toolModules).forEach((path) => {
     // Extract component name from path
-    // Example: '../components/tools/dynamic/GreetingSpeaker.tsx' -> 'GreetingSpeaker'
-    const match = path.match(/\/([^/]+)\.tsx$/)
+    // Example: '../../backend/frontend_tools/greeting-speaker/GreetingSpeaker.tsx' -> 'GreetingSpeaker'
+    const match = path.match(/\/([^/]+)\.(tsx|jsx)$/)
     if (match) {
       const componentName = match[1]
+      const extension = match[2]
       registry[componentName] = toolModules[path] as () => Promise<{ default: ComponentType<any> }>
       
-      console.log(`✓ Registered tool component: ${componentName}`)
+      console.log(`✓ Registered React component: ${componentName} (.${extension})`)
     }
   })
   
@@ -190,9 +202,30 @@ const findComponentNameForTool = (toolName: string): string | null => {
 }
 
 /**
+ * HTML Tool Wrapper - Loads HTML tools via iframe
+ */
+const HTMLToolWrapper: React.FC<{ toolId: string; toolData: any }> = ({ toolId, toolData }) => {
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001'
+  const iframeUrl = `${backendUrl}/api/tools/file/${toolId}?file_type=frontend`
+  
+  return (
+    <div className="w-full h-full">
+      <iframe
+        src={iframeUrl}
+        className="w-full h-full border-0"
+        style={{ minHeight: '100vh' }}
+        title={toolData.name}
+        sandbox="allow-scripts allow-same-origin allow-forms"
+      />
+    </div>
+  )
+}
+
+/**
  * Load tool component dynamically by tool metadata
  * 
- * AUTO-DISCOVERS components from directory - NO MANUAL REGISTRATION! 🎉
+ * AUTO-DISCOVERS React components (.tsx/.jsx) from directory
+ * HTML tools (.html) are loaded via iframe from backend API
  * 
  * Matching strategies (in order):
  * 1. Direct name mapping (ToolNameMappings)
@@ -200,13 +233,21 @@ const findComponentNameForTool = (toolName: string): string | null => {
  * 3. PascalCase conversion of tool name
  * 4. Kebab-case variations
  * 5. Partial/fuzzy match
+ * 6. Fallback to HTML loader if frontend_path ends with .html
  */
 export const loadToolComponent = async (tool: any): Promise<ComponentType<any> | null> => {
   try {
     console.log('🔍 Loading tool component for:', tool.name)
-    console.log('📦 Available components:', Object.keys(DynamicToolRegistry))
+    console.log('📦 Available React components:', Object.keys(DynamicToolRegistry))
     
-    // Find matching component name
+    // Check if tool uses HTML (cannot be dynamically imported)
+    const frontendPath = tool.frontend_path || ''
+    if (frontendPath.endsWith('.html')) {
+      console.log('📄 HTML tool detected, using iframe loader')
+      return HTMLToolWrapper
+    }
+    
+    // Find matching React component name
     const componentName = findComponentNameForTool(tool.name)
     
     if (!componentName) {
@@ -218,7 +259,7 @@ export const loadToolComponent = async (tool: any): Promise<ComponentType<any> |
     
     console.log(`✅ Matched to component: ${componentName}`)
     
-    // Load the component dynamically
+    // Load the React component dynamically
     const module = await DynamicToolRegistry[componentName]()
     return module.default
     

@@ -11,6 +11,9 @@ from datetime import datetime
 from typing import Optional, List
 import logging
 import re
+import zipfile
+import tempfile
+import shutil
 
 from database import SQLiteDB
 from modules.tool_validator import ToolValidator
@@ -343,6 +346,287 @@ async def check_tool_name(name: str):
         raise HTTPException(500, f"Check failed: {str(e)}")
 
 
+@app.post("/api/tools/upload-zip")
+async def upload_tool_zip(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    description: str = Form(...),
+    category: str = Form(...),
+    version: str = Form("1.0.0"),
+    author: str = Form("Anonymous"),
+    force_overwrite: bool = Form(False)
+):
+    """
+    ZIP Upload endpoint - Upload tool as ZIP archive
+    
+    ZIP Structure (MANDATORY):
+    tool-name.zip
+    ├── backend/
+    │   └── main.py (exactly 1 .py file)
+    └── frontend/
+        └── Component.tsx (exactly 1 file: .tsx/.jsx/.html/.js)
+    """
+    temp_dir = None
+    try:
+        # Validate category
+        if category not in CATEGORIES:
+            raise HTTPException(400, f"Invalid category. Must be one of: {CATEGORIES}")
+        
+        # Validate ZIP file
+        if not file.filename.endswith('.zip'):
+            raise HTTPException(400, "File must be a ZIP archive (.zip)")
+        
+        # Generate slug from name
+        slug = slugify(name)
+        if not slug:
+            raise HTTPException(400, "Invalid tool name. Cannot generate valid slug.")
+        
+        # Check if tool exists
+        all_tools = db.list_tools()
+        existing_tool = None
+        for tool in all_tools:
+            tool_slug = slugify(tool.get("name", ""))
+            if tool_slug == slug:
+                existing_tool = tool
+                break
+        
+        # If exists and not force overwrite, return error
+        if existing_tool and not force_overwrite:
+            raise HTTPException(
+                409,
+                f"Tool with name '{existing_tool.get('name')}' already exists. Set force_overwrite=true to replace it."
+            )
+        
+        # Create temp directory for extraction
+        temp_dir = tempfile.mkdtemp(prefix=f"tool_{slug}_")
+        logger.info(f"📦 Extracting ZIP to: {temp_dir}")
+        
+        # Save uploaded ZIP to temp file
+        zip_path = Path(temp_dir) / file.filename
+        with open(zip_path, 'wb') as f:
+            content = await file.read()
+            f.write(content)
+        
+        # Extract ZIP
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+        except zipfile.BadZipFile:
+            raise HTTPException(400, "Invalid ZIP file. Cannot extract.")
+        
+        # Remove the ZIP file itself
+        zip_path.unlink()
+        
+        # Validate structure: must have backend/ and frontend/ folders
+        extracted_root = Path(temp_dir)
+        backend_folder = extracted_root / "backend"
+        frontend_folder = extracted_root / "frontend"
+        
+        errors = []
+        
+        if not backend_folder.exists():
+            errors.append("❌ 'backend/' folder not found in ZIP")
+        
+        if not frontend_folder.exists():
+            errors.append("❌ 'frontend/' folder not found in ZIP")
+        
+        if errors:
+            raise HTTPException(400, {
+                "error": "Invalid ZIP structure",
+                "details": errors,
+                "expected": "ZIP must contain 'backend/' and 'frontend/' folders"
+            })
+        
+        # Find backend file (exactly 1 .py file)
+        backend_files = list(backend_folder.glob("*.py"))
+        if len(backend_files) == 0:
+            errors.append("❌ No Python (.py) file found in backend/ folder")
+        elif len(backend_files) > 1:
+            errors.append(f"❌ Multiple Python files found in backend/ ({len(backend_files)}), expected exactly 1")
+        
+        # Find frontend file (exactly 1 .tsx/.jsx/.html/.js file)
+        frontend_exts = ['.tsx', '.jsx', '.html', '.js']
+        frontend_files = []
+        for ext in frontend_exts:
+            frontend_files.extend(list(frontend_folder.glob(f"*{ext}")))
+        
+        if len(frontend_files) == 0:
+            errors.append(f"❌ No frontend file found (.tsx/.jsx/.html/.js) in frontend/ folder")
+        elif len(frontend_files) > 1:
+            errors.append(f"❌ Multiple frontend files found ({len(frontend_files)}), expected exactly 1")
+        
+        if errors:
+            raise HTTPException(400, {
+                "error": "ZIP validation failed",
+                "details": errors
+            })
+        
+        # Read files
+        backend_file_path = backend_files[0]
+        frontend_file_path = frontend_files[0]
+        
+        with open(backend_file_path, 'r', encoding='utf-8') as f:
+            backend_content = f.read()
+        
+        with open(frontend_file_path, 'r', encoding='utf-8') as f:
+            frontend_content = f.read()
+        
+        frontend_ext = frontend_file_path.suffix
+        
+        # Create target directories using new structure:
+        # Backend: sample_tools/{category}/{slug}/backend/main.py
+        # Frontend: frontend_tools/{slug}/{ComponentName}.tsx (separate!)
+        target_backend_dir = BACKEND_DIR / "sample_tools" / category.lower() / slug / "backend"
+        target_frontend_dir = BACKEND_DIR / "frontend_tools" / slug
+        
+        # If overwriting, delete old directories
+        if existing_tool:
+            # Get old backend & frontend paths
+            old_backend_path = BACKEND_DIR / existing_tool.get("backend_path", "")
+            old_frontend_path = BACKEND_DIR / existing_tool.get("frontend_path", "")
+            
+            # Delete old backend folder (sample_tools structure)
+            old_backend_tool_dir = old_backend_path.parent.parent  # Go up to {slug}/ folder
+            if old_backend_tool_dir.exists() and old_backend_tool_dir.parent.name != "sample_tools":
+                # Old flat structure, just delete file
+                if old_backend_path.exists():
+                    old_backend_path.unlink()
+            elif old_backend_tool_dir.exists():
+                # New structure, delete whole tool folder
+                shutil.rmtree(old_backend_tool_dir)
+                logger.info(f"🗑️ Deleted old backend folder: {old_backend_tool_dir}")
+            
+            # Delete old frontend folder (frontend_tools structure)
+            old_frontend_tool_dir = old_frontend_path.parent  # {slug}/ folder
+            if old_frontend_tool_dir.exists():
+                shutil.rmtree(old_frontend_tool_dir)
+                logger.info(f"🗑️ Deleted old frontend folder: {old_frontend_tool_dir}")
+        
+        # Create new directories
+        target_backend_dir.mkdir(parents=True, exist_ok=True)
+        target_frontend_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save backend file as main.py
+        backend_save_path = target_backend_dir / "main.py"
+        with open(backend_save_path, 'w', encoding='utf-8') as f:
+            f.write(backend_content)
+        
+        # Save frontend file with PascalCase name (like GreetingSpeaker.tsx)
+        # Convert slug to PascalCase: greeting-speaker -> GreetingSpeaker
+        component_name = ''.join(word.capitalize() for word in slug.split('-'))
+        frontend_filename = f"{component_name}{frontend_ext}"
+        frontend_save_path = target_frontend_dir / frontend_filename
+        with open(frontend_save_path, 'w', encoding='utf-8') as f:
+            f.write(frontend_content)
+        
+        logger.info(f"✅ Saved backend: {backend_save_path}")
+        logger.info(f"✅ Saved frontend: {frontend_save_path}")
+        
+        # Validate backend file
+        backend_validation = validator.validate(str(backend_save_path), backend_content)
+        
+        # Validate frontend file
+        frontend_validation = frontend_validator.validate(
+            str(frontend_save_path), 
+            frontend_content, 
+            frontend_ext
+        )
+        
+        # Combine validations
+        all_valid = backend_validation["valid"] and frontend_validation["valid"]
+        combined_errors = backend_validation.get("errors", []) + frontend_validation.get("errors", [])
+        combined_deps = backend_validation.get("dependencies", []) + frontend_validation.get("dependencies", [])
+        
+        # Determine status
+        status = "active" if all_valid else "disabled"
+        
+        # Use existing tool_id if overwriting, otherwise generate new one
+        tool_id = existing_tool.get("_id") if existing_tool else slug
+        
+        # Create tool document with RELATIVE paths
+        tool_doc = {
+            "_id": tool_id,
+            "name": name,
+            "description": description,
+            "category": category,
+            "tool_type": "dual",
+            "version": version,
+            "author": author,
+            "backend_path": str(backend_save_path.relative_to(BACKEND_DIR)),
+            "frontend_path": str(frontend_save_path.relative_to(BACKEND_DIR)),
+            "dependencies": list(set(combined_deps)),
+            "status": status,
+            "last_validated": datetime.utcnow().isoformat(),
+            "created_at": existing_tool.get("created_at") if existing_tool else datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        # Update or insert tool in database
+        if existing_tool:
+            db.update_tool(tool_id, tool_doc)
+            action_type = "update"
+            logger.info(f"♻️ Updated existing tool from ZIP: {name} (slug: {slug})")
+        else:
+            db.insert_tool(tool_doc)
+            action_type = "upload"
+            logger.info(f"✅ Created new tool from ZIP: {name} (slug: {slug})")
+        
+        # Log action
+        log_action(
+            tool_id,
+            action_type,
+            "success" if all_valid else "warning",
+            f"Tool from ZIP {'updated' if existing_tool else 'uploaded'}: backend {'✓' if backend_validation['valid'] else '✗'}, frontend {'✓' if frontend_validation['valid'] else '✗'}",
+            json.dumps({
+                "backend_errors": backend_validation.get("errors", []),
+                "frontend_errors": frontend_validation.get("errors", []),
+                "overwrite": existing_tool is not None,
+                "source": "zip"
+            })
+        )
+        
+        # Reload routers if tool is active
+        if status == "active":
+            logger.info(f"🔄 Reloading routers after ZIP upload: {name}")
+            mount_tool_routers()
+        
+        # Cleanup temp directory
+        if temp_dir and Path(temp_dir).exists():
+            shutil.rmtree(temp_dir)
+            logger.info(f"🧹 Cleaned up temp directory: {temp_dir}")
+        
+        return {
+            "success": True,
+            "tool_id": tool_id,
+            "slug": slug,
+            "overwritten": existing_tool is not None,
+            "tool": tool_doc,
+            "validation": {
+                "valid": all_valid,
+                "backend": backend_validation,
+                "frontend": frontend_validation,
+                "errors": combined_errors,
+                "dependencies": list(set(combined_deps))
+            },
+            "structure": {
+                "backend": str(backend_save_path.relative_to(BACKEND_DIR)),
+                "frontend": str(frontend_save_path.relative_to(BACKEND_DIR))
+            }
+        }
+        
+    except HTTPException:
+        # Cleanup on error
+        if temp_dir and Path(temp_dir).exists():
+            shutil.rmtree(temp_dir)
+        raise
+    except Exception as e:
+        # Cleanup on error
+        if temp_dir and Path(temp_dir).exists():
+            shutil.rmtree(temp_dir)
+        logger.error(f"❌ ZIP upload failed: {str(e)}")
+        raise HTTPException(500, f"ZIP upload failed: {str(e)}")
+
+
 @app.post("/api/tools/upload")
 async def upload_tool(
     backend_file: UploadFile = File(...),
@@ -401,32 +685,40 @@ async def upload_tool(
                 f"Tool with name '{existing_tool.get('name')}' already exists. Set force_overwrite=true to replace it."
             )
         
-        # Create category folders
-        backend_category_folder = TOOLS_DIR / category.lower()
-        frontend_category_folder = FRONTEND_TOOLS_DIR / category.lower()
-        backend_category_folder.mkdir(exist_ok=True)
-        frontend_category_folder.mkdir(exist_ok=True)
+        # Create slug-based folder structure (new organized structure!)
+        # Backend: sample_tools/{category}/{slug}/backend/main.py
+        # Frontend: frontend_tools/{slug}/{ComponentName}.tsx
         
-        # If overwriting, delete old files first
+        backend_tool_folder = BACKEND_DIR / "sample_tools" / category.lower() / slug / "backend"
+        frontend_tool_folder = BACKEND_DIR / "frontend_tools" / slug
+        backend_tool_folder.mkdir(parents=True, exist_ok=True)
+        frontend_tool_folder.mkdir(parents=True, exist_ok=True)
+        
+        # If overwriting, delete old folders first
         if existing_tool:
             old_backend_path = BACKEND_DIR / existing_tool.get("backend_path", "")
             old_frontend_path = BACKEND_DIR / existing_tool.get("frontend_path", "")
             
-            if old_backend_path.exists():
+            # Delete old backend folder (if in old structure)
+            if old_backend_path.exists() and old_backend_path.parent.name != "backend":
                 old_backend_path.unlink()
                 logger.info(f"🗑️ Deleted old backend file: {old_backend_path}")
             
-            if old_frontend_path.exists():
+            # Delete old frontend folder (if in old structure)
+            if old_frontend_path.exists() and old_frontend_path.parent == old_frontend_path.parent.parent:
                 old_frontend_path.unlink()
                 logger.info(f"🗑️ Deleted old frontend file: {old_frontend_path}")
         
-        # Save backend file with slugified name
-        backend_path = backend_category_folder / f"{slug}.py"
+        # Save backend file as main.py (slug-based structure!)
+        backend_path = backend_tool_folder / "main.py"
         with open(backend_path, 'w', encoding='utf-8') as f:
             f.write(backend_content)
         
-        # Save frontend file with slugified name
-        frontend_path = frontend_category_folder / f"{slug}{frontend_ext}"
+        # Save frontend file with PascalCase name (slug-based structure!)
+        # Convert slug to PascalCase: greeting-speaker -> GreetingSpeaker
+        component_name = ''.join(word.capitalize() for word in slug.split('-'))
+        frontend_filename = f"{component_name}{frontend_ext}"
+        frontend_path = frontend_tool_folder / frontend_filename
         with open(frontend_path, 'w', encoding='utf-8') as f:
             f.write(frontend_content)
         
