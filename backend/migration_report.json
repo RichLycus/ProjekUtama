@@ -1,0 +1,64 @@
+{
+  "timestamp": "2025-10-27T06:06:19.507988",
+  "dry_run": false,
+  "results": {
+    "success": [
+      {
+        "tool": "Simple Calculator",
+        "category": "utilities",
+        "slug": "calculator",
+        "type": "dual"
+      },
+      {
+        "tool": "Advanced Calculator",
+        "category": "utilities",
+        "slug": "advanced-calculator",
+        "type": "dual"
+      },
+      {
+        "tool": "Text Formatter",
+        "category": "office",
+        "slug": "text-formatter",
+        "type": "dual"
+      },
+      {
+        "tool": "Color Picker",
+        "category": "devtools",
+        "slug": "color-picker",
+        "type": "dual"
+      },
+      {
+        "tool": "Greeting Speaker",
+        "category": "devtools",
+        "slug": "greeting-speaker",
+        "type": "dual"
+      },
+      {
+        "tool": "Image Upscaler",
+        "category": "multimedia",
+        "slug": "image-upscaler",
+        "type": "dual"
+      },
+      {
+        "tool": "CSV to JSON Converter",
+        "category": "converters",
+        "slug": "csv-to-json",
+        "type": "single (backend only)"
+      },
+      {
+        "tool": "JSON Formatter",
+        "category": "converters",
+        "slug": "json-formatter",
+        "type": "single (backend only)"
+      },
+      {
+        "tool": "Text Counter",
+        "category": "utilities",
+        "slug": "text-counter",
+        "type": "single (backend only)"
+      }
+    ],
+    "failed": [],
+    "warnings": []
+  }
+}

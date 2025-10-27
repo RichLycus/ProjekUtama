@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import os
+import re
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any
@@ -20,6 +21,24 @@ class SQLiteDB:
         self.db_path = db_path
         self.backend_dir = Path(__file__).parent
         self._init_db()
+    
+    @staticmethod
+    def slugify(text: str) -> str:
+        """
+        Convert text to slug format.
+        Example: "JSON Formatter Pro!" -> "json-formatter-pro"
+        """
+        # Lowercase
+        text = text.lower()
+        # Replace spaces with dashes
+        text = text.replace(' ', '-')
+        # Remove special characters, keep alphanumeric and dashes
+        text = re.sub(r'[^a-z0-9\-]', '', text)
+        # Remove multiple consecutive dashes
+        text = re.sub(r'-+', '-', text)
+        # Strip dashes from start/end
+        text = text.strip('-')
+        return text
     
     def get_relative_path(self, absolute_path: str) -> str:
         """
@@ -79,13 +98,21 @@ class SQLiteDB:
                     version TEXT DEFAULT '1.0.0',
                     author TEXT DEFAULT 'Anonymous',
                     backend_path TEXT NOT NULL,
-                    frontend_path TEXT NOT NULL,
+                    frontend_path TEXT,
+                    slug TEXT,
+                    slug_aliases TEXT,
                     dependencies TEXT,
                     status TEXT DEFAULT 'disabled',
                     last_validated TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 )
+            """)
+            
+            # Create unique index for category + slug
+            cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_tools_category_slug 
+                ON tools(category, slug)
             """)
             
             # Tool logs table
@@ -333,15 +360,28 @@ class SQLiteDB:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
-            # Convert dependencies list to JSON string
+            # Auto-generate slug if not provided
+            if 'slug' not in tool_data or not tool_data['slug']:
+                tool_data['slug'] = self.slugify(tool_data['name'])
+            
+            # Check for slug conflicts (category-scoped)
+            existing = self.get_tool_by_slug(tool_data['category'], tool_data['slug'])
+            if existing:
+                raise ValueError(
+                    f"Tool slug '{tool_data['slug']}' already exists in category "
+                    f"'{tool_data['category']}'. Please use a different name."
+                )
+            
+            # Convert dependencies and slug_aliases to JSON strings
             deps = json.dumps(tool_data.get('dependencies', []))
+            slug_aliases = json.dumps(tool_data.get('slug_aliases', []))
             
             cursor.execute("""
                 INSERT INTO tools (
                     id, name, description, category, tool_type, version, author,
-                    backend_path, frontend_path, dependencies, status, last_validated,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    backend_path, frontend_path, slug, slug_aliases, dependencies, 
+                    status, last_validated, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 tool_data['_id'],
                 tool_data['name'],
@@ -351,7 +391,9 @@ class SQLiteDB:
                 tool_data['version'],
                 tool_data['author'],
                 tool_data['backend_path'],
-                tool_data['frontend_path'],
+                tool_data.get('frontend_path'),
+                tool_data['slug'],
+                slug_aliases,
                 deps,
                 tool_data['status'],
                 tool_data['last_validated'],
@@ -373,7 +415,7 @@ class SQLiteDB:
                 # Convert relative paths to absolute paths at runtime
                 if 'backend_path' in tool_data:
                     tool_data['backend_path'] = self.get_absolute_path(tool_data['backend_path'])
-                if 'frontend_path' in tool_data:
+                if 'frontend_path' in tool_data and tool_data['frontend_path']:
                     tool_data['frontend_path'] = self.get_absolute_path(tool_data['frontend_path'])
                 return tool_data
             return None
@@ -405,7 +447,7 @@ class SQLiteDB:
                 # Convert relative paths to absolute paths at runtime
                 if 'backend_path' in tool_data:
                     tool_data['backend_path'] = self.get_absolute_path(tool_data['backend_path'])
-                if 'frontend_path' in tool_data:
+                if 'frontend_path' in tool_data and tool_data['frontend_path']:
                     tool_data['frontend_path'] = self.get_absolute_path(tool_data['frontend_path'])
                 tools.append(tool_data)
             
@@ -433,6 +475,66 @@ class SQLiteDB:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM tools WHERE id = ?", (tool_id,))
             return cursor.rowcount > 0
+    
+    def get_tool_by_slug(self, category: str, slug: str) -> Optional[Dict[str, Any]]:
+        """Get a tool by category + slug"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM tools WHERE category = ? AND slug = ?", 
+                (category, slug)
+            )
+            row = cursor.fetchone()
+            
+            if row:
+                tool_data = self._row_to_dict(row)
+                # Convert relative paths to absolute paths at runtime
+                if 'backend_path' in tool_data:
+                    tool_data['backend_path'] = self.get_absolute_path(tool_data['backend_path'])
+                if 'frontend_path' in tool_data and tool_data['frontend_path']:
+                    tool_data['frontend_path'] = self.get_absolute_path(tool_data['frontend_path'])
+                return tool_data
+            return None
+    
+    def find_tool_by_slug_alias(self, slug: str) -> Optional[Dict[str, Any]]:
+        """
+        Find tool by checking slug or slug_aliases (across all categories).
+        Returns first match found.
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            # Check main slug first
+            cursor.execute("SELECT * FROM tools WHERE slug = ?", (slug,))
+            row = cursor.fetchone()
+            
+            if row:
+                tool_data = self._row_to_dict(row)
+                if 'backend_path' in tool_data:
+                    tool_data['backend_path'] = self.get_absolute_path(tool_data['backend_path'])
+                if 'frontend_path' in tool_data and tool_data['frontend_path']:
+                    tool_data['frontend_path'] = self.get_absolute_path(tool_data['frontend_path'])
+                return tool_data
+            
+            # Check slug_aliases
+            cursor.execute("SELECT * FROM tools WHERE slug_aliases IS NOT NULL")
+            rows = cursor.fetchall()
+            
+            for row in rows:
+                tool_data = self._row_to_dict(row)
+                if tool_data.get('slug_aliases'):
+                    try:
+                        aliases = json.loads(tool_data['slug_aliases'])
+                        if slug in aliases:
+                            if 'backend_path' in tool_data:
+                                tool_data['backend_path'] = self.get_absolute_path(tool_data['backend_path'])
+                            if 'frontend_path' in tool_data and tool_data['frontend_path']:
+                                tool_data['frontend_path'] = self.get_absolute_path(tool_data['frontend_path'])
+                            return tool_data
+                    except:
+                        pass
+            
+            return None
+
     
     def insert_log(self, log_data: Dict[str, Any]) -> str:
         """Insert a tool log"""

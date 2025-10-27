@@ -1035,6 +1035,108 @@ async def get_tool_file(tool_id: str, file_type: str = "frontend"):
         raise HTTPException(500, f"Failed to read tool file: {str(e)}")
 
 
+
+# ============================================================
+# 🚀 SMART API ROUTING SYSTEM
+# ============================================================
+
+@app.get("/api/tools/{tool_id}/meta")
+async def get_tool_metadata(tool_id: str):
+    """
+    Get tool metadata including available endpoints for auto-discovery.
+    This enables frontend to dynamically discover tool capabilities.
+    """
+    tool = db.get_tool(tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    
+    # Build base URL for this tool
+    base_url = f"/api/tools/{tool_id}"
+    
+    # Standard endpoints available for all tools
+    standard_endpoints = [
+        {'path': '/', 'methods': ['GET'], 'name': 'info', 'description': 'Get tool info'},
+        {'path': '/meta', 'methods': ['GET'], 'name': 'metadata', 'description': 'Get tool metadata'},
+        {'path': '/execute', 'methods': ['POST'], 'name': 'execute', 'description': 'Execute tool'},
+        {'path': '/validate', 'methods': ['POST'], 'name': 'validate', 'description': 'Validate tool'},
+        {'path': '/logs', 'methods': ['GET'], 'name': 'logs', 'description': 'Get tool logs'},
+    ]
+    
+    metadata = {
+        'tool_id': tool_id,
+        'name': tool['name'],
+        'slug': tool.get('slug'),
+        'slug_aliases': json.loads(tool.get('slug_aliases', '[]')),
+        'category': tool['category'],
+        'version': tool['version'],
+        'author': tool['author'],
+        'description': tool['description'],
+        'tool_type': tool['tool_type'],
+        'status': tool['status'],
+        'base_url': base_url,
+        'endpoints': standard_endpoints,
+        'created_at': tool['created_at'],
+        'updated_at': tool['updated_at']
+    }
+    
+    logger.info(f"📋 Metadata requested for: {tool['name']} (ID: {tool_id[:8]}...)")
+    
+    return metadata
+
+
+@app.get("/api/tools/by-slug/{category}/{slug}")
+async def get_tool_by_slug(category: str, slug: str):
+    """
+    Get tool by category + slug (human-readable alternative to UUID).
+    Returns redirect to UUID-based endpoint.
+    """
+    tool = db.get_tool_by_slug(category, slug)
+    
+    if not tool:
+        # Try slug aliases
+        tool = db.find_tool_by_slug_alias(slug)
+        
+        if not tool:
+            raise HTTPException(
+                404, 
+                f"Tool not found: category='{category}', slug='{slug}'"
+            )
+        
+        # If found via alias, log redirect
+        logger.info(f"🔄 Slug alias redirect: {slug} → {tool['slug']} (ID: {tool['_id'][:8]}...)")
+    
+    # Return tool info with UUID for client to use
+    return {
+        'tool_id': tool['_id'],
+        'name': tool['name'],
+        'slug': tool.get('slug'),
+        'category': tool['category'],
+        'redirect_url': f"/api/tools/{tool['_id']}",
+        'meta_url': f"/api/tools/{tool['_id']}/meta"
+    }
+
+
+@app.get("/api/tools/resolve/{slug}")
+async def resolve_tool_slug(slug: str):
+    """
+    Resolve slug to tool (search across all categories).
+    Useful for quick lookup without knowing category.
+    """
+    tool = db.find_tool_by_slug_alias(slug)
+    
+    if not tool:
+        raise HTTPException(404, f"Tool with slug '{slug}' not found")
+    
+    return {
+        'tool_id': tool['_id'],
+        'name': tool['name'],
+        'slug': tool.get('slug'),
+        'category': tool['category'],
+        'redirect_url': f"/api/tools/{tool['_id']}",
+        'meta_url': f"/api/tools/{tool['_id']}/meta"
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
