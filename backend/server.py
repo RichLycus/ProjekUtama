@@ -10,6 +10,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, List
 import logging
+import re
 
 from database import SQLiteDB
 from modules.tool_validator import ToolValidator
@@ -101,6 +102,37 @@ executor = ToolExecutor()
 dep_manager = DependencyManager()
 
 CATEGORIES = ["Office", "DevTools", "Multimedia", "Utilities", "Security", "Network", "Data"]
+
+
+# ========================================
+# Utility Functions
+# ========================================
+
+def slugify(text: str) -> str:
+    """
+    Convert text to kebab-case slug
+    
+    Examples:
+        "Sapaan Login" → "sapaan-login"
+        "Form Builder 2.0!" → "form-builder-20"
+        "My Tool (Beta)" → "my-tool-beta"
+    """
+    # Lowercase
+    text = text.lower()
+    
+    # Replace spaces and underscores with dash
+    text = re.sub(r'[\s_]+', '-', text)
+    
+    # Remove special characters (keep only alphanumeric and dash)
+    text = re.sub(r'[^\w\-]', '', text)
+    
+    # Replace multiple dashes with single dash
+    text = re.sub(r'-+', '-', text)
+    
+    # Remove leading/trailing dashes
+    text = text.strip('-')
+    
+    return text
 
 
 def mount_tool_routers():
@@ -257,6 +289,60 @@ async def get_categories():
     return {"categories": CATEGORIES}
 
 
+@app.get("/api/tools/check-name")
+async def check_tool_name(name: str):
+    """
+    Check if tool name already exists (real-time checking)
+    Returns slug and existing tool info if found
+    """
+    try:
+        # Generate slug from name
+        slug = slugify(name)
+        
+        if not slug:
+            return {
+                "exists": False,
+                "slug": "",
+                "message": "Invalid name"
+            }
+        
+        # Search for tool with same slug in database
+        # Check by looking for tools where slugified name matches
+        all_tools = db.list_tools()
+        existing_tool = None
+        
+        for tool in all_tools:
+            tool_slug = slugify(tool.get("name", ""))
+            if tool_slug == slug:
+                existing_tool = tool
+                break
+        
+        if existing_tool:
+            return {
+                "exists": True,
+                "slug": slug,
+                "tool": {
+                    "id": existing_tool.get("_id"),
+                    "name": existing_tool.get("name"),
+                    "category": existing_tool.get("category"),
+                    "version": existing_tool.get("version"),
+                    "created_at": existing_tool.get("created_at"),
+                    "backend_path": existing_tool.get("backend_path"),
+                    "frontend_path": existing_tool.get("frontend_path")
+                },
+                "message": f"Tool '{existing_tool.get('name')}' already exists"
+            }
+        
+        return {
+            "exists": False,
+            "slug": slug,
+            "message": "Name available"
+        }
+        
+    except Exception as e:
+        raise HTTPException(500, f"Check failed: {str(e)}")
+
+
 @app.post("/api/tools/upload")
 async def upload_tool(
     backend_file: UploadFile = File(...),
@@ -265,7 +351,8 @@ async def upload_tool(
     description: str = Form(...),
     category: str = Form(...),
     version: str = Form("1.0.0"),
-    author: str = Form("Anonymous")
+    author: str = Form("Anonymous"),
+    force_overwrite: bool = Form(False)
 ):
     """Dual file upload endpoint - MANDATORY: 1 backend (.py) + 1 frontend (.jsx, .tsx, .html, .js) file"""
     try:
@@ -287,12 +374,32 @@ async def upload_tool(
                 f"Frontend file must be one of: {frontend_valid_exts}. Got: {frontend_ext}"
             )
         
-        # Generate tool ID
-        tool_id = str(uuid.uuid4())
+        # Generate slug from name (instead of UUID)
+        slug = slugify(name)
+        
+        if not slug:
+            raise HTTPException(400, "Invalid tool name. Cannot generate valid slug.")
         
         # Read both files
         backend_content = (await backend_file.read()).decode('utf-8')
         frontend_content = (await frontend_file.read()).decode('utf-8')
+        
+        # Check if tool with same slug already exists
+        all_tools = db.list_tools()
+        existing_tool = None
+        
+        for tool in all_tools:
+            tool_slug = slugify(tool.get("name", ""))
+            if tool_slug == slug:
+                existing_tool = tool
+                break
+        
+        # If exists and not force overwrite, return error
+        if existing_tool and not force_overwrite:
+            raise HTTPException(
+                409,  # Conflict
+                f"Tool with name '{existing_tool.get('name')}' already exists. Set force_overwrite=true to replace it."
+            )
         
         # Create category folders
         backend_category_folder = TOOLS_DIR / category.lower()
@@ -300,13 +407,26 @@ async def upload_tool(
         backend_category_folder.mkdir(exist_ok=True)
         frontend_category_folder.mkdir(exist_ok=True)
         
-        # Save backend file
-        backend_path = backend_category_folder / f"{tool_id}.py"
+        # If overwriting, delete old files first
+        if existing_tool:
+            old_backend_path = BACKEND_DIR / existing_tool.get("backend_path", "")
+            old_frontend_path = BACKEND_DIR / existing_tool.get("frontend_path", "")
+            
+            if old_backend_path.exists():
+                old_backend_path.unlink()
+                logger.info(f"🗑️ Deleted old backend file: {old_backend_path}")
+            
+            if old_frontend_path.exists():
+                old_frontend_path.unlink()
+                logger.info(f"🗑️ Deleted old frontend file: {old_frontend_path}")
+        
+        # Save backend file with slugified name
+        backend_path = backend_category_folder / f"{slug}.py"
         with open(backend_path, 'w', encoding='utf-8') as f:
             f.write(backend_content)
         
-        # Save frontend file
-        frontend_path = frontend_category_folder / f"{tool_id}{frontend_ext}"
+        # Save frontend file with slugified name
+        frontend_path = frontend_category_folder / f"{slug}{frontend_ext}"
         with open(frontend_path, 'w', encoding='utf-8') as f:
             f.write(frontend_content)
         
@@ -328,6 +448,9 @@ async def upload_tool(
         # Determine status
         status = "active" if all_valid else "disabled"
         
+        # Use existing tool_id if overwriting, otherwise generate new one
+        tool_id = existing_tool.get("_id") if existing_tool else slug
+        
         # Create tool document with RELATIVE paths (portable!)
         tool_doc = {
             "_id": tool_id,
@@ -342,32 +465,43 @@ async def upload_tool(
             "dependencies": list(set(combined_deps)),  # Remove duplicates
             "status": status,
             "last_validated": datetime.utcnow().isoformat(),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": existing_tool.get("created_at") if existing_tool else datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat()
         }
         
-        db.insert_tool(tool_doc)
+        # Update or insert tool in database
+        if existing_tool:
+            db.update_tool(tool_id, tool_doc)
+            action_type = "update"
+            logger.info(f"♻️ Updated existing tool: {name} (slug: {slug})")
+        else:
+            db.insert_tool(tool_doc)
+            action_type = "upload"
+            logger.info(f"✅ Created new tool: {name} (slug: {slug})")
         
         # Log action
         log_action(
             tool_id,
-            "upload",
+            action_type,
             "success" if all_valid else "warning",
-            f"Dual tool uploaded: backend {'✓' if backend_validation['valid'] else '✗'}, frontend {'✓' if frontend_validation['valid'] else '✗'}",
+            f"Dual tool {'updated' if existing_tool else 'uploaded'}: backend {'✓' if backend_validation['valid'] else '✗'}, frontend {'✓' if frontend_validation['valid'] else '✗'}",
             json.dumps({
                 "backend_errors": backend_validation.get("errors", []),
-                "frontend_errors": frontend_validation.get("errors", [])
+                "frontend_errors": frontend_validation.get("errors", []),
+                "overwrite": existing_tool is not None
             })
         )
         
         # Reload routers if tool is active
         if status == "active":
-            print(f"🔄 Reloading routers after uploading tool: {name}")
+            print(f"🔄 Reloading routers after {'updating' if existing_tool else 'uploading'} tool: {name}")
             mount_tool_routers()
         
         return {
             "success": True,
             "tool_id": tool_id,
+            "slug": slug,
+            "overwritten": existing_tool is not None,
             "tool": tool_doc,
             "validation": {
                 "valid": all_valid,
