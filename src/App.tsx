@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
+import { useEffect } from 'react'
 import Layout from './components/Layout'
 import PageTransition from './components/PageTransition'
 import HomePage from './pages/HomePage'
@@ -13,6 +14,7 @@ import SettingsPage from './pages/SettingsPage'
 import RAGStudioPage from './pages/RAGStudioPage'
 import RAGStudioEditorPage from './pages/RAGStudioEditorPage'
 import FlowConfigEditorPage from './pages/FlowConfigEditorPage'
+import { initializeDependencyBridge } from './lib/dependencyBridge'
 
 function AnimatedRoutes() {
   const location = useLocation()
@@ -37,6 +39,11 @@ function AnimatedRoutes() {
 }
 
 function App() {
+  // Initialize dependency bridge for dynamic tool loading
+  useEffect(() => {
+    initializeDependencyBridge()
+  }, [])
+
   return (
     <Router>
       <Layout>

@@ -21,6 +21,15 @@ from modules.tool_validator import ToolValidator
 from modules.frontend_tool_validator import FrontendToolValidator
 from modules.tool_executor import ToolExecutor
 from modules.dependency_manager import DependencyManager
+from modules.tool_builder import ToolBuilder
+from utils.tools_logger import (
+    log_tool_operation, 
+    log_validation_details, 
+    log_upload_start,
+    log_upload_success,
+    log_upload_failed,
+    log_structure_validation
+)
 from routes.chat_routes import router as chat_router
 from routes.personas import router as personas_router
 from routes.agent_routes import router as agent_router
@@ -132,6 +141,7 @@ validator = ToolValidator()
 frontend_validator = FrontendToolValidator()
 executor = ToolExecutor()
 dep_manager = DependencyManager()
+tool_builder = ToolBuilder(BACKEND_DIR)
 
 CATEGORIES = ["Office", "DevTools", "Multimedia", "Utilities", "Security", "Network", "Data"]
 
@@ -415,6 +425,9 @@ async def upload_tool_zip(
     """
     temp_dir = None
     try:
+        # Log upload start
+        log_upload_start(name, source="zip")
+        
         # Validate category
         if category not in CATEGORIES:
             raise HTTPException(400, f"Invalid category. Must be one of: {CATEGORIES}")
@@ -506,6 +519,10 @@ async def upload_tool_zip(
             errors.append("❌ 'frontend/' folder not found in ZIP (tried nested and flat structures)")
         
         if errors:
+            # Log structure validation failure
+            log_structure_validation(name, False, errors)
+            log_upload_failed(name, "Invalid ZIP structure", [], errors)
+            
             raise HTTPException(400, {
                 "error": "Invalid ZIP structure",
                 "details": errors,
@@ -531,6 +548,10 @@ async def upload_tool_zip(
             errors.append(f"❌ Multiple frontend files found ({len(frontend_files)}), expected exactly 1")
         
         if errors:
+            # Log structure validation failure
+            log_structure_validation(name, False, errors)
+            log_upload_failed(name, "ZIP file structure validation failed", [], errors)
+            
             raise HTTPException(400, {
                 "error": "ZIP validation failed",
                 "details": errors
@@ -644,6 +665,30 @@ async def upload_tool_zip(
         if not all_valid:
             logger.warning(f"❌ Validation failed for '{name}'. Auto-deleting tool directory...")
             
+            # Log detailed validation failure
+            log_validation_details(
+                name,
+                backend_validation["valid"],
+                frontend_validation["valid"],
+                backend_validation.get("errors", []),
+                frontend_validation.get("errors", [])
+            )
+            
+            # Log upload failure with component-specific errors
+            backend_err = backend_validation.get("errors", [])
+            frontend_err = frontend_validation.get("errors", [])
+            
+            if backend_err and frontend_err:
+                reason = "Both backend and frontend validation failed"
+            elif backend_err:
+                reason = "Backend validation failed"
+            elif frontend_err:
+                reason = "Frontend validation failed"
+            else:
+                reason = "Unknown validation error"
+            
+            log_upload_failed(name, reason, backend_err, frontend_err)
+            
             # Cleanup tool directory
             if tool_root_dir.exists():
                 shutil.rmtree(tool_root_dir)
@@ -654,15 +699,25 @@ async def upload_tool_zip(
                 shutil.rmtree(temp_dir)
                 logger.info(f"🧹 Cleaned up temp directory: {temp_dir}")
             
-            # Return error with validation details
-            raise HTTPException(400, {
+            # Return error with validation details (SMART ERROR MESSAGE)
+            error_response = {
                 "error": "Tool validation failed",
                 "details": {
-                    "backend_errors": backend_validation.get("errors", []),
-                    "frontend_errors": frontend_validation.get("errors", []),
                     "message": "Tool files have been deleted. Please fix the errors and try again."
                 }
-            })
+            }
+            
+            # Add backend errors if any
+            if backend_err:
+                error_response["details"]["backend_errors"] = backend_err
+                error_response["details"]["backend_file"] = backend_file_path.name
+            
+            # Add frontend errors if any
+            if frontend_err:
+                error_response["details"]["frontend_errors"] = frontend_err
+                error_response["details"]["frontend_file"] = frontend_file_path.name
+            
+            raise HTTPException(400, error_response)
         
         # If validation passes, continue with database registration
         status = "active"
@@ -704,10 +759,21 @@ async def upload_tool_zip(
             db.update_tool(tool_id, tool_doc)
             action_type = "update"
             logger.info(f"♻️ Updated existing tool from ZIP: {name} (slug: {slug})")
+            log_upload_success(name, slug, category, overwritten=True)
         else:
             db.insert_tool(tool_doc)
             action_type = "upload"
             logger.info(f"✅ Created new tool from ZIP: {name} (slug: {slug})")
+            log_upload_success(name, slug, category, overwritten=False)
+        
+        # Log validation success
+        log_validation_details(
+            name,
+            backend_validation["valid"],
+            frontend_validation["valid"],
+            [],
+            []
+        )
         
         # Log action
         log_action(
@@ -728,6 +794,27 @@ async def upload_tool_zip(
             logger.info(f"🔄 Reloading routers after ZIP upload: {name}")
             mount_tool_routers()
         
+        # 🔨 AUTO-BUILD: Build tool for dynamic iframe loading
+        logger.info(f"🔨 Building tool for dynamic loading: {name}")
+        build_result = tool_builder.build_tool(tool_doc)
+        
+        if not build_result["success"]:
+            logger.warning(f"⚠️ Tool build failed: {build_result.get('error')}")
+            logger.warning(f"   Tool can still be used but won't load dynamically in iframe")
+            build_info = {
+                "built": False,
+                "error": build_result.get("error")
+            }
+        else:
+            logger.info(f"✅ Tool built successfully!")
+            logger.info(f"   URL: {build_result.get('url')}")
+            build_info = {
+                "built": True,
+                "url": build_result.get("url"),
+                "bundle_path": build_result.get("bundle_path"),
+                "html_path": build_result.get("html_path")
+            }
+        
         # Cleanup temp directory
         if temp_dir and Path(temp_dir).exists():
             shutil.rmtree(temp_dir)
@@ -739,6 +826,7 @@ async def upload_tool_zip(
             "slug": slug,
             "overwritten": existing_tool is not None,
             "tool": tool_doc,
+            "build": build_info,
             "validation": {
                 "valid": all_valid,
                 "backend": backend_validation,
@@ -764,6 +852,7 @@ async def upload_tool_zip(
         if temp_dir and Path(temp_dir).exists():
             shutil.rmtree(temp_dir)
         logger.error(f"❌ ZIP upload failed: {str(e)}")
+        log_upload_failed(name if name else "Unknown", f"System error: {str(e)}")
         raise HTTPException(500, f"ZIP upload failed: {str(e)}")
 
 
@@ -1048,68 +1137,89 @@ async def execute_tool(tool_id: str, params: dict = {}):
     """
     Execute a tool with parameters
     
-    For dual tools (FastAPI backend):
-    - Returns info that tool should be opened via frontend
-    - Use mounted endpoints directly: /tools/{tool_id}/endpoint_name
+    Supports lookup by:
+    - tool_id (integer ID)
+    - slug (text-counter, greeting-speaker, etc.)
     
-    For legacy Python-only tools:
+    For tools with run() function:
     - Executes run() function directly
+    - Returns result from run(params)
     """
+    # Try to find tool by ID first, then by slug
     tool = db.get_tool(tool_id)
+    
+    # If not found and tool_id looks like a slug (contains hyphen or letters)
+    if not tool and ('-' in tool_id or not tool_id.isdigit()):
+        # Search by slug
+        all_tools = db.list_tools()
+        for t in all_tools:
+            # Check if slug matches (case insensitive)
+            t_name = t.get('name', '')
+            t_slug = slugify(t_name) if t_name else ''
+            if t_slug.lower() == tool_id.lower():
+                tool = t
+                break
+    
     if not tool:
-        raise HTTPException(404, "Tool not found")
+        raise HTTPException(404, f"Tool not found: {tool_id}")
     
     if tool["status"] != "active":
         raise HTTPException(400, "Tool is not active")
     
-    tool_type = tool.get("tool_type", "unknown")
+    tool_type = tool.get("tool_type", "dual")  # Default to dual for new tools
     tool_name = tool.get("name", "Unknown")
+    tool_real_id = tool.get("id", tool_id)
     
     logger.info(f"📥 Execute request for '{tool_name}' (type: {tool_type})")
     logger.info(f"   Params: {params}")
     
-    # For dual tools (new format with FastAPI backend)
-    if tool_type == "dual":
-        logger.info(f"ℹ️  Tool '{tool_name}' is a dual tool (FastAPI backend + frontend)")
-        logger.info(f"   Frontend should call mounted endpoints directly:")
-        logger.info(f"   Example: POST /tools/{tool_id}/calculate")
-        
-        # Return helpful info instead of error
-        return {
-            "success": False,
-            "tool_type": "dual",
-            "message": "This is a dual tool with FastAPI backend. Please use the frontend interface to interact with it.",
-            "hint": {
-                "frontend_url": f"/api/tools/file/{tool_id}?file_type=frontend",
-                "backend_base": f"/tools/{tool_id}",
-                "openapi_docs": f"/tools/{tool_id}/docs"
-            }
-        }
-    
-    # For legacy Python-only tools (old format with run() function)
+    # Execute tool with run() function (new standard format)
     try:
-        logger.info(f"🔄 Executing legacy Python tool '{tool_name}'...")
-        result = await executor.execute(tool["backend_path"], params)
+        logger.info(f"🔄 Executing tool '{tool_name}' run() function...")
+        
+        # Get backend path (relative path from database)
+        backend_path = tool.get("backend_path", "")
+        if not backend_path:
+            raise HTTPException(500, "Tool backend path not found")
+        
+        # Convert to absolute path
+        abs_backend_path = os.path.join(BACKEND_DIR, backend_path)
+        
+        # Check if file exists
+        if not os.path.exists(abs_backend_path):
+            raise HTTPException(500, f"Backend file not found: {backend_path}")
+        
+        # Execute using ToolExecutor
+        result = await executor.execute(abs_backend_path, params)
         
         logger.info(f"✅ Tool '{tool_name}' executed successfully")
         logger.info(f"   Result: {str(result)[:200]}...")  # First 200 chars
         
         # Log to database
         log_action(
-            tool_id,
+            str(tool_real_id),
             "execute",
             "success",
             f"Tool '{tool_name}' executed successfully",
             ""
         )
         
-        return {"success": True, "result": result}
+        # Return result from run() function
+        # Expected format: {"success": True/False, "data": ..., "error": ...}
+        if isinstance(result, dict) and "success" in result:
+            return result
+        else:
+            # Wrap non-standard result
+            return {"success": True, "result": result}
+            
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ Tool '{tool_name}' execution failed: {str(e)}")
         
         # Log error to database
         log_action(
-            tool_id,
+            str(tool_real_id),
             "execute",
             "error",
             f"Execution failed: {str(e)}",
@@ -1200,6 +1310,7 @@ async def delete_tool(tool_id: str):
             "Tool deleted (entire directory removed)",
             ""
         )
+        log_tool_operation("delete", tool.get("name", tool_id), "success", "Entire directory removed")
         
         return {"success": True, "message": "Tool and its directory deleted successfully"}
         
@@ -1503,6 +1614,80 @@ async def get_tool_file(tool_id: str, file_type: str = "frontend"):
     except Exception as e:
         logger.error(f"❌ Failed to read tool file: {str(e)}")
         raise HTTPException(500, f"Failed to read tool file: {str(e)}")
+
+
+
+@app.get("/api/tools/{tool_id}/render")
+async def render_tool(tool_id: str):
+    """
+    Render tool in iframe (dynamic loading endpoint)
+    
+    Returns built index.html for uploaded tools.
+    Built tools are stored in: /public/tools/{slug}/index.html
+    """
+    from fastapi.responses import FileResponse, HTMLResponse
+    
+    tool = db.get_tool(tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    
+    tool_name = tool.get("name", "Unknown")
+    logger.info(f"📦 Rendering tool: {tool_name} (ID: {tool_id})")
+    
+    # Check if tool has built bundle
+    slug = tool.get("_id", tool_id)
+    public_dir = BACKEND_DIR.parent / "public" / "tools" / slug
+    index_html = public_dir / "index.html"
+    
+    logger.info(f"   Looking for: {index_html}")
+    
+    if not index_html.exists():
+        # Tool not built yet - return error page
+        error_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Tool Not Built</title>
+            <style>
+                body {{
+                    font-family: system-ui, -apple-system, sans-serif;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 100vh;
+                    margin: 0;
+                    background: #f3f4f6;
+                }}
+                .error-box {{
+                    text-align: center;
+                    padding: 2rem;
+                    background: white;
+                    border-radius: 0.5rem;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    max-width: 500px;
+                }}
+                h2 {{ color: #ef4444; margin-bottom: 1rem; }}
+                p {{ color: #6b7280; margin-bottom: 1.5rem; }}
+                code {{ background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }}
+            </style>
+        </head>
+        <body>
+            <div class="error-box">
+                <h2>⚠️ Tool Not Built</h2>
+                <p>This tool has not been built yet.</p>
+                <p>Expected path: <code>{index_html}</code></p>
+                <p>Please trigger a rebuild or contact the developer.</p>
+            </div>
+        </body>
+        </html>
+        """
+        logger.warning(f"⚠️ Tool not built: {tool_name}")
+        return HTMLResponse(content=error_html, status_code=404)
+    
+    logger.info(f"✅ Serving built tool: {tool_name}")
+    return FileResponse(index_html, media_type="text/html")
 
 
 

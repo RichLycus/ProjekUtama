@@ -25,9 +25,11 @@ export default defineConfig({
       ]
     },
     watch: {
-      // Watch frontend_tools for changes, ignore other backend files
+      // Watch frontend_tools and tools/*/frontend for changes, ignore other backend files
       ignored: [
-        '**/backend/!(frontend_tools)/**', 
+        '**/backend/!(frontend_tools|tools)/**',  // Allow frontend_tools & tools
+        '**/backend/tools/**/!(frontend)/**',  // Only allow tools/*/frontend
+        '**/backend/tools/**/frontend/**/*.py',  // Ignore Python files in tools/frontend
         '**/backend/frontend_tools/**/*.py',  // Ignore Python files in frontend_tools
         '**/dist-electron/**', 
         '**/build/**', 

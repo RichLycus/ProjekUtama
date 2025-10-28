@@ -222,15 +222,59 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
         }
       } else {
         // Handle validation errors from backend
-        const errorMsg = result.detail?.error || result.detail || result.error || 'Upload failed'
-        const details = result.detail?.details || []
+        const errorDetail = result.detail || {}
+        const errorMsg = errorDetail.error || result.error || 'Upload failed'
+        const details = errorDetail.details || {}
         
-        if (details.length > 0) {
+        // Separate backend and frontend errors
+        const backendErrors = details.backend_errors || []
+        const frontendErrors = details.frontend_errors || []
+        const backendFile = details.backend_file || 'backend script'
+        const frontendFile = details.frontend_file || 'frontend component'
+        const message = details.message || ''
+        
+        // Show detailed error toast with file names
+        if (backendErrors.length > 0 || frontendErrors.length > 0) {
+          toast.error(
+            <div className="space-y-2 max-w-md">
+              <p className="font-bold text-red-600">❌ {errorMsg}</p>
+              {message && <p className="text-xs text-gray-600">{message}</p>}
+              
+              {backendErrors.length > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
+                  <p className="font-semibold text-sm text-blue-700 dark:text-blue-400">
+                    🐍 Backend Issues ({backendFile}):
+                  </p>
+                  <ul className="text-xs mt-1 space-y-0.5 list-disc list-inside">
+                    {backendErrors.map((err: string, i: number) => (
+                      <li key={i} className="text-gray-700 dark:text-gray-300">{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {frontendErrors.length > 0 && (
+                <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                  <p className="font-semibold text-sm text-green-700 dark:text-green-400">
+                    ⚛️ Frontend Issues ({frontendFile}):
+                  </p>
+                  <ul className="text-xs mt-1 space-y-0.5 list-disc list-inside">
+                    {frontendErrors.map((err: string, i: number) => (
+                      <li key={i} className="text-gray-700 dark:text-gray-300">{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>,
+            { id: toastId, duration: 10000 }
+          )
+        } else if (Array.isArray(errorDetail)) {
+          // Fallback for array of errors
           toast.error(
             <div>
               <p className="font-bold">{errorMsg}</p>
               <ul className="text-xs mt-1">
-                {details.map((err: string, i: number) => (
+                {errorDetail.map((err: string, i: number) => (
                   <li key={i}>{err}</li>
                 ))}
               </ul>

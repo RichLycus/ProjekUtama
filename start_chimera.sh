@@ -534,6 +534,7 @@ start_dev_server() {
     echo -e "${GREEN}║${NC}   Backend:    $LOG_DIR/backend.log                  ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}   Frontend:   $FRONTEND_LOG                          ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}   Chat Flow:  $CHAT_FLOW_LOG  ${CYAN}[NEW!]${NC}              ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Tools:      $LOG_DIR/tools.log      ${CYAN}[NEW!]${NC}      ${GREEN}║${NC}"
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
     

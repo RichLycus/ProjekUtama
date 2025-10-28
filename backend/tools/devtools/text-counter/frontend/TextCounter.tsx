@@ -1,10 +1,16 @@
 import React, { useState } from 'react'
 import { FileText, Hash, Type, AlignLeft, MessageSquare, TrendingUp, Sparkles } from 'lucide-react'
 
+// Backend URL - works in both Electron and web mode
+const BACKEND_URL = typeof window !== 'undefined' && (window as any).BACKEND_URL 
+  ? (window as any).BACKEND_URL 
+  : 'http://localhost:8001'
+
 export default function TextCounter() {
   const [text, setText] = useState('')
   const [result, setResult] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleCount = async () => {
     if (!text.trim()) {
@@ -12,30 +18,40 @@ export default function TextCounter() {
     }
 
     setLoading(true)
+    setError(null)
     try {
-      // Call backend API - use relative URL so it works in any environment
-      const response = await fetch('/api/tools/text-counter/execute', {
+      // Call backend API with absolute URL
+      const apiUrl = `${BACKEND_URL}/api/tools/text-counter/execute`
+      console.log('📡 Calling API:', apiUrl)
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: text
-        })
+        body: JSON.stringify({ text })
       })
       
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
       const data = await response.json()
+      console.log('📥 API Response:', data)
       
       // Handle nested result structure from tool executor
-      if (data.success && data.result && data.result.success && data.result.result && data.result.result.data) {
-        setResult(data.result.result.data)
-      } else if (data.success && data.result && data.result.data) {
+      if (data.success && data.result && data.result.data) {
         setResult(data.result.data)
       } else if (data.data) {
         setResult(data.data)
+      } else if (data.success) {
+        // Backend might return direct success with data
+        setResult(data)
       } else {
-        console.error('Unexpected response format:', data)
+        throw new Error(data.error || 'Unexpected response format')
       }
-    } catch (error) {
-      console.error('Failed to count text:', error)
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to count text'
+      console.error('❌ Error:', errorMsg, err)
+      setError(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -108,7 +124,19 @@ export default function TextCounter() {
               Statistics
             </h2>
 
-            {!result ? (
+            {error ? (
+              <div className="flex flex-col items-center justify-center h-64">
+                <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 w-full">
+                  <p className="text-red-300 text-center">{error}</p>
+                  <button
+                    onClick={() => setError(null)}
+                    className="mt-3 mx-auto block px-4 py-2 bg-red-500/30 hover:bg-red-500/40 text-red-200 rounded-lg transition-all"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ) : !result ? (
               <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                 <FileText className="w-16 h-16 mb-4 opacity-50" />
                 <p>Enter text and click "Count Statistics" to see results</p>

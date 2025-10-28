@@ -41,10 +41,16 @@ const ToolLoadingFallback = () => (
  * ONLY scans React/JS modules (.tsx, .jsx) - Vite can only import these!
  * HTML tools (.html) are loaded via API endpoint (see loadToolComponent)
  * 
- * Structure: frontend_tools/{tool-slug}/{ComponentName}.tsx
+ * Structure: 
+ * - frontend_tools/{tool-slug}/{ComponentName}.tsx (legacy)
+ * - tools/{category}/{slug}/frontend/{ComponentName}.tsx (new structure)
+ * 
  * Vite will create separate chunks for code splitting
  */
-const toolModules = import.meta.glob('../../backend/frontend_tools/**/*.{tsx,jsx}')
+const toolModules = {
+  ...import.meta.glob('../../backend/frontend_tools/**/*.{tsx,jsx}'),
+  ...import.meta.glob('../../backend/tools/**/frontend/*.{tsx,jsx}')
+}
 
 console.log('🔍 Auto-discovered tool modules:', Object.keys(toolModules))
 
@@ -145,12 +151,14 @@ export class ToolErrorBoundary extends React.Component<
  * Example: "My Cool Tool" -> MyCoolTool.tsx
  */
 const ToolNameMappings: Record<string, string> = {
-  // Map tool display names to component names
+  // Map tool display names to component names (for pre-built tools only)
   'Sapaan Login/Shutdown': 'GreetingSpeaker',
   'Image Scaling Tool (4K Upscaler)': 'ImageUpscaler',
+  'Text Counter': 'TextCounter',
+  'text-counter': 'TextCounter',
   
-  // Add mappings here if tool name != component filename
-  // Format: 'Tool Display Name': 'ComponentFileName'
+  // NOTE: No fallback mapping for generic uploads
+  // Uploaded tools will use dynamic iframe loading with shared dependencies
 }
 
 /**
@@ -224,44 +232,60 @@ const HTMLToolWrapper: React.FC<{ toolId: string; toolData: any }> = ({ toolId, 
 /**
  * Load tool component dynamically by tool metadata
  * 
- * AUTO-DISCOVERS React components (.tsx/.jsx) from directory
- * HTML tools (.html) are loaded via iframe from backend API
+ * Loading strategies (in order):
+ * 1. Pre-built components (auto-discovered from directory)
+ * 2. HTML tools (iframe loader)
+ * 3. Uploaded tools (dynamic iframe with shared dependencies)
  * 
- * Matching strategies (in order):
- * 1. Direct name mapping (ToolNameMappings)
- * 2. Exact component name match
- * 3. PascalCase conversion of tool name
- * 4. Kebab-case variations
- * 5. Partial/fuzzy match
- * 6. Fallback to HTML loader if frontend_path ends with .html
+ * For uploaded tools:
+ * - Checks if built bundle exists
+ * - Loads via DynamicIframeTool component
+ * - Shares dependencies from parent app (React, lucide-react, etc)
  */
 export const loadToolComponent = async (tool: any): Promise<ComponentType<any> | null> => {
   try {
     console.log('🔍 Loading tool component for:', tool.name)
     console.log('📦 Available React components:', Object.keys(DynamicToolRegistry))
     
-    // Check if tool uses HTML (cannot be dynamically imported)
     const frontendPath = tool.frontend_path || ''
+    
+    // 1. Check if tool uses HTML (static HTML file)
     if (frontendPath.endsWith('.html')) {
       console.log('📄 HTML tool detected, using iframe loader')
       return HTMLToolWrapper
     }
     
-    // Find matching React component name
+    // 2. Try to find matching pre-built component
     const componentName = findComponentNameForTool(tool.name)
     
-    if (!componentName) {
-      console.error('❌ No matching component found for tool:', tool.name)
-      console.error('💡 Available components:', Object.keys(DynamicToolRegistry))
-      console.error('💡 Add mapping to ToolNameMappings if needed')
-      return null
+    if (componentName && DynamicToolRegistry[componentName]) {
+      console.log(`✅ Found pre-built component: ${componentName}`)
+      
+      // Load the React component dynamically
+      const module = await DynamicToolRegistry[componentName]()
+      return module.default
     }
     
-    console.log(`✅ Matched to component: ${componentName}`)
+    // 3. Check if this is an uploaded tool (not in pre-built registry)
+    // Uploaded tools are stored in: tools/{category}/{slug}/frontend/
+    const isUploadedTool = frontendPath.includes('tools/') && 
+                          (frontendPath.endsWith('.tsx') || frontendPath.endsWith('.jsx'))
     
-    // Load the React component dynamically
-    const module = await DynamicToolRegistry[componentName]()
-    return module.default
+    if (isUploadedTool) {
+      console.log('📦 Uploaded tool detected, using dynamic iframe loader')
+      console.log('   Tool will load with shared dependencies from parent app')
+      
+      // Return DynamicIframeTool wrapper
+      // This will be dynamically imported to avoid circular dependency
+      return (await import('@/components/DynamicIframeTool')).default
+    }
+    
+    // 4. No matching component found
+    console.error('❌ No matching component found for tool:', tool.name)
+    console.error('💡 Available components:', Object.keys(DynamicToolRegistry))
+    console.error('💡 Frontend path:', frontendPath)
+    console.error('💡 This tool may need to be built first')
+    return null
     
   } catch (error) {
     console.error('❌ Failed to load tool component:', error)
