@@ -4,38 +4,44 @@ import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 import path from 'path'
 import { copyFileSync, mkdirSync, existsSync } from 'fs'
+import { execSync } from 'child_process'
 
 export default defineConfig({
   plugins: [
     react(),
+    // Custom plugin to build Electron files with proper formats BEFORE vite-plugin-electron
+    {
+      name: 'build-electron-scripts',
+      enforce: 'pre',
+      buildStart() {
+        console.log('[Custom Plugin] Building Electron scripts...')
+        try {
+          // Build preload with CommonJS (CRITICAL!)
+          execSync(
+            './node_modules/.bin/tsc electron/preload.ts --outDir dist-electron --module commonjs --target ES2020 --moduleResolution node --esModuleInterop --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports --noEmitOnError false',
+            { cwd: __dirname, stdio: 'ignore' }
+          )
+          console.log('[Custom Plugin] ✅ preload.js built as CommonJS')
+          
+          // Build main with ES2020 modules
+          execSync(
+            './node_modules/.bin/tsc electron/main.ts --outDir dist-electron --module ES2020 --target ES2020 --moduleResolution node --esModuleInterop --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports --noEmitOnError false',
+            { cwd: __dirname, stdio: 'ignore' }
+          )
+          console.log('[Custom Plugin] ✅ main.js built as ES2020')
+        } catch (e) {
+          console.warn('[Custom Plugin] TypeScript errors (ignored):', (e as any).message)
+        }
+      }
+    },
     electron([
       {
         entry: 'electron/main.ts',
         vite: {
           build: {
             outDir: 'dist-electron',
-          },
-        },
-      },
-      {
-        entry: 'electron/preload.ts',
-        onstart(options) {
-          options.reload()
-        },
-        vite: {
-          build: {
-            outDir: 'dist-electron',
-            lib: {
-              entry: 'electron/preload.ts',
-              formats: ['cjs'], // Force CommonJS
-              fileName: () => 'preload.js',
-            },
             rollupOptions: {
               external: ['electron'],
-              output: {
-                format: 'cjs',
-                entryFileNames: 'preload.js',
-              },
             },
           },
         },

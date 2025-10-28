@@ -1,0 +1,11 @@
+name: Text Counter
+slug: text-counter
+category: DevTools
+description: Count words, characters, lines, and sentences in text
+version: 1.0.0
+author: ChimeraAI
+status: active
+tool_type: dual
+dependencies: []
+created_at: '2025-01-15T00:00:00'
+updated_at: '2025-01-15T00:00:00'

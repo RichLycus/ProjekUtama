@@ -10,7 +10,7 @@ import ToolsTable from '@/components/ToolsTable'
 import UploadToolModal from '@/components/UploadToolModal'
 import UploadGameModal from '@/components/UploadGameModal'
 import ToolSettingsModal from '@/components/ToolSettingsModal'
-import HelpModal from '@/components/HelpModal'
+// import HelpModal from '@/components/HelpModal' // ❌ REMOVED: HelpModal deprecated
 import ThemeCard from '@/components/ThemeCard'
 import PersonaManager from '@/components/PersonaManager'
 import EditAgentModal from '@/components/EditAgentModal'
@@ -275,7 +275,7 @@ export default function SettingsPage() {
   }, [activeTab])
   
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
-  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
+  // const [isHelpModalOpen, setIsHelpModalOpen] = useState(false) // ❌ REMOVED: HelpModal deprecated
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
@@ -479,11 +479,11 @@ export default function SettingsPage() {
                   Upload Tool
                 </button>
                 
-                {/* Help Button */}
+                {/* Help Button → Navigate to /tools-guide page */}
                 <button
-                  onClick={() => setIsHelpModalOpen(true)}
+                  onClick={() => navigate('/tools-guide')}
                   className="flex items-center gap-2 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-all whitespace-nowrap"
-                  data-testid="open-help-modal"
+                  data-testid="open-help-guide"
                 >
                   <HelpCircle className="w-4 h-4" />
                   Help
@@ -1378,11 +1378,8 @@ export default function SettingsPage() {
         onSuccess={() => loadGames()}
       />
       
-      {/* Help Modal */}
-      <HelpModal
-        isOpen={isHelpModalOpen}
-        onClose={() => setIsHelpModalOpen(false)}
-      />
+      {/* Help Modal - REMOVED: Now uses dedicated page /tools-guide */}
+      {/* <HelpModal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} /> */}
       
       {/* Edit Agent Modal */}
       <EditAgentModal

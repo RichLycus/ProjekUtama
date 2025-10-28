@@ -9,21 +9,21 @@
 
 ### Core Documentation
 - **🏅 [Golden Rules](docs/golden-rules.md)** - MUST READ! Project conventions
-- **📖 [Full Documentation](docs/index.md)** - Complete documentation index
-- **🚀 [Quick Start Guide](docs/quick-start.md)** - Get started in 1 minute!
-- **📘 [Development Guide](docs/DEVELOPMENT.md)** - Setup & development
+- **📖 [Full Documentation](docs/README.md)** - Complete documentation index
+- **🐛 [Fix: Preload Build](docs/FIX_PRELOAD_BUILD.md)** - Electron preload script fix
+
+### Setup & Deployment
+- **🐳 [Container Setup](docs/CONTAINER_SETUP.md)** - Running in Docker/container
+- **📦 [Build Standalone](docs/BUILD_STANDALONE.md)** - Creating executables
 
 ### Phase Documentation
 - **✅ [Phase 0 Complete](docs/phase/phase_0.md)** - Foundation & Architecture
 - **✅ [Phase 1 Complete](docs/phase/phase_1.md)** - UI Enhancement & Animations
 - **✅ [Phase 2 Complete](docs/phase/phase_2.md)** - Tools System & SQLite
 - **✅ [Phase 3 Complete](docs/phase/phase_3.md)** - AI Chat with RAG System
-- **📋 [Phase 4 Planned](docs/phase/phase_4_planned.md)** - Advanced Chat Features
-
-### Technical Guides
-- **🧪 [Backend Testing Guide](docs/BACKEND_TESTING_GUIDE.md)** - Test backend API
-- **⚙️ [Model Management](docs/MODEL_MANAGEMENT_QUICKSTART.md)** - AI models configuration
-- **🎨 [Phase 3 Wireframes](docs/phase/phase-3-wireframes.md)** - Visual reference
+- **✅ [Phase 6 Complete](docs/phase/phase_6.md)** - Enhanced Chat Features
+- **✅ [Phase 7 Complete](docs/phase/phase_7.md)** - Advanced Features
+- **📋 [Phase 10 Planned](docs/phase/phase-10-planned.md)** - Standalone Installer
 
 ## 🚀 Phase 0 - Foundation Complete
 

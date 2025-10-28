@@ -1,12 +1,22 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Upload, Grid3x3, List, Settings } from 'lucide-react'
+import { Upload, Grid3x3, List, Settings, BookOpen, Search, Plus, Wrench, FileText, Code2, Film, Shield, Wifi, Database } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
 import { cn } from '@/lib/utils'
-import ToolsSidePanel from '@/components/ToolsSidePanel'
 import ToolCard from '@/components/ToolCard'
 import ToolListItem from '@/components/ToolListItem'
 import LoadingSpinner from '@/components/LoadingSpinner'
+
+const CATEGORIES = [
+  { id: 'all', label: 'All', icon: Wrench },
+  { id: 'DevTools', label: 'DevTools', icon: Code2 },
+  { id: 'Multimedia', label: 'Media', icon: Film },
+  { id: 'Utilities', label: 'Utilities', icon: Wrench },
+  { id: 'Office', label: 'Office', icon: FileText },
+  { id: 'Security', label: 'Security', icon: Shield },
+  { id: 'Network', label: 'Network', icon: Wifi },
+  { id: 'Data', label: 'Data', icon: Database },
+]
 
 export default function ToolsPage() {
   const navigate = useNavigate()
@@ -15,8 +25,11 @@ export default function ToolsPage() {
     loading,
     error,
     viewMode,
-    sidePanelMode,
+    searchQuery,
+    selectedCategory,
     setViewMode,
+    setSearchQuery,
+    setSelectedCategory,
     fetchTools,
     getFilteredTools,
   } = useToolsStore()
@@ -33,35 +46,45 @@ export default function ToolsPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-5.5rem)]">
-      {/* Side Panel */}
-      <ToolsSidePanel />
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-4xl font-display font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Python Tools
-              </h1>
-              <p className="text-secondary text-lg">
-                Click on any tool card to run powerful automation scripts
-              </p>
+    <div className="flex flex-col h-[calc(100vh-5.5rem)]">
+      {/* Top Header with Search & Actions */}
+      <div className="glass-strong border-b border-gray-200 dark:border-dark-border">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Left: Title & Search */}
+            <div className="flex items-center gap-4 flex-1">
+              <div>
+                <h1 className="text-2xl font-display font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                  Tools 🧰
+                </h1>
+              </div>
+              
+              {/* Search Bar */}
+              <div className="relative max-w-md flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search tools..."
+                  className="w-full pl-10 pr-4 py-2 glass rounded-lg text-sm border border-gray-200 dark:border-dark-border focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                  data-testid="tools-search-input"
+                />
+              </div>
             </div>
-            
-            {/* View Toggle & Upload */}
+
+            {/* Right: Actions */}
             <div className="flex items-center gap-3">
               {/* View Mode Toggle */}
               <div className="flex items-center gap-1 glass rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-md transition-all ${
+                  className={cn(
+                    'p-2 rounded-md transition-all',
                     viewMode === 'grid'
                       ? 'bg-primary text-white'
                       : 'hover:bg-gray-100 dark:hover:bg-dark-surface-hover text-secondary'
-                  }`}
+                  )}
                   title="Grid view"
                   data-testid="view-grid"
                 >
@@ -69,11 +92,12 @@ export default function ToolsPage() {
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-md transition-all ${
+                  className={cn(
+                    'p-2 rounded-md transition-all',
                     viewMode === 'list'
                       ? 'bg-primary text-white'
                       : 'hover:bg-gray-100 dark:hover:bg-dark-surface-hover text-secondary'
-                  }`}
+                  )}
                   title="List view"
                   data-testid="view-list"
                 >
@@ -81,19 +105,62 @@ export default function ToolsPage() {
                 </button>
               </div>
 
-              {/* Manage Tools Button */}
+              {/* Guide Button */}
+              <button
+                onClick={() => navigate('/tools-guide')}
+                className="flex items-center gap-2 px-4 py-2 glass hover:glass-strong text-primary dark:text-white rounded-lg font-medium transition-all"
+                data-testid="tools-guide-button"
+                title="Learn how to create tools"
+              >
+                <BookOpen className="w-4 h-4" />
+                Guide
+              </button>
+
+              {/* Add Tool Button */}
               <button
                 onClick={() => navigate('/settings')}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-secondary hover:from-secondary hover:to-primary text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl"
-                data-testid="manage-tools-button"
-                title="Go to Settings to manage tools"
+                data-testid="add-tool-button"
+                title="Add new tool"
               >
-                <Settings className="w-4 h-4" />
-                Manage Tools
+                <Plus className="w-4 h-4" />
+                Add Tool
               </button>
             </div>
           </div>
+        </div>
 
+        {/* Top Tabs for Categories */}
+        <div className="px-6 border-b border-gray-200 dark:border-dark-border">
+          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar-horizontal">
+            {CATEGORIES.map((category) => {
+              const Icon = category.icon
+              const isActive = selectedCategory === category.id
+              
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={cn(
+                    'relative flex items-center gap-2 px-4 py-3 font-medium transition-all duration-200 whitespace-nowrap border-b-2',
+                    isActive
+                      ? 'text-primary border-primary'
+                      : 'text-secondary border-transparent hover:text-primary hover:border-gray-300'
+                  )}
+                  data-testid={`category-tab-${category.id}`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{category.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="p-6">
           {/* Error Message */}
           {error && (
             <div className="mb-6 p-4 glass-strong border-l-4 border-red-500 rounded-lg">
@@ -130,17 +197,9 @@ export default function ToolsPage() {
             </div>
           )}
 
-          {/* Grid View - Responsive based on side panel mode */}
+          {/* Grid View - Responsive */}
           {!loading && viewMode === 'grid' && filteredTools.length > 0 && (
-            <div className={cn(
-              "grid gap-5 transition-all duration-300",
-              // Full panel mode (280px sidebar)
-              sidePanelMode === 'full' && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
-              // Minimized mode (80px sidebar)
-              sidePanelMode === 'minimized' && "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
-              // Hidden mode (no sidebar)
-              sidePanelMode === 'hidden' && "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
-            )}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
               {filteredTools.map((tool) => (
                 <ToolCard
                   key={tool._id}

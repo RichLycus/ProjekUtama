@@ -78,6 +78,31 @@
   .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     @apply bg-primary/70;
   }
+
+  /* Custom horizontal scrollbar for tabs */
+  .custom-scrollbar-horizontal::-webkit-scrollbar {
+    @apply h-1.5;
+  }
+  
+  .custom-scrollbar-horizontal::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  .custom-scrollbar-horizontal::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+  
+  .custom-scrollbar-horizontal::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+
+  .dark .custom-scrollbar-horizontal::-webkit-scrollbar-thumb {
+    @apply bg-primary/30 rounded-full;
+  }
+  
+  .dark .custom-scrollbar-horizontal::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/50;
+  }
   
   /* Button styles */
   .btn-primary {

@@ -409,7 +409,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
                             Tool akan disimpan dengan slug: <strong className="text-primary">{nameCheckResult.slug}</strong>
                           </p>
                           <p className="text-xs text-secondary mt-1 font-mono">
-                            sample_tools/{category.toLowerCase()}/{nameCheckResult.slug}/
+                            tools/{category.toLowerCase()}/{nameCheckResult.slug}/
                           </p>
                         </div>
                       </div>
@@ -581,7 +581,7 @@ export default function UploadToolModal({ isOpen, onClose, onSuccess }: UploadTo
                 ⚠️ Tool directory akan dihapus:
               </p>
               <p className="text-xs text-secondary mt-2 font-mono">
-                sample_tools/{nameCheckResult.tool.category.toLowerCase()}/{nameCheckResult.slug}/
+                tools/{nameCheckResult.tool.category.toLowerCase()}/{nameCheckResult.slug}/
               </p>
             </div>
 

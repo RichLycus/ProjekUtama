@@ -436,7 +436,92 @@ sudo supervisorctl restart frontend
 
 ---
 
-## 🐍 **RULE #0.6: Backend Dependencies & Database (CRITICAL)**
+## 🚀 **RULE #0.6: NEW CONVERSATION STARTUP PROTOCOL (CRITICAL)**
+
+### **⚠️ MANDATORY: First Actions in Every New Conversation**
+
+**Setiap percakapan baru dengan AI Agent, WAJIB lakukan langkah-langkah berikut SEBELUM menanyakan masalah user:**
+
+```bash
+# ═══════════════════════════════════════════════════════════
+#  STARTUP PROTOCOL - RUN THESE COMMANDS FIRST! 
+# ═══════════════════════════════════════════════════════════
+
+# STEP 1: Install Frontend Dependencies
+cd /app
+yarn install
+
+# STEP 2: Install Backend Dependencies  
+cd /app/backend
+/root/.venv/bin/pip install -r requirements.txt
+
+# STEP 3: Verify Critical Backend Packages
+/root/.venv/bin/pip list | grep -E "chromadb|sentence-transformers|fastapi"
+
+# STEP 4: Check Supervisor Config
+cat /etc/supervisor/conf.d/supervisord.conf | grep -A 5 "\[program:frontend\]"
+# MUST verify: directory=/app (NOT /app/frontend!)
+
+# STEP 5: Fix Supervisor Config (if needed)
+# If directory=/app/frontend → Change to directory=/app
+# If command=yarn start → Change to: npx vite --config vite.config.web.ts --host 0.0.0.0 --port 3000
+
+# STEP 6: Reload Supervisor & Start Services
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start backend frontend
+
+# STEP 7: Wait for Services to Start
+sleep 10
+
+# STEP 8: Verify Services Running
+sudo supervisorctl status
+
+# STEP 9: Health Checks
+curl -s http://localhost:8001/health | jq -r '.status'  # Should return "healthy"
+curl -s http://localhost:3000 | grep -o '<title>.*</title>'  # Should show "<title>ChimeraAI</title>"
+
+# ═══════════════════════════════════════════════════════════
+#  ONLY AFTER ALL CHECKS PASS → ASK USER FOR THEIR PROBLEM
+# ═══════════════════════════════════════════════════════════
+```
+
+### **Why This Protocol Exists:**
+
+**Common Issues in New Conversations:**
+- ❌ Frontend fails: `couldn't chdir to /app/frontend: ENOENT`
+- ❌ Vite fails: `Cannot find package 'vite'` (yarn not installed)
+- ❌ Backend fails: `ModuleNotFoundError: No module named 'chromadb'`
+- ❌ Services not running: `frontend: FATAL`, `backend: STOPPED`
+
+**With This Protocol:**
+- ✅ All dependencies installed
+- ✅ Supervisor config correct
+- ✅ All services running healthy
+- ✅ Agent can focus on user's actual problem
+
+---
+
+### **Agent Response Template:**
+
+```
+✅ Environment Setup Complete!
+
+📦 Dependencies Installed:
+- Frontend: yarn install ✓
+- Backend: pip install -r requirements.txt ✓
+
+🚀 Services Status:
+- Backend (Port 8001): ✅ RUNNING - Healthy
+- Frontend (Port 3000): ✅ RUNNING  
+- MongoDB (Port 27017): ✅ RUNNING
+
+🎯 Ready to help! What would you like to work on today?
+```
+
+---
+
+## 🐍 **RULE #0.7: Backend Dependencies & Database (CRITICAL)**
 
 ### **Backend Python Dependencies**
 
@@ -593,6 +678,235 @@ sudo supervisorctl restart backend
 # ❌ SALAH (system pip):
 pip install package-name
 ```
+
+---
+
+## 🔒 **RULE #0.8: Critical Package Versions (MANDATORY)**
+
+### **⚠️ NEVER Change These Package Versions!**
+
+**PENTING untuk AI Agent:** Beberapa packages punya version LOCKED dan **TIDAK BOLEH diupdate/downgrade** tanpa konfirmasi explicit dari user!
+
+### **🚨 LOCKED VERSIONS:**
+
+**1. PyTorch (torch)**
+```bash
+# ✅ WAJIB - Version 2.7.1 (LOCKED)
+torch==2.7.1
+
+# ❌ DILARANG KERAS:
+pip install torch                    # Don't auto-upgrade!
+pip install torch==2.5.0            # Don't downgrade!
+pip install torch --upgrade         # Don't upgrade!
+
+# ✅ BENAR - Always specify version:
+pip install torch==2.7.1
+```
+
+**Why torch 2.7.1?**
+- ✅ Kompatibel dengan local development environment
+- ✅ Tested & stable untuk semua features
+- ✅ ARM64 (aarch64) compatibility verified
+- ✅ Dependency dari `sentence-transformers`
+
+**Version Lock Reason:**
+```
+🔐 torch 2.7.1 adalah versi yang:
+- Sudah berjalan stabil di production (local user)
+- Compatible dengan semua dependencies (transformers, sentence-transformers)
+- Tested untuk ARM64 architecture
+- Breaking changes di versi lain bisa crash backend!
+```
+
+---
+
+### **2. Other Critical Packages**
+
+**Sentence Transformers:**
+```bash
+# Auto-install version dari requirements.txt
+sentence-transformers>=5.1.0    # OK to use latest
+```
+
+**ChromaDB:**
+```bash
+# Locked version
+chromadb==1.2.1                 # DO NOT change!
+```
+
+**FastAPI:**
+```bash
+fastapi==0.110.1                # Tested version
+```
+
+---
+
+### **📋 Installation Protocol**
+
+**✅ CORRECT Way:**
+```bash
+# 1. Always install from requirements.txt
+cd /app/backend
+/root/.venv/bin/pip install -r requirements.txt
+
+# 2. If adding NEW package:
+/root/.venv/bin/pip install package-name==version
+/root/.venv/bin/pip freeze > requirements.txt
+
+# 3. Verify torch version:
+/root/.venv/bin/pip list | grep torch
+# Should show: torch    2.7.1
+```
+
+**❌ WRONG Way:**
+```bash
+# DON'T do generic install for critical packages:
+pip install torch                          # ❌ May upgrade!
+pip install chromadb                       # ❌ May upgrade!
+pip install sentence-transformers torch    # ❌ May change torch version!
+
+# DON'T auto-upgrade:
+pip install --upgrade torch                # ❌ NEVER!
+pip install -U torch                       # ❌ NEVER!
+```
+
+---
+
+### **🔍 Version Verification Commands**
+
+**Check Current Versions:**
+```bash
+# Verify torch version
+/root/.venv/bin/pip show torch
+
+# Should output:
+# Name: torch
+# Version: 2.7.1
+
+# Verify all critical packages:
+/root/.venv/bin/pip list | grep -E "torch|chromadb|sentence-transformers|fastapi"
+```
+
+**Expected Output:**
+```
+chromadb                1.2.1
+fastapi                 0.110.1
+sentence-transformers   5.1.2
+torch                   2.7.1
+```
+
+---
+
+### **🚨 What to Do if Version Changed?**
+
+**If torch version is wrong:**
+```bash
+# 1. Uninstall wrong version
+/root/.venv/bin/pip uninstall torch -y
+
+# 2. Install correct version
+/root/.venv/bin/pip install torch==2.7.1
+
+# 3. Verify
+/root/.venv/bin/pip show torch | grep Version
+
+# 4. Update requirements.txt
+/root/.venv/bin/pip freeze > /app/backend/requirements.txt
+
+# 5. Restart backend
+sudo supervisorctl restart backend
+```
+
+---
+
+### **📝 AI Agent Guidelines**
+
+**When User Asks to Add Dependencies:**
+
+1. **Check if torch is affected:**
+   ```bash
+   # Before install:
+   /root/.venv/bin/pip show torch | grep Version
+   
+   # Install new package:
+   /root/.venv/bin/pip install new-package
+   
+   # After install - VERIFY torch version:
+   /root/.venv/bin/pip show torch | grep Version
+   ```
+
+2. **If torch changed → Fix immediately:**
+   ```bash
+   /root/.venv/bin/pip install torch==2.7.1 --force-reinstall
+   ```
+
+3. **Always freeze to requirements.txt:**
+   ```bash
+   /root/.venv/bin/pip freeze > /app/backend/requirements.txt
+   ```
+
+---
+
+### **⚠️ Common Mistakes to Avoid**
+
+**Mistake #1: Auto-upgrade during dependency install**
+```bash
+# ❌ WRONG (may upgrade torch):
+pip install transformers
+
+# ✅ CORRECT (check after install):
+pip install transformers
+pip show torch  # Verify still 2.7.1
+```
+
+**Mistake #2: Installing conflicting packages**
+```bash
+# ❌ WRONG (may downgrade torch):
+pip install tensorflow  # Conflicts with torch
+
+# ✅ CORRECT (check compatibility first):
+# Ask user before installing packages that may conflict
+```
+
+**Mistake #3: Requirements.txt out of sync**
+```bash
+# ❌ WRONG (outdated requirements.txt):
+# Just install packages without updating requirements.txt
+
+# ✅ CORRECT (always freeze after changes):
+pip install new-package
+pip freeze > /app/backend/requirements.txt
+```
+
+---
+
+### **🎯 Quick Reference**
+
+| Package | Version | Can Change? | Notes |
+|---------|---------|-------------|-------|
+| **torch** | **2.7.1** | ❌ **NO** | **LOCKED - Never change!** |
+| chromadb | 1.2.1 | ❌ NO | Specific version required |
+| fastapi | 0.110.1 | ⚠️ Careful | Test before upgrade |
+| sentence-transformers | ≥5.1.0 | ✅ Yes | Can use latest |
+| transformers | Latest | ✅ Yes | Auto from sentence-transformers |
+
+---
+
+### **💡 Why This Rule Exists?**
+
+**Problem:**
+- Different torch versions have breaking API changes
+- ARM64 compatibility varies by version
+- Dependency conflicts can crash backend
+- Local development uses torch 2.7.1 (tested & stable)
+
+**Solution:**
+- Lock critical package versions
+- Always verify after dependency changes
+- Keep requirements.txt in sync
+- Test backend after any pip install
+
+---
 
 **Update requirements.txt:**
 ```bash
@@ -1060,6 +1374,7 @@ ChimeraAI Architecture:
 - 🚀 **NEW:** `docs/phase/PROGRESS.md` - Journey tracker untuk project continuity
 
 **For AI Agents (E1/E1.1):**
+- ⚠️ **CRITICAL:** Always run RULE #0.6 (Startup Protocol) FIRST in new conversations
 - Always read `docs/phase/PROGRESS.md` first in new conversations
 - Check "Where We Are Now" to understand current phase
 - Follow "Quick Reference" for essential files
@@ -1095,6 +1410,26 @@ ChimeraAI Architecture:
   - ✅ Enhanced upload preview dengan bingkai khusus
   - ✅ Fixed welcome screen hiding behavior
 
+- **v2.2** (Tools Management Fix) - New Conversation Startup Protocol
+  - ✅ **RULE #0.6 added**: New Conversation Startup Protocol (CRITICAL!)
+  - ✅ **Mandatory startup checklist**: Auto-setup environment before asking user
+  - ✅ **Dependencies auto-install**: yarn + pip in every new conversation
+  - ✅ **Supervisor verification**: Auto-check & fix frontend directory config
+  - ✅ **Services health check**: Verify backend, frontend, mongodb running
+  - ✅ **Agent response template**: Clear status report before taking tasks
+  - ✅ **HelpModal deprecated**: Guide now uses dedicated inline page `/tools-guide`
+  - ✅ **Frontend .tsx only rule**: Clearly documented in ToolsGuidePage
+
+- **v2.3** (Package Version Lock) - Critical Dependencies Management
+  - ✅ **RULE #0.8 added**: Critical Package Versions (MANDATORY!)
+  - ✅ **Torch version locked**: torch==2.7.1 (NEVER change!)
+  - ✅ **Version verification protocol**: Check before/after pip install
+  - ✅ **ChromaDB locked**: chromadb==1.2.1 (specific version required)
+  - ✅ **Installation guidelines**: Correct way to install packages
+  - ✅ **AI Agent safeguards**: Prevent accidental version changes
+  - ✅ **Compatibility matrix**: Which packages can be upgraded
+  - ✅ **Rollback instructions**: Fix wrong versions immediately
+
 ---
 
 **⚠️ PENTING: Aturan ini WAJIB diikuti oleh SEMUA developer tanpa exception!**
@@ -1103,6 +1438,6 @@ ChimeraAI Architecture:
 
 ---
 
-**Last Updated**: Chat UI Enhancement (Upload Preview & Container Setup)  
+**Last Updated**: Package Version Lock & Critical Dependencies (v2.3)  
 **Maintained By**: ChimeraAI Team  
 **Status**: ✅ Active & Enforced

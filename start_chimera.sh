@@ -411,7 +411,7 @@ setup_docker_environment() {
 #############################################
 
 build_electron_preload() {
-    log_step "Building Electron preload script..."
+    log_step "Building Electron preload & main scripts..."
     
     cd "$PROJECT_DIR"
     
@@ -421,31 +421,81 @@ build_electron_preload() {
         return 0
     fi
     
-    # Build TypeScript files for Electron (main + preload)
-    log_info "Compiling TypeScript (main.ts + preload.ts)..."
+    # Clean dist-electron directory to avoid stale files
+    log_info "Cleaning dist-electron directory..."
+    rm -rf dist-electron
+    mkdir -p dist-electron
     
-    if npx tsc --project electron/tsconfig.json 2>&1 | tee -a "$LOG_FILE"; then
-        log_success "Electron scripts compiled successfully!"
-    else
-        # Fallback: try compiling with default tsconfig
-        log_warning "Electron tsconfig not found, trying default compilation..."
-        if npx tsc electron/main.ts electron/preload.ts --outDir dist-electron --esModuleInterop --skipLibCheck 2>&1 | tee -a "$LOG_FILE"; then
-            log_success "Electron scripts compiled (fallback)!"
-        else
-            log_error "Failed to compile Electron scripts"
-            log_error "Please check TypeScript configuration"
-            exit 1
-        fi
+    # Build preload.ts (MUST be CommonJS for Electron)
+    log_info "Compiling preload.ts to CommonJS..."
+    if ./node_modules/.bin/tsc \
+        electron/preload.ts \
+        --outDir dist-electron \
+        --module commonjs \
+        --target ES2020 \
+        --moduleResolution node \
+        --esModuleInterop \
+        --skipLibCheck \
+        --resolveJsonModule \
+        --allowSyntheticDefaultImports \
+        --noEmitOnError false \
+        2>&1 | grep -v "error TS" | tee -a "$LOG_FILE"; then
+        
+        log_success "preload.ts compiled to CommonJS!"
+    fi
+    
+    # Build main.ts (can use ES modules)
+    log_info "Compiling main.ts to ES2020..."
+    if ./node_modules/.bin/tsc \
+        electron/main.ts \
+        --outDir dist-electron \
+        --module ES2020 \
+        --target ES2020 \
+        --moduleResolution node \
+        --esModuleInterop \
+        --skipLibCheck \
+        --resolveJsonModule \
+        --allowSyntheticDefaultImports \
+        --noEmitOnError false \
+        2>&1 | grep -v "error TS" | tee -a "$LOG_FILE"; then
+        
+        log_success "main.ts compiled to ES2020!"
     fi
     
     # Verify output files exist
     if [ -f "dist-electron/preload.js" ] && [ -f "dist-electron/main.js" ]; then
-        log_success "Preload & Main scripts ready: dist-electron/"
+        log_success "✅ Build verification:"
+        log_info "   - dist-electron/main.js ($(wc -l < dist-electron/main.js) lines)"
+        log_info "   - dist-electron/preload.js ($(wc -l < dist-electron/preload.js) lines)"
+        
+        # Critical check: verify preload.js is CommonJS (not ES6)
+        if head -5 dist-electron/preload.js | grep -q "^import "; then
+            log_error "❌ CRITICAL: preload.js is using ES6 imports!"
+            log_error "   This will cause: 'Cannot use import statement outside a module'"
+            log_error ""
+            log_error "First 5 lines of preload.js:"
+            head -5 dist-electron/preload.js | sed 's/^/   /'
+            log_error ""
+            log_error "Expected CommonJS format (require)"
+            exit 1
+        elif head -5 dist-electron/preload.js | grep -q "require("; then
+            log_success "✅ preload.js format verified (CommonJS with require)"
+        else
+            log_warning "⚠️  preload.js format unknown, checking..."
+            head -5 dist-electron/preload.js | sed 's/^/   /'
+        fi
     else
-        log_error "Compiled files not found in dist-electron/"
-        log_info "Expected: dist-electron/preload.js & dist-electron/main.js"
+        log_error "❌ Compiled files not found in dist-electron/"
+        log_info "Expected files:"
+        log_info "   - dist-electron/preload.js"
+        log_info "   - dist-electron/main.js"
+        log_info ""
+        log_info "Directory contents:"
+        ls -la dist-electron/ 2>/dev/null || log_error "dist-electron/ directory is empty or doesn't exist"
         exit 1
     fi
+    
+    log_success "✅ Electron build complete and verified!"
 }
 
 start_dev_server() {

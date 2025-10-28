@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 import os
 import uuid
 import json
+import yaml
 import importlib.util
 from pathlib import Path
 from datetime import datetime
@@ -83,6 +84,34 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# CSP Middleware for iframe support (HTML tools)
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+
+class CSPMiddleware(BaseHTTPMiddleware):
+    """Add Content Security Policy headers to allow iframes"""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        
+        # Allow iframe embedding from same origin and localhost
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: blob: https:; "
+            "font-src 'self' data:; "
+            "connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; "
+            "frame-src 'self' http://localhost:* http://127.0.0.1:*; "
+            "frame-ancestors 'self' http://localhost:* http://127.0.0.1:*"
+        )
+        
+        # Allow cross-origin for tools
+        response.headers["X-Frame-Options"] = "ALLOW-FROM http://localhost:3000"
+        
+        return response
+
+app.add_middleware(CSPMiddleware)
 
 # Get backend directory (portable path)
 BACKEND_DIR = Path(__file__).parent
@@ -359,12 +388,30 @@ async def upload_tool_zip(
     """
     ZIP Upload endpoint - Upload tool as ZIP archive
     
-    ZIP Structure (MANDATORY):
+    ZIP Structure (Supports both nested and flat):
+    
+    Option 1 (Flat):
     tool-name.zip
     ├── backend/
     │   └── main.py (exactly 1 .py file)
     └── frontend/
         └── Component.tsx (exactly 1 file: .tsx/.jsx/.html/.js)
+    
+    Option 2 (Nested):
+    tool-name.zip
+    └── tool-name/
+        ├── backend/
+        │   └── main.py
+        └── frontend/
+            └── Component.tsx
+    
+    Output Structure:
+    backend/tools/{category}/{slug}/
+    ├── backend/
+    │   └── main.py
+    ├── frontend/
+    │   └── Component.tsx
+    └── {slug}.yaml  (auto-generated metadata)
     """
     temp_dir = None
     try:
@@ -417,24 +464,52 @@ async def upload_tool_zip(
         # Remove the ZIP file itself
         zip_path.unlink()
         
-        # Validate structure: must have backend/ and frontend/ folders
+        # Validate structure: Support nested or flat structure
+        # Case 1: tool-name/backend/ + tool-name/frontend/
+        # Case 2: backend/ + frontend/ (direct)
         extracted_root = Path(temp_dir)
-        backend_folder = extracted_root / "backend"
-        frontend_folder = extracted_root / "frontend"
         
+        # Check for nested structure first (tool-name/ folder inside)
+        nested_folders = [d for d in extracted_root.iterdir() if d.is_dir() and d.name != "__MACOSX"]
+        
+        backend_folder = None
+        frontend_folder = None
+        
+        # Try nested structure first
+        if len(nested_folders) == 1:
+            nested_root = nested_folders[0]
+            potential_backend = nested_root / "backend"
+            potential_frontend = nested_root / "frontend"
+            
+            if potential_backend.exists() and potential_frontend.exists():
+                backend_folder = potential_backend
+                frontend_folder = potential_frontend
+                logger.info(f"📂 Detected nested ZIP structure: {nested_root.name}/backend/ + {nested_root.name}/frontend/")
+        
+        # If nested not found, try flat structure
+        if backend_folder is None:
+            potential_backend = extracted_root / "backend"
+            potential_frontend = extracted_root / "frontend"
+            
+            if potential_backend.exists() and potential_frontend.exists():
+                backend_folder = potential_backend
+                frontend_folder = potential_frontend
+                logger.info(f"📂 Detected flat ZIP structure: backend/ + frontend/")
+        
+        # Validate that we found the folders
         errors = []
         
-        if not backend_folder.exists():
-            errors.append("❌ 'backend/' folder not found in ZIP")
+        if backend_folder is None:
+            errors.append("❌ 'backend/' folder not found in ZIP (tried nested and flat structures)")
         
-        if not frontend_folder.exists():
-            errors.append("❌ 'frontend/' folder not found in ZIP")
+        if frontend_folder is None:
+            errors.append("❌ 'frontend/' folder not found in ZIP (tried nested and flat structures)")
         
         if errors:
             raise HTTPException(400, {
                 "error": "Invalid ZIP structure",
                 "details": errors,
-                "expected": "ZIP must contain 'backend/' and 'frontend/' folders"
+                "expected": "ZIP must contain 'backend/' and 'frontend/' folders (nested or flat)"
             })
         
         # Find backend file (exactly 1 .py file)
@@ -473,34 +548,40 @@ async def upload_tool_zip(
         
         frontend_ext = frontend_file_path.suffix
         
-        # Create target directories using new structure:
-        # Backend: sample_tools/{category}/{slug}/backend/main.py
-        # Frontend: frontend_tools/{slug}/{ComponentName}.tsx (separate!)
-        target_backend_dir = BACKEND_DIR / "sample_tools" / category.lower() / slug / "backend"
-        target_frontend_dir = BACKEND_DIR / "frontend_tools" / slug
+        # NEW STRUCTURE: tools/{category}/{slug}/
+        # tools/{category}/{slug}/backend/main.py
+        # tools/{category}/{slug}/frontend/Component.tsx
+        # tools/{category}/{slug}/{slug}.yaml
+        tool_root_dir = TOOLS_DIR / category.lower() / slug
+        target_backend_dir = tool_root_dir / "backend"
+        target_frontend_dir = tool_root_dir / "frontend"
         
-        # If overwriting, delete old directories
+        # If overwriting, delete old tool directory
         if existing_tool:
-            # Get old backend & frontend paths
+            # Get old backend path to determine old location
             old_backend_path = BACKEND_DIR / existing_tool.get("backend_path", "")
+            
+            # Try to find the tool root directory (where YAML would be)
+            # Navigate up to find tools/{category}/{slug}/
+            old_tool_root = None
+            if "tools/" in str(old_backend_path):
+                # New structure: tools/{category}/{slug}/backend/main.py
+                old_tool_root = old_backend_path.parent.parent  # Go up from backend/ to {slug}/
+            elif "sample_tools/" in str(old_backend_path):
+                # Old structure: sample_tools/{category}/{slug}/backend/main.py
+                old_tool_root = old_backend_path.parent.parent  # Go up from backend/ to {slug}/
+            
+            if old_tool_root and old_tool_root.exists():
+                shutil.rmtree(old_tool_root)
+                logger.info(f"🗑️ Deleted old tool directory: {old_tool_root}")
+            
+            # Also clean up old frontend_tools if exists
             old_frontend_path = BACKEND_DIR / existing_tool.get("frontend_path", "")
-            
-            # Delete old backend folder (sample_tools structure)
-            old_backend_tool_dir = old_backend_path.parent.parent  # Go up to {slug}/ folder
-            if old_backend_tool_dir.exists() and old_backend_tool_dir.parent.name != "sample_tools":
-                # Old flat structure, just delete file
-                if old_backend_path.exists():
-                    old_backend_path.unlink()
-            elif old_backend_tool_dir.exists():
-                # New structure, delete whole tool folder
-                shutil.rmtree(old_backend_tool_dir)
-                logger.info(f"🗑️ Deleted old backend folder: {old_backend_tool_dir}")
-            
-            # Delete old frontend folder (frontend_tools structure)
-            old_frontend_tool_dir = old_frontend_path.parent  # {slug}/ folder
-            if old_frontend_tool_dir.exists():
-                shutil.rmtree(old_frontend_tool_dir)
-                logger.info(f"🗑️ Deleted old frontend folder: {old_frontend_tool_dir}")
+            if "frontend_tools/" in str(old_frontend_path):
+                old_frontend_dir = old_frontend_path.parent
+                if old_frontend_dir.exists():
+                    shutil.rmtree(old_frontend_dir)
+                    logger.info(f"🗑️ Deleted old frontend_tools folder: {old_frontend_dir}")
         
         # Create new directories
         target_backend_dir.mkdir(parents=True, exist_ok=True)
@@ -522,6 +603,28 @@ async def upload_tool_zip(
         logger.info(f"✅ Saved backend: {backend_save_path}")
         logger.info(f"✅ Saved frontend: {frontend_save_path}")
         
+        # Generate YAML metadata file
+        import yaml
+        yaml_data = {
+            "name": name,
+            "slug": slug,
+            "category": category,
+            "description": description,
+            "version": version,
+            "author": author,
+            "status": "pending",  # Will be updated after validation
+            "tool_type": "dual",
+            "dependencies": [],  # Will be updated after validation
+            "created_at": existing_tool.get("created_at") if existing_tool else datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        yaml_path = tool_root_dir / f"{slug}.yaml"
+        with open(yaml_path, 'w', encoding='utf-8') as f:
+            yaml.dump(yaml_data, f, default_flow_style=False, sort_keys=False)
+        
+        logger.info(f"✅ Generated YAML metadata: {yaml_path}")
+        
         # Validate backend file
         backend_validation = validator.validate(str(backend_save_path), backend_content)
         
@@ -537,8 +640,42 @@ async def upload_tool_zip(
         combined_errors = backend_validation.get("errors", []) + frontend_validation.get("errors", [])
         combined_deps = backend_validation.get("dependencies", []) + frontend_validation.get("dependencies", [])
         
-        # Determine status
-        status = "active" if all_valid else "disabled"
+        # ❌ AUTO-CLEANUP: Jika validation fail, hapus tool directory & return error
+        if not all_valid:
+            logger.warning(f"❌ Validation failed for '{name}'. Auto-deleting tool directory...")
+            
+            # Cleanup tool directory
+            if tool_root_dir.exists():
+                shutil.rmtree(tool_root_dir)
+                logger.info(f"🗑️ Deleted tool directory: {tool_root_dir}")
+            
+            # Cleanup temp directory
+            if temp_dir and Path(temp_dir).exists():
+                shutil.rmtree(temp_dir)
+                logger.info(f"🧹 Cleaned up temp directory: {temp_dir}")
+            
+            # Return error with validation details
+            raise HTTPException(400, {
+                "error": "Tool validation failed",
+                "details": {
+                    "backend_errors": backend_validation.get("errors", []),
+                    "frontend_errors": frontend_validation.get("errors", []),
+                    "message": "Tool files have been deleted. Please fix the errors and try again."
+                }
+            })
+        
+        # If validation passes, continue with database registration
+        status = "active"
+        
+        # Update YAML with validation results
+        yaml_data["status"] = status
+        yaml_data["dependencies"] = list(set(combined_deps))
+        yaml_data["last_validated"] = datetime.utcnow().isoformat()
+        
+        with open(yaml_path, 'w', encoding='utf-8') as f:
+            yaml.dump(yaml_data, f, default_flow_style=False, sort_keys=False)
+        
+        logger.info(f"✅ Updated YAML with validation results (status: {status})")
         
         # Use existing tool_id if overwriting, otherwise generate new one
         tool_id = existing_tool.get("_id") if existing_tool else slug
@@ -554,6 +691,7 @@ async def upload_tool_zip(
             "author": author,
             "backend_path": str(backend_save_path.relative_to(BACKEND_DIR)),
             "frontend_path": str(frontend_save_path.relative_to(BACKEND_DIR)),
+            "yaml_path": str(yaml_path.relative_to(BACKEND_DIR)),  # Add YAML path
             "dependencies": list(set(combined_deps)),
             "status": status,
             "last_validated": datetime.utcnow().isoformat(),
@@ -610,7 +748,9 @@ async def upload_tool_zip(
             },
             "structure": {
                 "backend": str(backend_save_path.relative_to(BACKEND_DIR)),
-                "frontend": str(frontend_save_path.relative_to(BACKEND_DIR))
+                "frontend": str(frontend_save_path.relative_to(BACKEND_DIR)),
+                "yaml": str(yaml_path.relative_to(BACKEND_DIR)),
+                "root": str(tool_root_dir.relative_to(BACKEND_DIR))
             }
         }
         
@@ -1003,31 +1143,69 @@ async def toggle_tool(tool_id: str):
 
 @app.delete("/api/tools/{tool_id}")
 async def delete_tool(tool_id: str):
-    """Delete a tool"""
+    """Delete a tool and its entire directory"""
     tool = db.get_tool(tool_id)
     if not tool:
         raise HTTPException(404, "Tool not found")
     
-    # Delete both files
-    if os.path.exists(tool["backend_path"]):
-        os.remove(tool["backend_path"])
-    
-    if os.path.exists(tool["frontend_path"]):
-        os.remove(tool["frontend_path"])
-    
-    # Delete from database
-    db.delete_tool(tool_id)
-    
-    # Log
-    log_action(
-        tool_id,
-        "delete",
-        "success",
-        "Tool deleted (backend + frontend)",
-        ""
-    )
-    
-    return {"success": True, "message": "Tool deleted"}
+    try:
+        # Determine tool root directory from backend_path
+        # Example path: /app/backend/tools/devtools/text-counter/backend/main.py
+        # Tool root: /app/backend/tools/devtools/text-counter/
+        backend_path = Path(tool["backend_path"])
+        
+        # Navigate up to find tool root directory
+        # From: tools/{category}/{slug}/backend/main.py
+        # To: tools/{category}/{slug}/
+        if "tools/" in str(backend_path):
+            # New structure: tools/{category}/{slug}/backend/main.py
+            tool_root = backend_path.parent.parent  # Go up from backend/ to {slug}/
+        elif "sample_tools/" in str(backend_path):
+            # Old structure: sample_tools/{category}/{slug}/backend/main.py
+            tool_root = backend_path.parent.parent  # Go up from backend/ to {slug}/
+        else:
+            # Fallback: delete individual files
+            tool_root = None
+        
+        # Delete entire tool directory if found
+        if tool_root and tool_root.exists():
+            import shutil
+            shutil.rmtree(tool_root)
+            logger.info(f"🗑️ Deleted tool directory: {tool_root}")
+        else:
+            # Fallback: delete individual files (old behavior)
+            if backend_path.exists():
+                backend_path.unlink()
+                logger.info(f"🗑️ Deleted backend file: {backend_path}")
+            
+            frontend_path = Path(tool.get("frontend_path", ""))
+            if frontend_path.exists():
+                frontend_path.unlink()
+                logger.info(f"🗑️ Deleted frontend file: {frontend_path}")
+            
+            # Try to delete YAML if exists
+            yaml_path = Path(tool.get("yaml_path", ""))
+            if yaml_path.exists():
+                yaml_path.unlink()
+                logger.info(f"🗑️ Deleted YAML file: {yaml_path}")
+        
+        # Delete from database
+        db.delete_tool(tool_id)
+        
+        # Log
+        log_action(
+            tool_id,
+            "delete",
+            "success",
+            "Tool deleted (entire directory removed)",
+            ""
+        )
+        
+        return {"success": True, "message": "Tool and its directory deleted successfully"}
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to delete tool '{tool_id}': {str(e)}")
+        raise HTTPException(500, f"Failed to delete tool: {str(e)}")
 
 
 @app.post("/api/tools/{tool_id}/install-deps")
