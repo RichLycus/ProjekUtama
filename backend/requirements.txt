@@ -4,8 +4,8 @@ attrs==25.4.0
 backoff==2.2.1
 bcrypt==4.1.3
 black==25.9.0
-boto3==1.40.55
-botocore==1.40.55
+boto3==1.40.59
+botocore==1.40.59
 build==1.3.0
 cachetools==6.2.1
 certifi==2025.10.5
@@ -20,6 +20,7 @@ dnspython==2.8.0
 durationpy==0.10
 ecdsa==0.19.1
 email-validator==2.3.0
+et_xmlfile==2.0.0
 fastapi==0.110.1
 filelock==3.20.0
 flake8==7.3.0
@@ -48,6 +49,7 @@ jsonschema==4.25.1
 jsonschema-specifications==2025.9.1
 kubernetes==34.1.0
 lxml==6.0.2
+Markdown==3.9
 markdown-it-py==4.0.0
 MarkupSafe==3.0.3
 mccabe==0.7.0
@@ -61,6 +63,7 @@ networkx==3.5
 numpy==2.3.4
 oauthlib==3.3.1
 onnxruntime==1.23.2
+openpyxl==3.1.5
 opentelemetry-api==1.38.0
 opentelemetry-exporter-otlp-proto-common==1.38.0
 opentelemetry-exporter-otlp-proto-grpc==1.38.0
@@ -95,9 +98,10 @@ pyproject_hooks==1.2.0
 pytest==8.4.2
 python-dateutil==2.9.0.post0
 python-docx==1.2.0
-python-dotenv==1.1.1
+python-dotenv==1.2.1
 python-jose==3.5.0
 python-multipart==0.0.20
+python-pptx==1.0.2
 pytokens==0.2.0
 pytz==2025.2
 PyYAML==6.0.3
@@ -122,7 +126,7 @@ sympy==1.14.0
 tenacity==9.1.2
 threadpoolctl==3.6.0
 tokenizers==0.22.1
-torch==2.7.1
+torch==2.9.0
 tqdm==4.67.1
 transformers==4.57.1
 typer==0.20.0
@@ -135,6 +139,5 @@ uvloop==0.22.1
 watchfiles==1.1.1
 websocket-client==1.9.0
 websockets==15.0.1
+xlsxwriter==3.2.9
 zipp==3.23.0
-esbuild==0.1.2
-PyYAML==6.0.3

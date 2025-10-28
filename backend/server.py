@@ -331,6 +331,26 @@ async def get_categories():
     return {"categories": CATEGORIES}
 
 
+@app.get("/api/tools/styles.css")
+async def get_tools_styles():
+    """
+    Serve Tailwind CSS for tools (offline-friendly)
+    
+    Returns minified Tailwind CSS with all custom classes.
+    Built from: /app/backend/public/tools-styles.css
+    """
+    from fastapi.responses import FileResponse
+    
+    css_file = BACKEND_DIR / "public" / "tools-styles.css"
+    
+    if not css_file.exists():
+        logger.error(f"❌ Tools CSS not found: {css_file}")
+        raise HTTPException(404, "Tools styles not found. Please rebuild CSS.")
+    
+    logger.info(f"✅ Serving tools CSS: {css_file}")
+    return FileResponse(css_file, media_type="text/css")
+
+
 @app.get("/api/tools/check-name")
 async def check_tool_name(name: str):
     """

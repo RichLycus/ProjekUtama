@@ -183,7 +183,7 @@ class ToolBuilder:
         Generate index.html for iframe loading
         
         HTML includes:
-        1. Link to parent app CSS (Tailwind)
+        1. Link to LOCAL Tailwind CSS (fully offline!)
         2. Script to access parent context (__APP_CTX__)
         3. Tool bundle script
         4. Initialization code
@@ -196,8 +196,8 @@ class ToolBuilder:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{tool_name}</title>
     
-    <!-- Load parent app styles (Tailwind CSS) -->
-    <link rel="stylesheet" href="/src/index.css">
+    <!-- Load local Tailwind CSS (offline-friendly) -->
+    <link rel="stylesheet" href="/api/tools/styles.css">
     
     <style>
         body {{
