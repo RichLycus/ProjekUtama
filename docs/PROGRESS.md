@@ -1,8 +1,8 @@
-# 🚀 ChimeraAI Phase 6 Journey Tracker
+# 🚀 ChimeraAI Development Journey Tracker
 
-**Last Updated:** August 26, 2025 (Evening Session 4)  
-**Current Phase:** 6.9.7 - Character/Persona System Migration (COMPLETE ✅)  
-**Overall Progress:** Phase 6.9 - Character system ready! Next: Tools development 🛠️
+**Last Updated:** August 26, 2025 (Evening Session 5)  
+**Current Phase:** Phase 4 - Tools Management Enhancement (IN PROGRESS 🔄)  
+**Overall Progress:** Live Logs ✅ | Tool Editor 🔄 (Step 2/3) | Enhanced Delete ⏳
 
 ---
 
@@ -32,8 +32,10 @@ Phase 6 Redesign Journey:
 ⏳ 6.11: Observability                   [PLANNED]
 ⏳ 6.12: Legacy Integration              [PLANNED]
 
-🛠️ Tools Development:
-⏳ Image Scaling Tool (4K Upscaler)     [NEXT - See TOOLS_ROADMAP.md]
+Phase 4: Tools Management Enhancement 🛠️
+✅ 4.1: Live Logs Viewer                [COMPLETE] ✨ NEW
+🔄 4.2: Tool Code Editor                [IN PROGRESS] 
+⏳ 4.3: Enhanced Delete Function        [PLANNED]
 ```
 
 ---
@@ -275,19 +277,28 @@ Phase 6 Redesign Journey:
 
 1. **📖 Context & Overview:**
    - `/app/docs/phase/PROGRESS.md` ← THIS FILE (start here!)
-   - `/app/docs/phase/phase_6_roadmap.md` - Complete architecture plan
+   - `/app/docs/phase/phase_2.md` - SQLite migration (Tools foundation)
+   - `/app/docs/phase/phase_4.md` - Tools Management Enhancement (CURRENT!)
+   - `/app/docs/phase/phase_6_roadmap.md` - Complete RAG architecture plan
    - `/app/docs/phase/phase_6.md` - Visual editor (working features)
    - `/app/docs/phase/Phase_6_analysis.md` - Why redesign needed
 
-2. **🏗️ Architecture Foundation:**
+2. **🛠️ Phase 4 (Tools Management):**
+   - `/app/docs/phase/phase_4.md` - CURRENT PHASE (read this!)
+   - `/app/src/pages/ToolLogsPage.tsx` - Live logs implementation
+   - `/app/src/pages/SettingsPage.tsx` - Tools management UI
+   - `/app/backend/server.py` - Tools API endpoints
+   - `/app/backend/database.py` - SQLite database
+
+3. **🏗️ Phase 6 (RAG Architecture Foundation):**
    - `/app/backend/ai/flow/context.py` - ExecutionContext class
    - `/app/backend/ai/agents/base.py` - BaseAgent interface
    - `/app/backend/ai/retrievers/base.py` - RetrieverInterface
 
-3. **🧪 Tests:**
+4. **🧪 Tests:**
    - `/app/backend/tests/test_base_interfaces.py` - 15 tests (all passing)
 
-4. **📋 Golden Rules:**
+5. **📋 Golden Rules:**
    - `/app/docs/golden-rules.md` - Project conventions (always reference)
 
 ### Folder Structure (New Architecture):

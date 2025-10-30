@@ -342,8 +342,9 @@ export default function SettingsPage() {
     toast('Edit functionality coming in Phase 3!', { icon: 'ℹ️' })
   }
 
-  const handleViewLogs = () => {
-    toast('View logs functionality coming in Phase 3!', { icon: 'ℹ️' })
+  const handleViewLogs = (toolId: string) => {
+    // Navigate to dedicated logs page
+    navigate(`/tools/logs/${toolId}`)
   }
   
   const handleSettings = (tool: any) => {
