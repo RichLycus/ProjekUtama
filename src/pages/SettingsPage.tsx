@@ -338,8 +338,9 @@ export default function SettingsPage() {
     }
   }
 
-  const handleEdit = () => {
-    toast('Edit functionality coming in Phase 3!', { icon: 'ℹ️' })
+  const handleEdit = (tool: any) => {
+    // Navigate to dedicated tool editor page
+    navigate(`/tools/edit/${tool._id}`)
   }
 
   const handleViewLogs = (toolId: string) => {

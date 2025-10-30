@@ -1736,12 +1736,154 @@ async def get_tool_file(tool_id: str, file_type: str = "frontend"):
         logger.info(f"✅ Successfully loaded {file_type} file ({len(content)} chars, type: {content_type})")
         
         return JSONResponse(
-            content={"content": content, "filename": script_path.name},
+            content={"success": True, "content": content, "filename": script_path.name},
             media_type="application/json"
         )
     except Exception as e:
         logger.error(f"❌ Failed to read tool file: {str(e)}")
         raise HTTPException(500, f"Failed to read tool file: {str(e)}")
+
+
+
+@app.post("/api/tools/file/{tool_id}")
+async def save_tool_file(tool_id: str, file_data: dict):
+    """Save/update tool source file"""
+    tool = db.get_tool(tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    
+    file_type = file_data.get("file_type", "frontend")
+    content = file_data.get("content", "")
+    
+    tool_name = tool.get("name", "Unknown")
+    logger.info(f"💾 Saving {file_type} file for tool '{tool_name}'")
+    
+    # Determine which file to save
+    if file_type == "frontend":
+        script_path = Path(tool["frontend_path"])
+    elif file_type == "backend":
+        script_path = Path(tool["backend_path"])
+    else:
+        raise HTTPException(400, "file_type must be 'frontend' or 'backend'")
+    
+    logger.info(f"   Path: {script_path}")
+    
+    if not script_path.parent.exists():
+        script_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        with open(script_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        logger.info(f"✅ Successfully saved {file_type} file ({len(content)} chars)")
+        
+        # Log operation
+        log_tool_operation(
+            db,
+            tool_id=tool_id,
+            action=f"save_{file_type}",
+            status="success",
+            message=f"{file_type.title()} file saved successfully",
+            trace={"file_path": str(script_path), "content_length": len(content)}
+        )
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"{file_type.title()} file saved successfully",
+            "filename": script_path.name
+        })
+    except Exception as e:
+        logger.error(f"❌ Failed to save tool file: {str(e)}")
+        log_tool_operation(
+            db,
+            tool_id=tool_id,
+            action=f"save_{file_type}",
+            status="error",
+            message=f"Failed to save {file_type} file",
+            trace={"error": str(e)}
+        )
+        raise HTTPException(500, f"Failed to save tool file: {str(e)}")
+
+
+@app.post("/api/tools/rebuild/{tool_id}")
+async def rebuild_tool(tool_id: str):
+    """Rebuild tool - delete build artifacts and rebuild"""
+    tool = db.get_tool(tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    
+    tool_name = tool.get("name", "Unknown")
+    slug = tool.get("slug", "")
+    
+    logger.info(f"🔨 Rebuilding tool '{tool_name}'")
+    
+    try:
+        # Step 1: Delete build artifacts
+        build_path = Path(f"public/tools/{slug}")
+        if build_path.exists():
+            shutil.rmtree(build_path)
+            logger.info(f"   🗑️  Deleted build artifacts at {build_path}")
+        
+        # Step 2: Rebuild tool using ToolBuilder
+        builder = ToolBuilder()
+        frontend_path = Path(tool["frontend_path"])
+        
+        if not frontend_path.exists():
+            raise HTTPException(404, "Frontend file not found")
+        
+        # Build tool
+        success, message = builder.build_tool(
+            tool_id=tool_id,
+            tool_name=tool_name,
+            slug=slug,
+            frontend_script_path=str(frontend_path)
+        )
+        
+        if success:
+            logger.info(f"✅ Tool '{tool_name}' rebuilt successfully")
+            
+            # Log operation
+            log_tool_operation(
+                db,
+                tool_id=tool_id,
+                action="rebuild",
+                status="success",
+                message=f"Tool rebuilt successfully",
+                trace={"build_path": str(build_path), "slug": slug}
+            )
+            
+            return JSONResponse({
+                "success": True,
+                "message": "Tool rebuilt successfully",
+                "build_path": str(build_path)
+            })
+        else:
+            logger.error(f"❌ Build failed: {message}")
+            log_tool_operation(
+                db,
+                tool_id=tool_id,
+                action="rebuild",
+                status="error",
+                message=f"Build failed: {message}",
+                trace={"error": message}
+            )
+            return JSONResponse({
+                "success": False,
+                "message": f"Build failed: {message}"
+            }, status_code=500)
+            
+    except Exception as e:
+        logger.error(f"❌ Rebuild failed: {str(e)}")
+        log_tool_operation(
+            db,
+            tool_id=tool_id,
+            action="rebuild",
+            status="error",
+            message=f"Rebuild failed",
+            trace={"error": str(e)}
+        )
+        raise HTTPException(500, f"Rebuild failed: {str(e)}")
+
 
 
 
@@ -1763,7 +1905,8 @@ async def render_tool(tool_id: str):
     logger.info(f"📦 Rendering tool: {tool_name} (ID: {tool_id})")
     
     # Check if tool has built bundle
-    slug = tool.get("_id", tool_id)
+    # Try to get slug field first, fallback to _id
+    slug = tool.get("slug", tool.get("_id", tool_id))
     public_dir = BACKEND_DIR.parent / "public" / "tools" / slug
     index_html = public_dir / "index.html"
     
