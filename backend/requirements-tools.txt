@@ -1,0 +1,19 @@
+# =========================================
+# ChimeraAI - Dynamic Tools Requirements
+# Auto-updated by tool upload system
+# Additional dependencies for user tools
+# Python 3.11+ compatible
+# =========================================
+
+# This file is automatically updated when:
+# - Tools with new dependencies are uploaded
+# - Dependencies are installed via tool settings
+
+# Format: Each line is a Python package
+# Example:
+# requests
+# beautifulsoup4
+# pillow
+
+# Current tools dependencies:
+# (Will be populated automatically)

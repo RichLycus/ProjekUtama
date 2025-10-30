@@ -22,6 +22,7 @@ from modules.frontend_tool_validator import FrontendToolValidator
 from modules.tool_executor import ToolExecutor
 from modules.dependency_manager import DependencyManager
 from modules.tool_builder import ToolBuilder
+from modules.badge_system import BadgeDetector
 from utils.tools_logger import (
     log_tool_operation, 
     log_validation_details, 
@@ -142,6 +143,7 @@ frontend_validator = FrontendToolValidator()
 executor = ToolExecutor()
 dep_manager = DependencyManager()
 tool_builder = ToolBuilder(BACKEND_DIR)
+badge_detector = BadgeDetector()
 
 CATEGORIES = ["Office", "DevTools", "Multimedia", "Utilities", "Security", "Network", "Data"]
 
@@ -646,6 +648,11 @@ async def upload_tool_zip(
         
         # Generate YAML metadata file
         import yaml
+        
+        # Default author to ChimeraAiUser if not provided or Anonymous
+        if not author or author == "Anonymous":
+            author = "ChimeraAiUser"
+        
         yaml_data = {
             "name": name,
             "slug": slug,
@@ -656,6 +663,11 @@ async def upload_tool_zip(
             "status": "pending",  # Will be updated after validation
             "tool_type": "dual",
             "dependencies": [],  # Will be updated after validation
+            "python_dependencies": [],  # Will be populated from backend validation
+            "node_dependencies": [],  # Will be populated from frontend validation
+            "badges": [],  # Will be auto-detected from dependencies & file types
+            "backend_path": str(backend_save_path.relative_to(BACKEND_DIR)),
+            "frontend_path": str(frontend_save_path.relative_to(BACKEND_DIR)),
             "created_at": existing_tool.get("created_at") if existing_tool else datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat()
         }
@@ -679,7 +691,13 @@ async def upload_tool_zip(
         # Combine validations
         all_valid = backend_validation["valid"] and frontend_validation["valid"]
         combined_errors = backend_validation.get("errors", []) + frontend_validation.get("errors", [])
-        combined_deps = backend_validation.get("dependencies", []) + frontend_validation.get("dependencies", [])
+        
+        # Separate Python and Node.js dependencies
+        python_deps = backend_validation.get("dependencies", [])
+        node_deps = frontend_validation.get("dependencies", [])
+        
+        # Legacy combined_deps for backward compatibility
+        combined_deps = python_deps + node_deps
         
         # ❌ AUTO-CLEANUP: Jika validation fail, hapus tool directory & return error
         if not all_valid:
@@ -742,15 +760,27 @@ async def upload_tool_zip(
         # If validation passes, continue with database registration
         status = "active"
         
-        # Update YAML with validation results
+        # Generate badges based on dependencies and file types
+        badges = badge_detector.generate_badges(
+            python_deps=python_deps,
+            node_deps=node_deps,
+            backend_path=str(backend_save_path),
+            frontend_path=str(frontend_save_path),
+            category=category
+        )
+        
+        # Update YAML with validation results and badges
         yaml_data["status"] = status
         yaml_data["dependencies"] = list(set(combined_deps))
+        yaml_data["python_dependencies"] = list(set(python_deps))
+        yaml_data["node_dependencies"] = list(set(node_deps))
+        yaml_data["badges"] = badges
         yaml_data["last_validated"] = datetime.utcnow().isoformat()
         
         with open(yaml_path, 'w', encoding='utf-8') as f:
             yaml.dump(yaml_data, f, default_flow_style=False, sort_keys=False)
         
-        logger.info(f"✅ Updated YAML with validation results (status: {status})")
+        logger.info(f"✅ Updated YAML with validation results (status: {status}, badges: {len(badges)})")
         
         # Use existing tool_id if overwriting, otherwise generate new one
         tool_id = existing_tool.get("_id") if existing_tool else slug
@@ -767,7 +797,9 @@ async def upload_tool_zip(
             "backend_path": str(backend_save_path.relative_to(BACKEND_DIR)),
             "frontend_path": str(frontend_save_path.relative_to(BACKEND_DIR)),
             "yaml_path": str(yaml_path.relative_to(BACKEND_DIR)),  # Add YAML path
-            "dependencies": list(set(combined_deps)),
+            "dependencies": list(set(combined_deps)),  # Legacy field
+            "python_dependencies": list(set(python_deps)),  # Backend Python deps
+            "node_dependencies": list(set(node_deps)),  # Frontend Node deps
             "status": status,
             "last_validated": datetime.utcnow().isoformat(),
             "created_at": existing_tool.get("created_at") if existing_tool else datetime.utcnow().isoformat(),
@@ -984,10 +1016,57 @@ async def upload_tool(
         # Combine validations
         all_valid = backend_validation["valid"] and frontend_validation["valid"]
         combined_errors = backend_validation.get("errors", []) + frontend_validation.get("errors", [])
-        combined_deps = backend_validation.get("dependencies", []) + frontend_validation.get("dependencies", [])
+        
+        # Separate Python and Node.js dependencies
+        python_deps = backend_validation.get("dependencies", [])
+        node_deps = frontend_validation.get("dependencies", [])
+        
+        # Legacy combined_deps for backward compatibility
+        combined_deps = python_deps + node_deps
         
         # Determine status
         status = "active" if all_valid else "disabled"
+        
+        # Default author to ChimeraAiUser if not provided or Anonymous
+        if not author or author == "Anonymous":
+            author = "ChimeraAiUser"
+        
+        # Generate badges based on dependencies and file types
+        badges = badge_detector.generate_badges(
+            python_deps=python_deps,
+            node_deps=node_deps,
+            backend_path=str(backend_path),
+            frontend_path=str(frontend_path),
+            category=category
+        )
+        
+        # Generate YAML metadata file for dual upload
+        yaml_data = {
+            "name": name,
+            "slug": slug,
+            "category": category,
+            "description": description,
+            "version": version,
+            "author": author,
+            "status": status,
+            "tool_type": "dual",
+            "dependencies": list(set(combined_deps)),
+            "python_dependencies": list(set(python_deps)),
+            "node_dependencies": list(set(node_deps)),
+            "badges": badges,
+            "backend_path": str(backend_path.relative_to(BACKEND_DIR)),
+            "frontend_path": str(frontend_path.relative_to(BACKEND_DIR)),
+            "created_at": existing_tool.get("created_at") if existing_tool else datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+            "last_validated": datetime.utcnow().isoformat()
+        }
+        
+        # Save YAML file
+        yaml_path = backend_tool_folder.parent / f"{slug}.yaml"
+        with open(yaml_path, 'w', encoding='utf-8') as f:
+            yaml.dump(yaml_data, f, default_flow_style=False, sort_keys=False)
+        
+        logger.info(f"✅ Generated YAML: {yaml_path} (badges: {len(badges)})")
         
         # Use existing tool_id if overwriting, otherwise generate new one
         tool_id = existing_tool.get("_id") if existing_tool else slug
@@ -1003,7 +1082,9 @@ async def upload_tool(
             "author": author,
             "backend_path": str(backend_path.relative_to(BACKEND_DIR)),  # ✅ Relative path
             "frontend_path": str(frontend_path.relative_to(BACKEND_DIR)),  # ✅ Relative path
-            "dependencies": list(set(combined_deps)),  # Remove duplicates
+            "dependencies": list(set(combined_deps)),  # Legacy field
+            "python_dependencies": list(set(python_deps)),  # Backend Python deps
+            "node_dependencies": list(set(node_deps)),  # Frontend Node deps
             "status": status,
             "last_validated": datetime.utcnow().isoformat(),
             "created_at": existing_tool.get("created_at") if existing_tool else datetime.utcnow().isoformat(),
@@ -1409,11 +1490,23 @@ async def get_tool_dependencies(tool_id: str):
         backend_path = BACKEND_DIR / tool["backend_path"]
         frontend_path = BACKEND_DIR / tool["frontend_path"]
         
+        # Get Python dependencies (backend only!)
+        python_deps = tool.get("python_dependencies", [])
+        
+        # If python_dependencies is empty but old dependencies field exists, use it
+        # (for backward compatibility with old tools)
+        if not python_deps and tool.get("dependencies"):
+            # Only use dependencies from old field if they don't include common frontend deps
+            frontend_packages = {'react', 'lucide-react', 'framer-motion', 'axios', 'react-dom'}
+            old_deps = tool.get("dependencies", [])
+            # Filter out frontend packages
+            python_deps = [dep for dep in old_deps if dep not in frontend_packages]
+        
         # Check all dependencies
         dep_status = await dep_manager.check_all_dependencies(
             str(backend_path),
             str(frontend_path),
-            tool.get("dependencies", [])
+            python_deps
         )
         
         return {
@@ -1434,7 +1527,15 @@ async def install_python_dependencies(tool_id: str):
         raise HTTPException(404, "Tool not found")
     
     try:
-        python_deps = tool.get("dependencies", [])
+        # Get Python dependencies (backend only!)
+        python_deps = tool.get("python_dependencies", [])
+        
+        # Backward compatibility: if python_dependencies is empty, filter old dependencies
+        if not python_deps and tool.get("dependencies"):
+            frontend_packages = {'react', 'lucide-react', 'framer-motion', 'axios', 'react-dom'}
+            old_deps = tool.get("dependencies", [])
+            python_deps = [dep for dep in old_deps if dep not in frontend_packages]
+        
         result = await dep_manager.install_dependencies(python_deps)
         
         # Log action
@@ -1501,7 +1602,14 @@ async def install_all_dependencies(tool_id: str):
         }
         
         # Install Python dependencies
-        python_deps = tool.get("dependencies", [])
+        python_deps = tool.get("python_dependencies", [])
+        
+        # Backward compatibility
+        if not python_deps and tool.get("dependencies"):
+            frontend_packages = {'react', 'lucide-react', 'framer-motion', 'axios', 'react-dom'}
+            old_deps = tool.get("dependencies", [])
+            python_deps = [dep for dep in old_deps if dep not in frontend_packages]
+        
         if python_deps:
             results["python"] = await dep_manager.install_dependencies(python_deps)
             log_action(

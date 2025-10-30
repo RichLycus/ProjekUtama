@@ -102,6 +102,8 @@ class SQLiteDB:
                     slug TEXT,
                     slug_aliases TEXT,
                     dependencies TEXT,
+                    python_dependencies TEXT,
+                    node_dependencies TEXT,
                     status TEXT DEFAULT 'disabled',
                     last_validated TEXT,
                     created_at TEXT NOT NULL,
@@ -242,6 +244,14 @@ class SQLiteDB:
             if 'system_prompt' not in columns:
                 cursor.execute("ALTER TABLE agent_configs ADD COLUMN system_prompt TEXT")
             
+            # Migration: Add python_dependencies and node_dependencies columns to tools table
+            cursor.execute("PRAGMA table_info(tools)")
+            tool_columns = [col[1] for col in cursor.fetchall()]
+            if 'python_dependencies' not in tool_columns:
+                cursor.execute("ALTER TABLE tools ADD COLUMN python_dependencies TEXT")
+            if 'node_dependencies' not in tool_columns:
+                cursor.execute("ALTER TABLE tools ADD COLUMN node_dependencies TEXT")
+            
             # Create index for agent configs
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_configs_type ON agent_configs(agent_type)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_configs_enabled ON agent_configs(is_enabled)")
@@ -374,14 +384,17 @@ class SQLiteDB:
             
             # Convert dependencies and slug_aliases to JSON strings
             deps = json.dumps(tool_data.get('dependencies', []))
+            python_deps = json.dumps(tool_data.get('python_dependencies', []))
+            node_deps = json.dumps(tool_data.get('node_dependencies', []))
             slug_aliases = json.dumps(tool_data.get('slug_aliases', []))
             
             cursor.execute("""
                 INSERT INTO tools (
                     id, name, description, category, tool_type, version, author,
-                    backend_path, frontend_path, slug, slug_aliases, dependencies, 
+                    backend_path, frontend_path, slug, slug_aliases, dependencies,
+                    python_dependencies, node_dependencies,
                     status, last_validated, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 tool_data['_id'],
                 tool_data['name'],
@@ -395,6 +408,8 @@ class SQLiteDB:
                 tool_data['slug'],
                 slug_aliases,
                 deps,
+                python_deps,
+                node_deps,
                 tool_data['status'],
                 tool_data['last_validated'],
                 tool_data['created_at'],
@@ -581,6 +596,18 @@ class SQLiteDB:
         # Parse dependencies JSON
         if 'dependencies' in data and data['dependencies']:
             data['dependencies'] = json.loads(data['dependencies'])
+        
+        # Parse python_dependencies JSON
+        if 'python_dependencies' in data and data['python_dependencies']:
+            data['python_dependencies'] = json.loads(data['python_dependencies'])
+        else:
+            data['python_dependencies'] = []
+        
+        # Parse node_dependencies JSON
+        if 'node_dependencies' in data and data['node_dependencies']:
+            data['node_dependencies'] = json.loads(data['node_dependencies'])
+        else:
+            data['node_dependencies'] = []
         
         return data
 

@@ -261,20 +261,45 @@ check_python() {
     
     if command -v python3 > /dev/null 2>&1; then
         PYTHON_VERSION=$(python3 --version | cut -d ' ' -f 2)
-        log_success "Python $PYTHON_VERSION found"
-        return 0
+        PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
+        PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
+        
+        # Check if Python 3.11+
+        if [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -ge 11 ]; then
+            log_success "Python $PYTHON_VERSION found (compatible ✓)"
+            return 0
+        elif [ "$PYTHON_MAJOR" -gt 3 ]; then
+            log_success "Python $PYTHON_VERSION found (compatible ✓)"
+            return 0
+        else
+            log_error "Python $PYTHON_VERSION found, but ChimeraAI requires Python 3.11+"
+            log_error "Please upgrade Python to 3.11 or higher"
+            exit 1
+        fi
     elif command -v python > /dev/null 2>&1; then
         PYTHON_VERSION=$(python --version | cut -d ' ' -f 2)
-        log_success "Python $PYTHON_VERSION found"
-        return 0
+        PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
+        PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
+        
+        if [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -ge 11 ]; then
+            log_success "Python $PYTHON_VERSION found (compatible ✓)"
+            return 0
+        elif [ "$PYTHON_MAJOR" -gt 3 ]; then
+            log_success "Python $PYTHON_VERSION found (compatible ✓)"
+            return 0
+        else
+            log_error "Python $PYTHON_VERSION found, but ChimeraAI requires Python 3.11+"
+            log_error "Please upgrade Python to 3.11 or higher"
+            exit 1
+        fi
     else
-        log_error "Python not found. Please install Python 3.8+"
+        log_error "Python not found. Please install Python 3.11+"
         exit 1
     fi
 }
 
 install_backend_deps() {
-    log_step "Installing backend dependencies..."
+    log_step "Installing backend dependencies with smart installer..."
     
     if [ ! -d "$PROJECT_DIR/backend" ]; then
         log_warning "Backend directory not found, skipping..."
@@ -283,16 +308,43 @@ install_backend_deps() {
     
     cd "$PROJECT_DIR/backend"
     
-    if [ -f "requirements.txt" ]; then
-        log_info "Installing Python packages..."
-        if python3 -m pip install -q -r requirements.txt 2>&1 | tee -a "$LOG_FILE"; then
-            log_success "Backend dependencies installed!"
+    # Check if smart installer exists
+    if [ -f "install_deps_smart.py" ]; then
+        log_info "Using smart dependency installer (Python 3.11+ compatible)"
+        log_info "Features: version checking, no force downgrade, skip installed packages"
+        echo ""
+        
+        if python3 install_deps_smart.py 2>&1 | tee -a "$LOG_FILE"; then
+            log_success "Backend dependencies installed smartly!"
         else
-            log_error "Failed to install backend dependencies"
-            exit 1
+            log_error "Smart installer failed, trying fallback method..."
+            
+            # Fallback: manual install
+            for req_file in requirements-base.txt requirements-chat.txt requirements-tools.txt; do
+                if [ -f "$req_file" ]; then
+                    log_info "Installing from $req_file..."
+                    if python3 -m pip install -r "$req_file" 2>&1 | tee -a "$LOG_FILE"; then
+                        log_success "$req_file installed!"
+                    else
+                        log_error "Failed to install $req_file"
+                    fi
+                fi
+            done
         fi
     else
-        log_warning "No requirements.txt found in backend"
+        log_warning "Smart installer not found, using legacy requirements.txt"
+        
+        if [ -f "requirements.txt" ]; then
+            log_info "Installing Python packages..."
+            if python3 -m pip install -q -r requirements.txt 2>&1 | tee -a "$LOG_FILE"; then
+                log_success "Backend dependencies installed!"
+            else
+                log_error "Failed to install backend dependencies"
+                exit 1
+            fi
+        else
+            log_warning "No requirements.txt found in backend"
+        fi
     fi
     
     cd "$PROJECT_DIR"
