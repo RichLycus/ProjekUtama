@@ -221,28 +221,55 @@ import { Calculator } from 'lucide-react' // ✅ Bisa pakai Lucide React
 
 export default function ToolName() {
   const [result, setResult] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleExecute = async () => {
-    // Call backend API
-    const response = await fetch('/api/tools/execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params: {} })
-    })
-    const data = await response.json()
-    setResult(data.result)
+    setLoading(true)
+    try {
+      // ⚠️ PENTING: Gunakan endpoint dengan tool_id di body!
+      // Backend URL akan auto-detect dari referer header
+      const response = await fetch('/api/tools/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          // Parameter tool
+          text: 'Sample input',
+          // Parameters lainnya...
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        setResult(data.data)
+      } else {
+        console.error('Tool execution failed:', data.error)
+      }
+    } catch (error) {
+      console.error('API call failed:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div className="p-6"> {/* ✅ Bisa pakai Tailwind CSS */}
-      <h1 className="text-2xl font-bold">Tool Name</h1>
+      <h1 className="text-2xl font-bold mb-4">Tool Name</h1>
+      
       <button 
         onClick={handleExecute}
-        className="px-4 py-2 bg-blue-500 text-white rounded"
+        disabled={loading}
+        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 
+                   disabled:bg-gray-400 text-white rounded"
       >
-        Execute
+        {loading ? 'Processing...' : 'Execute'}
       </button>
-      {result && <div className="mt-4">{result}</div>}
+      
+      {result && (
+        <div className="mt-4 p-4 bg-green-50 rounded">
+          <pre>{JSON.stringify(result, null, 2)}</pre>
+        </div>
+      )}
     </div>
   )
 }`}</code>

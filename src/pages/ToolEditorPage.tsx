@@ -312,6 +312,8 @@ export default function ToolEditorPage() {
               <PreviewPanel
                 toolId={toolId!}
                 mode={previewMode}
+                rebuilding={rebuilding}
+                refreshKey={previewKey}
                 key={previewKey}
               />
             </div>

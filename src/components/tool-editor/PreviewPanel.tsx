@@ -4,17 +4,23 @@ import { AlertCircle, Loader2, RefreshCw, Maximize2, Minimize2 } from 'lucide-re
 interface PreviewPanelProps {
   toolId: string
   mode: 'static' | 'full'
+  rebuilding?: boolean  // Add rebuilding prop
+  refreshKey?: number   // Add refresh key for cache busting
 }
 
-export default function PreviewPanel({ toolId, mode }: PreviewPanelProps) {
+export default function PreviewPanel({ toolId, mode, rebuilding = false, refreshKey = 0 }: PreviewPanelProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   
+  // Cache busting: Add timestamp to URL to force reload
+  const timestamp = Date.now()
+  const cacheParam = refreshKey > 0 ? `&t=${timestamp}` : `?t=${timestamp}`
+  
   // Use backend render endpoint instead of frontend route
-  const toolUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001'}/api/tools/${toolId}/render${mode === 'static' ? '?preview=static' : ''}`
+  const toolUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001'}/api/tools/${toolId}/render${mode === 'static' ? '?preview=static' : ''}${cacheParam}`
   
   useEffect(() => {
     setLoading(true)
@@ -25,7 +31,10 @@ export default function PreviewPanel({ toolId, mode }: PreviewPanelProps) {
     }, 1000)
     
     return () => clearTimeout(timer)
-  }, [toolId, mode])
+  }, [toolId, mode, refreshKey])  // Add refreshKey to dependencies
+  
+  // Show loading when rebuilding
+  const isLoading = loading || rebuilding
   
   const handleRefresh = () => {
     if (iframeRef.current) {
@@ -94,11 +103,13 @@ export default function PreviewPanel({ toolId, mode }: PreviewPanelProps) {
       
       {/* Preview Content */}
       <div className="flex-1 relative">
-        {loading && (
+        {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-dark-surface z-10">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
-              <p className="text-sm text-secondary">Loading preview...</p>
+              <p className="text-sm text-secondary">
+                {rebuilding ? '🔨 Rebuilding tool...' : 'Loading preview...'}
+              </p>
             </div>
           </div>
         )}

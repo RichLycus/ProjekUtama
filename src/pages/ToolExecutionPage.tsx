@@ -1,22 +1,25 @@
 /**
- * Tool Execution Page (Dynamic Component Loading)
+ * Tool Execution Page (iframe-based rendering with smart cache busting)
  * 
- * This page loads and renders tool components dynamically with full access
- * to main app dependencies (lucide-react, Tailwind CSS, etc.)
+ * This page loads and renders tool components via iframe from built bundles.
+ * Uses the same smart loading mechanism as Tool Editor Preview.
  * 
- * No iframe needed - tools are rendered as native React components!
+ * Benefits:
+ * - Proper cache busting (no stale previews)
+ * - Self-contained bundles with React included
+ * - Isolated execution environment
+ * - Easy refresh and reload
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, Info, RefreshCw, AlertTriangle, 
-  Maximize2, Minimize2, X 
+  Maximize2, Minimize2, X, Loader2 
 } from 'lucide-react'
 import { useToolsStore } from '@/store/toolsStore'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import { loadToolComponent, ToolComponentWrapper } from '@/lib/toolLoader'
 
 export default function ToolExecutionPage() {
   const { toolId } = useParams<{ toolId: string }>()
@@ -26,9 +29,10 @@ export default function ToolExecutionPage() {
   const [tool, setTool] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [ToolComponent, setToolComponent] = useState<any>(null)
   const [showInfo, setShowInfo] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
     if (!toolId) {
@@ -40,14 +44,14 @@ export default function ToolExecutionPage() {
     const foundTool = tools.find(t => t._id === toolId)
     if (foundTool) {
       setTool(foundTool)
-      loadTool(foundTool)
+      setLoading(false)
     } else {
       // Fetch tools if not loaded
       fetchTools().then(() => {
         const foundTool = tools.find(t => t._id === toolId)
         if (foundTool) {
           setTool(foundTool)
-          loadTool(foundTool)
+          setLoading(false)
         } else {
           setError('Tool not found')
           setLoading(false)
@@ -56,39 +60,22 @@ export default function ToolExecutionPage() {
     }
   }, [toolId, tools, fetchTools, navigate])
 
-  const loadTool = async (toolData: any) => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      console.log('Loading tool component...', toolData)
-      
-      // Load tool component dynamically
-      const Component = await loadToolComponent(toolData)
-      
-      if (!Component) {
-        throw new Error('Tool component not found in registry. Please ensure the tool is properly registered.')
-      }
-      
-      setToolComponent(() => Component)
-      setLoading(false)
-    } catch (err: any) {
-      console.error('Failed to load tool:', err)
-      setError(err.message || 'Failed to load tool component')
-      setLoading(false)
-      toast.error('Failed to load tool: ' + (err.message || 'Unknown error'))
-    }
-  }
-
   const handleRefresh = () => {
-    if (tool) {
-      loadTool(tool)
-    }
+    // Force reload iframe with new cache busting key
+    setRefreshKey(prev => prev + 1)
+    toast.success('Refreshing tool...')
   }
 
   const handleBack = () => {
     navigate('/tools')
   }
+  
+  // Generate iframe URL with cache busting
+  const timestamp = Date.now()
+  const cacheParam = refreshKey > 0 ? `?t=${timestamp}-${refreshKey}` : `?t=${timestamp}`
+  const toolUrl = tool 
+    ? `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001'}/api/tools/${toolId}/render${cacheParam}`
+    : ''
 
   if (loading) {
     return (
@@ -98,14 +85,14 @@ export default function ToolExecutionPage() {
           animate={{ opacity: 1, scale: 1 }}
           className="text-center"
         >
-          <RefreshCw className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
           <p className="text-secondary text-lg">Loading tool...</p>
         </motion.div>
       </div>
     )
   }
 
-  if (error || !tool || !ToolComponent) {
+  if (error || !tool) {
     return (
       <div className="flex items-center justify-center h-screen p-4 sm:p-8 bg-white dark:bg-dark-background">
         <motion.div
@@ -305,7 +292,7 @@ export default function ToolExecutionPage() {
         )}
       </AnimatePresence>
 
-      {/* Tool Content - Native React Component (No iframe!) */}
+      {/* Tool Content - iframe with smart cache busting */}
       <div className={`flex-1 overflow-hidden relative ${
         isMaximized ? 'fixed inset-0 z-50 bg-white dark:bg-dark-background' : ''
       }`}>
@@ -331,16 +318,29 @@ export default function ToolExecutionPage() {
           )}
         </AnimatePresence>
         
-        {/* Render Tool Component */}
+        {/* Render Tool via iframe (self-contained bundle) */}
         <motion.div
-          key={tool._id}
+          key={`${tool._id}-${refreshKey}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
-          className="w-full h-full overflow-auto"
+          className="w-full h-full"
           data-testid="tool-component-container"
         >
-          <ToolComponentWrapper tool={tool} ToolComponent={ToolComponent} />
+          <iframe
+            ref={iframeRef}
+            src={toolUrl}
+            className="w-full h-full border-0"
+            title={`${tool.name} - Tool`}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+            onLoad={() => {
+              console.log('✅ Tool iframe loaded successfully')
+            }}
+            onError={(e) => {
+              console.error('❌ Tool iframe load error:', e)
+              setError('Failed to load tool preview')
+            }}
+          />
         </motion.div>
       </div>
     </div>

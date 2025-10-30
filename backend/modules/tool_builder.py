@@ -115,40 +115,127 @@ class ToolBuilder:
         """
         Build component with esbuild
         
-        External dependencies (loaded from parent):
-        - react, react-dom, lucide-react, framer-motion
+        Strategy: Create wrapper file that imports React and exports everything globally
+        Then bundle the wrapper - this makes React available in the bundle
         """
         try:
             output_file = output_dir / "bundle.js"
             
-            # esbuild command with externals
+            # Create a wrapper file that imports everything and exposes globally
+            wrapper_file = output_dir / "_wrapper.jsx"
+            wrapper_content = f"""
+// Wrapper to bundle React + Component together
+import * as React from 'react';
+import * as ReactDOMClient from 'react-dom/client';
+
+// Import the actual component
+import Component from '{input_file.as_posix()}';
+
+// Create a global object with everything needed
+const ToolBundle = {{
+    React: React,
+    ReactDOM: ReactDOMClient,
+    Component: Component
+}};
+
+// Export for IIFE
+export default ToolBundle;
+
+// Also expose to window immediately
+if (typeof window !== 'undefined') {{
+    window.React = React;
+    window.ReactDOM = ReactDOMClient;
+    window.ToolBundle = ToolBundle;
+}}
+"""
+            
+            with open(wrapper_file, 'w') as f:
+                f.write(wrapper_content)
+            
+            # Footer script to auto-render using the bundled React
+            footer_js = """
+// Auto-render using bundled React
+(function() {
+    // Track if already initialized to prevent double render
+    if (window.__TOOL_INITIALIZED__) {
+        return;
+    }
+    
+    function initTool() {
+        const rootEl = document.getElementById('tool-root');
+        if (!rootEl) {
+            console.error('❌ Root element #tool-root not found');
+            return;
+        }
+        
+        try {
+            // Access from ToolComponent (the IIFE export)
+            const bundle = ToolComponent.default || ToolComponent;
+            
+            if (!bundle || !bundle.React || !bundle.ReactDOM || !bundle.Component) {
+                throw new Error('Bundle incomplete: ' + JSON.stringify(Object.keys(bundle || {})));
+            }
+            
+            const { React, ReactDOM, Component } = bundle;
+            
+            // Render
+            const root = ReactDOM.createRoot(rootEl);
+            root.render(React.createElement(Component));
+            
+            // Mark as initialized
+            window.__TOOL_INITIALIZED__ = true;
+            console.log('✅ Tool rendered successfully');
+            
+        } catch (error) {
+            console.error('❌ Render error:', error);
+            rootEl.innerHTML = `
+                <div style="padding:2rem;text-align:center;color:#ef4444;">
+                    <strong>Error:</strong> ${error.message}
+                    <br><small>Check console for details</small>
+                </div>
+            `;
+        }
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTool);
+    } else {
+        initTool();
+    }
+})();
+""".strip()
+            
+            # esbuild command - Bundle the wrapper (which includes React + Component)
             cmd = [
                 "npx", "esbuild",
-                str(input_file),
+                str(wrapper_file),
                 "--bundle",
                 "--format=iife",
                 "--global-name=ToolComponent",
                 f"--outfile={output_file}",
-                "--external:react",
-                "--external:react-dom",
-                "--external:lucide-react",
-                "--external:framer-motion",
                 "--jsx=automatic",
                 "--loader:.tsx=tsx",
                 "--loader:.ts=ts",
                 "--loader:.jsx=jsx",
                 "--loader:.js=js",
-                "--minify"
+                "--minify",
+                "--platform=browser",
+                f"--footer:js={footer_js}",
+                # Bundle everything including React (no externals)
             ]
             
-            logger.info(f"Running esbuild: {' '.join(cmd)}")
+            logger.info(f"Running esbuild: {' '.join(cmd[:15])}...")
             
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=60
             )
+            
+            # Clean up wrapper file
+            if wrapper_file.exists():
+                wrapper_file.unlink()
             
             if result.returncode != 0:
                 raise Exception(f"esbuild failed: {result.stderr}")
@@ -165,7 +252,7 @@ class ToolBuilder:
         except subprocess.TimeoutExpired:
             return {
                 "success": False,
-                "error": "Build timeout (30s exceeded)"
+                "error": "Build timeout (60s exceeded)"
             }
         except Exception as e:
             return {
@@ -182,11 +269,12 @@ class ToolBuilder:
         """
         Generate index.html for iframe loading
         
-        HTML includes:
-        1. Link to LOCAL Tailwind CSS (fully offline!)
-        2. Script to access parent context (__APP_CTX__)
-        3. Tool bundle script
-        4. Initialization code
+        NEW ARCHITECTURE (Self-Contained):
+        - NO CDN dependencies (React bundled inside)
+        - Local Tailwind CSS only
+        - Single bundle.js with everything
+        - Fully offline-capable
+        - CSP-compliant (no external scripts)
         """
         try:
             html_content = f"""<!DOCTYPE html>
@@ -214,59 +302,15 @@ class ToolBuilder:
 <body class="bg-white dark:bg-dark-background">
     <div id="tool-root"></div>
     
-    <script>
-        // Access parent app context
-        const parentContext = window.parent.__APP_CTX__;
-        
-        if (!parentContext) {{
-            console.error('Parent context not available! Tool cannot load.');
-            document.getElementById('tool-root').innerHTML = `
-                <div style="padding: 2rem; text-align: center;">
-                    <h2 style="color: red;">Error: Parent Context Not Available</h2>
-                    <p>The tool cannot access shared dependencies from the parent app.</p>
-                </div>
-            `;
-        }} else {{
-            console.log('✅ Parent context loaded:', Object.keys(parentContext));
-            
-            // Make parent dependencies global for bundle
-            window.React = parentContext.React;
-            window.ReactDOM = parentContext.ReactDOM;
-            window.LucideReact = parentContext.LucideReact;
-            window.motion = parentContext.motion;
-            window.AnimatePresence = parentContext.AnimatePresence;
-            
-            // Load tool bundle
-            const script = document.createElement('script');
-            script.src = '/tools/{slug}/bundle.js';
-            script.onload = () => {{
-                console.log('✅ Tool bundle loaded');
-                
-                // Notify parent that tool is ready
-                window.parent.postMessage({{
-                    type: 'tool:ready',
-                    source: 'tool'
-                }}, '*');
-                
-                // Listen for messages from parent
-                window.addEventListener('message', (event) => {{
-                    if (event.data.type === 'init') {{
-                        console.log('📥 Init data from parent:', event.data.payload);
-                        // Tool can access event.data.payload for initialization
-                    }}
-                }});
-            }};
-            script.onerror = () => {{
-                console.error('❌ Failed to load tool bundle');
-                window.parent.postMessage({{
-                    type: 'tool:error',
-                    payload: {{ message: 'Failed to load tool bundle' }},
-                    source: 'tool'
-                }}, '*');
-            }};
-            document.body.appendChild(script);
-        }}
-    </script>
+    <!-- 
+        Self-contained bundle:
+        - React + ReactDOM bundled inside
+        - Component code included
+        - Auto-renders via footer script
+        - No external dependencies
+        - CSP-compliant
+    -->
+    <script src="/tools/{slug}/bundle.js"></script>
 </body>
 </html>"""
             

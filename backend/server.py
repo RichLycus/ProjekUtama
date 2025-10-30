@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
 import uuid
@@ -100,15 +101,16 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 class CSPMiddleware(BaseHTTPMiddleware):
-    """Add Content Security Policy headers to allow iframes"""
+    """Add Content Security Policy headers to allow iframes and external scripts"""
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         
         # Allow iframe embedding from same origin and localhost
+        # RELAXED: Allow unpkg.com and cdn.jsdelivr.net for React CDN
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
             "img-src 'self' data: blob: https:; "
             "font-src 'self' data:; "
             "connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; "
@@ -128,6 +130,29 @@ BACKEND_DIR = Path(__file__).parent
 DATA_DIR = BACKEND_DIR / "data"
 TOOLS_DIR = BACKEND_DIR / "tools"
 FRONTEND_TOOLS_DIR = BACKEND_DIR / "frontend_tools"
+
+# Mount static files for built tools
+PUBLIC_DIR = BACKEND_DIR.parent / "public"
+PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
+
+# Custom middleware to add no-cache headers for tool files
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    
+    # Add no-cache headers for tool bundle files to prevent stale previews
+    if request.url.path.startswith("/tools/") and (
+        request.url.path.endswith(".js") or 
+        request.url.path.endswith(".html") or
+        request.url.path.endswith(".css")
+    ):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    
+    return response
+
+app.mount("/tools", StaticFiles(directory=str(PUBLIC_DIR / "tools")), name="tools")
 
 # Ensure directories exist
 DATA_DIR.mkdir(exist_ok=True)
@@ -1233,6 +1258,46 @@ async def validate_tool(tool_id: str):
     }
 
 
+@app.post("/api/tools/execute")
+async def execute_tool_legacy(request: Request, request_data: dict = {}):
+    """
+    LEGACY ENDPOINT: Execute tool (backward compatibility)
+    
+    Auto-detects tool_id from:
+    1. Request body: {"tool_id": "...", "params": {...}}
+    2. Referer header: extracts from /tools/{slug}/ URL
+    
+    This endpoint exists for backward compatibility with old tools
+    that POST to /api/tools/execute instead of /api/tools/{tool_id}/execute
+    """
+    tool_id = request_data.get("tool_id")
+    params = request_data.get("params", request_data)
+    
+    # If tool_id not in body, try to extract from referer
+    if not tool_id:
+        referer = request.headers.get("referer", "")
+        logger.info(f"🔍 No tool_id in body, checking referer: {referer}")
+        
+        # Extract tool slug from referer
+        # Example: http://localhost:8001/tools/voice-preview/index.html
+        import re
+        match = re.search(r'/tools/([^/]+)/', referer)
+        if match:
+            tool_id = match.group(1)
+            logger.info(f"✅ Extracted tool_id from referer: {tool_id}")
+        else:
+            raise HTTPException(400, "Cannot determine tool_id. Please include 'tool_id' in request body or ensure referer header is set.")
+    
+    # Remove tool_id from params if it exists
+    if "tool_id" in params:
+        params = {k: v for k, v in params.items() if k != "tool_id"}
+    
+    logger.info(f"📥 Legacy execute endpoint called for tool: {tool_id}")
+    
+    # Delegate to main execute_tool function
+    return await execute_tool(tool_id, params)
+
+
 @app.post("/api/tools/{tool_id}/execute")
 async def execute_tool(tool_id: str, params: dict = {}):
     """
@@ -1779,12 +1844,10 @@ async def save_tool_file(tool_id: str, file_data: dict):
         
         # Log operation
         log_tool_operation(
-            db,
-            tool_id=tool_id,
-            action=f"save_{file_type}",
-            status="success",
-            message=f"{file_type.title()} file saved successfully",
-            trace={"file_path": str(script_path), "content_length": len(content)}
+            f"save_{file_type}",
+            tool.get("name", tool_id),
+            "success",
+            f"{file_type.title()} file saved successfully (path: {script_path.name}, size: {len(content)} chars)"
         )
         
         return JSONResponse({
@@ -1794,14 +1857,15 @@ async def save_tool_file(tool_id: str, file_data: dict):
         })
     except Exception as e:
         logger.error(f"❌ Failed to save tool file: {str(e)}")
-        log_tool_operation(
-            db,
-            tool_id=tool_id,
-            action=f"save_{file_type}",
-            status="error",
-            message=f"Failed to save {file_type} file",
-            trace={"error": str(e)}
-        )
+        db.insert_log({
+            "_id": str(uuid.uuid4()),
+            "tool_id": tool_id,
+            "action": f"save_{file_type}",
+            "status": "error",
+            "message": f"Failed to save {file_type} file",
+            "trace": json.dumps({"error": str(e)}),
+            "timestamp": datetime.now().isoformat()
+        })
         raise HTTPException(500, f"Failed to save tool file: {str(e)}")
 
 
@@ -1819,69 +1883,65 @@ async def rebuild_tool(tool_id: str):
     
     try:
         # Step 1: Delete build artifacts
-        build_path = Path(f"public/tools/{slug}")
-        if build_path.exists():
-            shutil.rmtree(build_path)
-            logger.info(f"   🗑️  Deleted build artifacts at {build_path}")
+        public_dir = BACKEND_DIR.parent / "public" / "tools" / slug
+        if public_dir.exists():
+            shutil.rmtree(public_dir)
+            logger.info(f"   🗑️  Deleted build artifacts at {public_dir}")
         
         # Step 2: Rebuild tool using ToolBuilder
-        builder = ToolBuilder()
-        frontend_path = Path(tool["frontend_path"])
+        builder = ToolBuilder(backend_dir=BACKEND_DIR)
         
-        if not frontend_path.exists():
-            raise HTTPException(404, "Frontend file not found")
+        # Build tool - pass tool_data dictionary
+        build_result = builder.build_tool(tool)
         
-        # Build tool
-        success, message = builder.build_tool(
-            tool_id=tool_id,
-            tool_name=tool_name,
-            slug=slug,
-            frontend_script_path=str(frontend_path)
-        )
-        
-        if success:
+        if build_result["success"]:
             logger.info(f"✅ Tool '{tool_name}' rebuilt successfully")
             
             # Log operation
-            log_tool_operation(
-                db,
-                tool_id=tool_id,
-                action="rebuild",
-                status="success",
-                message=f"Tool rebuilt successfully",
-                trace={"build_path": str(build_path), "slug": slug}
-            )
+            db.insert_log({
+                "_id": str(uuid.uuid4()),
+                "tool_id": tool_id,
+                "action": "rebuild",
+                "status": "success",
+                "message": "Tool rebuilt successfully",
+                "trace": json.dumps({"build_path": str(public_dir), "slug": slug}),
+                "timestamp": datetime.now().isoformat()
+            })
             
             return JSONResponse({
                 "success": True,
                 "message": "Tool rebuilt successfully",
-                "build_path": str(build_path)
+                "build_path": str(public_dir),
+                "url": build_result.get("url", "")
             })
         else:
-            logger.error(f"❌ Build failed: {message}")
-            log_tool_operation(
-                db,
-                tool_id=tool_id,
-                action="rebuild",
-                status="error",
-                message=f"Build failed: {message}",
-                trace={"error": message}
-            )
+            error_msg = build_result.get("error", "Unknown error")
+            logger.error(f"❌ Build failed: {error_msg}")
+            db.insert_log({
+                "_id": str(uuid.uuid4()),
+                "tool_id": tool_id,
+                "action": "rebuild",
+                "status": "error",
+                "message": f"Build failed: {error_msg}",
+                "trace": json.dumps({"error": error_msg}),
+                "timestamp": datetime.now().isoformat()
+            })
             return JSONResponse({
                 "success": False,
-                "message": f"Build failed: {message}"
+                "message": f"Build failed: {error_msg}"
             }, status_code=500)
             
     except Exception as e:
         logger.error(f"❌ Rebuild failed: {str(e)}")
-        log_tool_operation(
-            db,
-            tool_id=tool_id,
-            action="rebuild",
-            status="error",
-            message=f"Rebuild failed",
-            trace={"error": str(e)}
-        )
+        db.insert_log({
+            "_id": str(uuid.uuid4()),
+            "tool_id": tool_id,
+            "action": "rebuild",
+            "status": "error",
+            "message": "Rebuild failed",
+            "trace": json.dumps({"error": str(e)}),
+            "timestamp": datetime.now().isoformat()
+        })
         raise HTTPException(500, f"Rebuild failed: {str(e)}")
 
 
@@ -1958,7 +2018,23 @@ async def render_tool(tool_id: str):
         return HTMLResponse(content=error_html, status_code=404)
     
     logger.info(f"✅ Serving built tool: {tool_name}")
-    return FileResponse(index_html, media_type="text/html")
+    
+    # Create response with aggressive no-cache headers
+    response = FileResponse(index_html, media_type="text/html")
+    
+    # CRITICAL: Prevent any caching to avoid stale tool previews
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    
+    # Add ETag based on file modification time for better cache invalidation
+    import hashlib
+    import time
+    mtime = index_html.stat().st_mtime
+    etag = hashlib.md5(f"{tool_id}-{mtime}".encode()).hexdigest()
+    response.headers["ETag"] = f'"{etag}"'
+    
+    return response
 
 
 

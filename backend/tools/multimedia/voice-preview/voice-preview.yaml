@@ -1,0 +1,14 @@
+name: voice-preview
+slug: voice-preview
+category: Multimedia
+description: voice-preview
+version: 1.0.0
+author: Anonymous
+status: active
+tool_type: dual
+dependencies:
+- lucide-react
+- react
+created_at: '2025-10-28T12:35:47.341659'
+updated_at: '2025-10-28T12:35:47.341680'
+last_validated: '2025-10-28T12:35:47.345100'
