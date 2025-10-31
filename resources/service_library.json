@@ -1,0 +1,138 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-01-26",
+  "services": {
+    "apache": {
+      "name": "Apache HTTP Server",
+      "description": "The world's most popular web server",
+      "icon": "apache.png",
+      "category": "web_server",
+      "versions": [
+        {
+          "version": "2.4.58",
+          "release_date": "2023-10-19",
+          "download_urls": {
+            "win64": "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.58-win64-VS17.zip",
+            "mac": "https://example.com/apache-2.4.58-mac.tar.gz",
+            "linux": "https://example.com/apache-2.4.58-linux.tar.gz"
+          },
+          "size_mb": 15,
+          "checksum": "sha256:example_checksum_here",
+          "recommended": true
+        }
+      ]
+    },
+    "nginx": {
+      "name": "Nginx",
+      "description": "High-performance web server and reverse proxy",
+      "icon": "nginx.png",
+      "category": "web_server",
+      "versions": [
+        {
+          "version": "1.24.0",
+          "release_date": "2023-04-11",
+          "download_urls": {
+            "win64": "https://nginx.org/download/nginx-1.24.0.zip",
+            "mac": "https://example.com/nginx-1.24.0-mac.tar.gz",
+            "linux": "https://example.com/nginx-1.24.0-linux.tar.gz"
+          },
+          "size_mb": 1,
+          "checksum": "sha256:example_checksum_here",
+          "recommended": true
+        }
+      ]
+    },
+    "php": {
+      "name": "PHP",
+      "description": "Popular server-side scripting language",
+      "icon": "php.png",
+      "category": "language",
+      "versions": [
+        {
+          "version": "8.1.10",
+          "release_date": "2022-08-30",
+          "download_urls": {
+            "win64": "https://windows.php.net/downloads/releases/php-8.1.10-Win32-vs16-x64.zip",
+            "mac": "https://example.com/php-8.1.10-mac.tar.gz",
+            "linux": "https://example.com/php-8.1.10-linux.tar.gz"
+          },
+          "size_mb": 25,
+          "checksum": "sha256:example_checksum_here",
+          "recommended": false
+        },
+        {
+          "version": "8.2.5",
+          "release_date": "2023-04-11",
+          "download_urls": {
+            "win64": "https://windows.php.net/downloads/releases/php-8.2.5-Win32-vs16-x64.zip",
+            "mac": "https://example.com/php-8.2.5-mac.tar.gz",
+            "linux": "https://example.com/php-8.2.5-linux.tar.gz"
+          },
+          "size_mb": 27,
+          "checksum": "sha256:example_checksum_here",
+          "recommended": true
+        }
+      ]
+    },
+    "mysql": {
+      "name": "MySQL Database",
+      "description": "Popular open-source relational database",
+      "icon": "mysql.png",
+      "category": "database",
+      "versions": [
+        {
+          "version": "8.0.30",
+          "release_date": "2022-07-26",
+          "download_urls": {
+            "win64": "https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.30-winx64.zip",
+            "mac": "https://example.com/mysql-8.0.30-mac.tar.gz",
+            "linux": "https://example.com/mysql-8.0.30-linux.tar.gz"
+          },
+          "size_mb": 200,
+          "checksum": "sha256:example_checksum_here",
+          "recommended": true
+        }
+      ]
+    },
+    "mariadb": {
+      "name": "MariaDB Database",
+      "description": "MySQL-compatible database with additional features",
+      "icon": "mariadb.png",
+      "category": "database",
+      "versions": [
+        {
+          "version": "10.11.2",
+          "release_date": "2023-02-16",
+          "download_urls": {
+            "win64": "https://downloads.mariadb.org/mariadb/10.11.2/winx64-packages/mariadb-10.11.2-winx64.zip",
+            "mac": "https://example.com/mariadb-10.11.2-mac.tar.gz",
+            "linux": "https://example.com/mariadb-10.11.2-linux.tar.gz"
+          },
+          "size_mb": 150,
+          "checksum": "sha256:example_checksum_here",
+          "recommended": true
+        }
+      ]
+    },
+    "nodejs": {
+      "name": "Node.js",
+      "description": "JavaScript runtime built on Chrome's V8 engine",
+      "icon": "nodejs.png",
+      "category": "language",
+      "versions": [
+        {
+          "version": "18.16.0",
+          "release_date": "2023-04-12",
+          "download_urls": {
+            "win64": "https://nodejs.org/dist/v18.16.0/node-v18.16.0-win-x64.zip",
+            "mac": "https://nodejs.org/dist/v18.16.0/node-v18.16.0-darwin-x64.tar.gz",
+            "linux": "https://nodejs.org/dist/v18.16.0/node-v18.16.0-linux-x64.tar.xz"
+          },
+          "size_mb": 30,
+          "checksum": "sha256:example_checksum_here",
+          "recommended": true
+        }
+      ]
+    }
+  }
+}
