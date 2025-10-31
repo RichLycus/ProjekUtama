@@ -29,10 +29,17 @@ Phase documentation follows the format: `phase/phase_X.md`
 | Phase 6 | Enhanced Chat Features | ✅ Complete | Syntax highlighting, markdown, history |
 | Phase 7 | Advanced Features | ✅ Complete | Workflow builder, smart router |
 
+### In Planning
+
+| Phase | Title | Status | Description |
+|-------|-------|--------|-------------|
+| Phase 5 | Local Server Management | 📋 Planned | Apache/Nginx bundling, www/ projects, domain management |
+
 ### Planned Phases
 
 | Phase | Title | Status | File |
 |-------|-------|--------|------|
+| Phase 5 | Local Server Management | 📋 Planned | [phase_5.md](phase/phase_5.md) |
 | Phase 10 | Standalone Installer | 📋 Planned | [phase-10-planned.md](phase/phase-10-planned.md) |
 
 ---
@@ -72,6 +79,7 @@ docs/
 
 ### 🔧 Features & Tools
 - [Phase 2 - Tools System](phase/phase_2.md) - Dynamic tools, SQLite database
+- [Phase 5 - Server Management](phase/phase_5.md) - Apache/Nginx, www/ projects, local domains
 - [Phase 7 - Advanced Features](phase/phase_7.md) - Workflow builder
 
 ### 🤖 AI & Chat

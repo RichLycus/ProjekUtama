@@ -21,6 +21,7 @@
 - **✅ [Phase 1 Complete](docs/phase/phase_1.md)** - UI Enhancement & Animations
 - **✅ [Phase 2 Complete](docs/phase/phase_2.md)** - Tools System & SQLite
 - **✅ [Phase 3 Complete](docs/phase/phase_3.md)** - AI Chat with RAG System
+- **📋 [Phase 5 Planned](docs/phase/phase_5.md)** - Local Server Management (Apache/Nginx)
 - **✅ [Phase 6 Complete](docs/phase/phase_6.md)** - Enhanced Chat Features
 - **✅ [Phase 7 Complete](docs/phase/phase_7.md)** - Advanced Features
 - **📋 [Phase 10 Planned](docs/phase/phase-10-planned.md)** - Standalone Installer
@@ -150,10 +151,12 @@ chimera-ai/
 - **Phase 1**: ✅ **COMPLETE** - UI Enhancement & Animations  
 - **Phase 2**: ✅ **COMPLETE** - Tools System & SQLite Database
 - **Phase 3**: ✅ **COMPLETE** - AI Chat System with RAG
-- **Phase 4**: 📋 **PLANNED** - Advanced Chat Features (File upload, OCR, STT/TTS)
-- **Phase 5**: 🔜 **UPCOMING** - Games & Final Polish
+- **Phase 5**: 📋 **PLANNED** - Local Server Management (Apache/Nginx, www/ projects)
+- **Phase 6**: ✅ **COMPLETE** - Enhanced Chat Features (Syntax highlighting, markdown)
+- **Phase 7**: ✅ **COMPLETE** - Advanced Features (Workflow builder, smart router)
+- **Phase 10**: 📋 **PLANNED** - Standalone Installer
 
-📖 **See [docs/index.md](docs/index.md) for complete documentation**
+📖 **See [docs/README.md](docs/README.md) for complete documentation**
 
 ## 🛠️ Tech Stack
 
