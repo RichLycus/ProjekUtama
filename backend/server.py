@@ -1947,6 +1947,115 @@ async def rebuild_tool(tool_id: str):
 
 
 
+@app.get("/api/tools/{tool_id}/yaml")
+async def get_tool_yaml(tool_id: str):
+    """Get tool YAML configuration file"""
+    tool = db.get_tool(tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    
+    tool_name = tool.get("name", "Unknown")
+    logger.info(f"📄 Loading YAML for tool '{tool_name}'")
+    
+    try:
+        # Get tool directory from frontend_path or backend_path
+        if tool.get("frontend_path"):
+            tool_file = BACKEND_DIR / tool["frontend_path"]
+        elif tool.get("backend_path"):
+            tool_file = BACKEND_DIR / tool["backend_path"]
+        else:
+            raise HTTPException(400, "Tool has no frontend_path or backend_path")
+        
+        # YAML file is in parent directory of frontend/backend folder
+        yaml_file = tool_file.parent.parent / f"{tool.get('slug', tool_name.lower().replace(' ', '-'))}.yaml"
+        
+        if not yaml_file.exists():
+            raise HTTPException(404, f"YAML file not found: {yaml_file}")
+        
+        with open(yaml_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        logger.info(f"✅ YAML loaded successfully ({len(content)} chars)")
+        
+        return JSONResponse({
+            "success": True,
+            "content": content,
+            "filename": yaml_file.name,
+            "path": str(yaml_file)
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to load YAML: {str(e)}")
+        raise HTTPException(500, f"Failed to load YAML: {str(e)}")
+
+
+@app.post("/api/tools/{tool_id}/yaml")
+async def save_tool_yaml(tool_id: str, yaml_data: dict):
+    """Save tool YAML configuration file"""
+    tool = db.get_tool(tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    
+    content = yaml_data.get("content", "")
+    if not content:
+        raise HTTPException(400, "Content is required")
+    
+    tool_name = tool.get("name", "Unknown")
+    logger.info(f"💾 Saving YAML for tool '{tool_name}'")
+    
+    try:
+        # Get tool directory from frontend_path or backend_path
+        if tool.get("frontend_path"):
+            tool_file = BACKEND_DIR / tool["frontend_path"]
+        elif tool.get("backend_path"):
+            tool_file = BACKEND_DIR / tool["backend_path"]
+        else:
+            raise HTTPException(400, "Tool has no frontend_path or backend_path")
+        
+        # YAML file is in parent directory of frontend/backend folder
+        yaml_file = tool_file.parent.parent / f"{tool.get('slug', tool_name.lower().replace(' ', '-'))}.yaml"
+        
+        # Backup existing YAML
+        if yaml_file.exists():
+            backup_file = yaml_file.with_suffix('.yaml.bak')
+            shutil.copy2(yaml_file, backup_file)
+            logger.info(f"   📋 Backup created: {backup_file.name}")
+        
+        # Write new content
+        with open(yaml_file, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        logger.info(f"✅ YAML saved successfully ({len(content)} chars)")
+        
+        # Log operation
+        log_tool_operation(
+            "save_yaml",
+            tool_name,
+            "success",
+            f"YAML file saved successfully (size: {len(content)} chars)"
+        )
+        
+        return JSONResponse({
+            "success": True,
+            "message": "YAML file saved successfully",
+            "filename": yaml_file.name
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to save YAML: {str(e)}")
+        db.insert_log({
+            "_id": str(uuid.uuid4()),
+            "tool_id": tool_id,
+            "action": "save_yaml",
+            "status": "error",
+            "message": "Failed to save YAML",
+            "trace": json.dumps({"error": str(e)}),
+            "timestamp": datetime.now().isoformat()
+        })
+        raise HTTPException(500, f"Failed to save YAML: {str(e)}")
+
+
+
 @app.get("/api/tools/{tool_id}/render")
 async def render_tool(tool_id: str):
     """

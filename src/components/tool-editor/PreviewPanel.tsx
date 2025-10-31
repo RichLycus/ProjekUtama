@@ -16,8 +16,8 @@ export default function PreviewPanel({ toolId, mode, rebuilding = false, refresh
   const containerRef = useRef<HTMLDivElement>(null)
   
   // Cache busting: Add timestamp to URL to force reload
-  const timestamp = Date.now()
-  const cacheParam = refreshKey > 0 ? `&t=${timestamp}` : `?t=${timestamp}`
+  // PENTING: Gunakan refreshKey sebagai cache buster, bukan timestamp per-render
+  const cacheParam = refreshKey > 0 ? `&t=${refreshKey}` : ''
   
   // Use backend render endpoint instead of frontend route
   const toolUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001'}/api/tools/${toolId}/render${mode === 'static' ? '?preview=static' : ''}${cacheParam}`

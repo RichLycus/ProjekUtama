@@ -1,21 +1,28 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Settings, Code, Save, RefreshCw, Loader2, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Settings, Code, Save, RefreshCw, Loader2, CheckCircle, AlertCircle, Eye, EyeOff, FileText, Package } from 'lucide-react'
 import { API_ENDPOINTS } from '@/lib/backend'
 import toast from 'react-hot-toast'
 import axios from 'axios'
 import MonacoEditorPanel from '@/components/tool-editor/MonacoEditorPanel'
 import PreviewPanel from '@/components/tool-editor/PreviewPanel'
 import DependenciesTab from '@/components/tool-editor/DependenciesTab'
+import YamlEditorTab from '@/components/tool-editor/YamlEditorTab'
+import { useLocation } from 'react-router-dom'
 
 type TabType = 'settings' | 'editor'
 
 export default function ToolEditorPage() {
   const { toolId } = useParams<{ toolId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   
-  const [activeTab, setActiveTab] = useState<TabType>('editor')
+  // Check if URL has ?tab=settings query param
+  const urlParams = new URLSearchParams(location.search)
+  const initialTab = urlParams.get('tab') === 'settings' ? 'settings' : 'editor'
+  
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab)
   const [tool, setTool] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   
@@ -71,6 +78,12 @@ export default function ToolEditorPage() {
   const handleSave = async () => {
     if (!toolId) return
     
+    // Validasi: pastikan code tidak kosong
+    if (!code || code.trim().length === 0) {
+      toast.error('⚠️ Cannot save empty file!')
+      return
+    }
+    
     setSaving(true)
     try {
       const response = await axios.post(
@@ -84,9 +97,7 @@ export default function ToolEditorPage() {
       if (response.data.success) {
         setLastSaved(new Date())
         toast.success('✅ Code saved successfully!')
-        
-        // Refresh preview
-        setPreviewKey(prev => prev + 1)
+        // NOTE: Preview refresh dihapus dari sini untuk menghindari double render
       } else {
         toast.error('Failed to save code')
       }
@@ -112,7 +123,7 @@ export default function ToolEditorPage() {
       if (response.data.success) {
         toast.success('✅ Tool rebuilt successfully!', { id: toastId })
         
-        // Refresh preview after rebuild
+        // Refresh preview HANYA sekali setelah rebuild selesai
         setTimeout(() => {
           setPreviewKey(prev => prev + 1)
         }, 1000)
@@ -128,11 +139,20 @@ export default function ToolEditorPage() {
   }
   
   const handleSaveAndRebuild = async () => {
+    // Validasi sebelum save & rebuild
+    if (!code || code.trim().length === 0) {
+      toast.error('⚠️ Cannot save empty file!')
+      return
+    }
+    
+    // Save dulu
     await handleSave()
-    // Wait a bit for save to complete
+    
+    // Tunggu save selesai, baru rebuild
     setTimeout(() => {
       handleRebuild()
-    }, 500)
+    }, 800)
+    // NOTE: Preview hanya di-refresh SEKALI oleh handleRebuild() untuk menghindari double render
   }
   
   if (loading) {
@@ -264,8 +284,26 @@ export default function ToolEditorPage() {
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'settings' ? (
-          <div className="h-full overflow-y-auto p-6">
-            <DependenciesTab toolId={toolId!} toolName={tool.name} />
+          <div className="h-full overflow-y-auto">
+            <div className="p-6 space-y-6">
+              {/* YAML Editor Section */}
+              <div className="glass rounded-xl p-6">
+                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-primary" />
+                  Tool Configuration (YAML)
+                </h2>
+                <YamlEditorTab toolId={toolId!} toolName={tool.name} />
+              </div>
+              
+              {/* Dependencies Section */}
+              <div className="glass rounded-xl p-6">
+                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-primary" />
+                  Dependencies Management
+                </h2>
+                <DependenciesTab toolId={toolId!} toolName={tool.name} />
+              </div>
+            </div>
           </div>
         ) : (
           <div className="h-full flex gap-4 p-4">

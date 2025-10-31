@@ -349,9 +349,8 @@ export default function SettingsPage() {
   }
   
   const handleSettings = (tool: any) => {
-    setSettingsToolId(tool._id)
-    setSettingsToolName(tool.name)
-    setIsSettingsModalOpen(true)
+    // Navigate ke tool editor dengan tab settings
+    navigate(`/tools/edit/${tool._id}?tab=settings`)
   }
   
   const handleDependenciesInstalled = () => {
