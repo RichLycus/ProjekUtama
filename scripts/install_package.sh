@@ -19,6 +19,8 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACKEND_DIR="$PROJECT_ROOT/backend"
+DIST_DIR="$PROJECT_ROOT/dist"
+BUILD_DIR="$PROJECT_ROOT/build"
 RELEASE_DIR="$PROJECT_ROOT/release"
 
 # ============================================================
@@ -115,6 +117,21 @@ check_prerequisites() {
 install_dependencies() {
     print_header "Installing Dependencies"
     
+    # Detect Python environment
+    if [ -d "/root/.venv" ]; then
+        PYTHON_BIN="/root/.venv/bin/python"
+        PIP_BIN="/root/.venv/bin/pip"
+        print_info "Using Python venv: /root/.venv"
+    elif [ -n "$CONDA_PREFIX" ]; then
+        PYTHON_BIN="$CONDA_PREFIX/bin/python"
+        PIP_BIN="$CONDA_PREFIX/bin/pip"
+        print_info "Using conda environment: $CONDA_DEFAULT_ENV"
+    else
+        PYTHON_BIN="python3"
+        PIP_BIN="pip3"
+        print_info "Using system Python"
+    fi
+    
     # Frontend dependencies
     print_step "Installing frontend dependencies..."
     cd "$PROJECT_ROOT"
@@ -125,45 +142,28 @@ install_dependencies() {
     print_step "Installing backend dependencies..."
     cd "$BACKEND_DIR"
     
-    # Check if venv exists
-    if [ ! -d "/root/.venv" ]; then
-        print_warning "Virtual environment not found, using system Python"
-        
-        # Install from modular requirements files
-        print_step "Installing base dependencies..."
-        pip3 install -r requirements-base.txt
-        
-        print_step "Installing chat dependencies..."
-        pip3 install -r requirements-chat.txt
-        
-        print_step "Installing tools dependencies..."
-        pip3 install -r requirements-tools.txt
-    else
-        # Install from modular requirements files
-        print_step "Installing base dependencies..."
-        /root/.venv/bin/pip install -r requirements-base.txt
-        
-        print_step "Installing chat dependencies..."
-        /root/.venv/bin/pip install -r requirements-chat.txt
-        
-        print_step "Installing tools dependencies..."
-        /root/.venv/bin/pip install -r requirements-tools.txt
-    fi
+    # Install from modular requirements files
+    print_step "Installing base dependencies..."
+    $PIP_BIN install -r requirements-base.txt
+    
+    print_step "Installing chat dependencies..."
+    $PIP_BIN install -r requirements-chat.txt
+    
+    print_step "Installing tools dependencies..."
+    $PIP_BIN install -r requirements-tools.txt
     
     # Install PyInstaller if not present
     print_step "Checking PyInstaller..."
-    if [ -d "/root/.venv" ]; then
-        if ! /root/.venv/bin/pip show pyinstaller &> /dev/null; then
-            print_warning "PyInstaller not found, installing..."
-            /root/.venv/bin/pip install pyinstaller
-        fi
-    else
-        if ! pip3 show pyinstaller &> /dev/null; then
-            print_warning "PyInstaller not found, installing..."
-            pip3 install pyinstaller
-        fi
+    if ! $PYTHON_BIN -c "import PyInstaller" 2>/dev/null; then
+        print_warning "PyInstaller not found, installing..."
+        $PIP_BIN install pyinstaller
     fi
     print_success "PyInstaller ready"
+    
+    # Install jaraco dependencies for pkg_resources fix
+    print_step "Installing jaraco dependencies..."
+    $PIP_BIN install jaraco.text jaraco.functools jaraco.context
+    print_success "jaraco dependencies installed"
     
     print_success "Backend dependencies installed"
     echo ""
@@ -178,11 +178,12 @@ clean_build() {
     
     cd "$PROJECT_ROOT"
     
-    print_step "Cleaning backend build..."
-    rm -rf "$BACKEND_DIR/build" "$BACKEND_DIR/dist"
+    print_step "Cleaning backend build artifacts..."
+    rm -rf "$BUILD_DIR/backend" "$DIST_DIR/backend"
     
-    print_step "Cleaning frontend build..."
-    rm -rf "$PROJECT_ROOT/dist" "$PROJECT_ROOT/dist-electron"
+    print_step "Cleaning frontend build artifacts..."
+    rm -rf "$BUILD_DIR/frontend" "$DIST_DIR/frontend"
+    rm -rf "$PROJECT_ROOT/dist-electron"
     
     print_step "Cleaning release directory..."
     rm -rf "$RELEASE_DIR"
@@ -212,24 +213,70 @@ build_backend() {
     
     print_step "Running PyInstaller with spec file..."
     
+    # Detect Python environment (venv, conda, or system)
     if [ -d "/root/.venv" ]; then
-        /root/.venv/bin/pyinstaller --clean build_backend.spec
+        PYTHON_BIN="/root/.venv/bin/python"
+        PIP_BIN="/root/.venv/bin/pip"
+        PYINSTALLER_BIN="/root/.venv/bin/pyinstaller"
+    elif [ -n "$CONDA_PREFIX" ]; then
+        PYTHON_BIN="$CONDA_PREFIX/bin/python"
+        PIP_BIN="$CONDA_PREFIX/bin/pip"
+        PYINSTALLER_BIN="$CONDA_PREFIX/bin/pyinstaller"
+        print_info "Using conda environment: $CONDA_DEFAULT_ENV"
     else
-        pyinstaller --clean build_backend.spec
+        PYTHON_BIN="python3"
+        PIP_BIN="pip3"
+        PYINSTALLER_BIN="pyinstaller"
+        print_info "Using system Python"
     fi
     
+    # Check if jaraco.text is installed
+    if ! $PYTHON_BIN -c "import jaraco.text" 2>/dev/null; then
+        print_warning "jaraco.text not found, installing..."
+        $PIP_BIN install jaraco.text jaraco.functools jaraco.context
+    fi
+    
+    $PYINSTALLER_BIN --clean build_backend.spec
+    
+    # PyInstaller outputs to backend/dist/, now move to project dist/backend/
     if [ -f "$BACKEND_DIR/dist/chimera-backend/chimera-backend" ]; then
-        print_success "Backend executable built successfully!"
+        print_step "Moving build artifacts to central dist/ directory..."
+        
+        # Create dist directories
+        mkdir -p "$DIST_DIR/backend"
+        mkdir -p "$BUILD_DIR/backend"
+        
+        # Move dist output
+        if [ -d "$DIST_DIR/backend/chimera-backend" ]; then
+            rm -rf "$DIST_DIR/backend/chimera-backend"
+        fi
+        mv "$BACKEND_DIR/dist/chimera-backend" "$DIST_DIR/backend/"
+        
+        # Move build output for cleanliness
+        if [ -d "$BACKEND_DIR/build" ]; then
+            if [ -d "$BUILD_DIR/backend/build_backend" ]; then
+                rm -rf "$BUILD_DIR/backend/build_backend"
+            fi
+            mv "$BACKEND_DIR/build" "$BUILD_DIR/backend/" 2>/dev/null || true
+        fi
+        
+        # Clean up backend/dist if empty
+        if [ -d "$BACKEND_DIR/dist" ]; then
+            rmdir "$BACKEND_DIR/dist" 2>/dev/null || true
+        fi
         
         # Make executable
-        chmod +x "$BACKEND_DIR/dist/chimera-backend/chimera-backend"
+        chmod +x "$DIST_DIR/backend/chimera-backend/chimera-backend"
+        
+        print_success "Backend executable built successfully!"
         
         # Show size
-        local size=$(du -sh "$BACKEND_DIR/dist/chimera-backend" | cut -f1)
+        local size=$(du -sh "$DIST_DIR/backend/chimera-backend" | cut -f1)
         print_info "Backend size: $size"
-        print_info "Location: $BACKEND_DIR/dist/chimera-backend/"
+        print_info "Location: $DIST_DIR/backend/chimera-backend/"
     else
         print_error "Backend build failed!"
+        print_info "Check logs above for errors"
         return 1
     fi
     
@@ -274,7 +321,7 @@ build_appimage() {
     cd "$PROJECT_ROOT"
     
     # Make sure backend is built
-    if [ ! -f "$BACKEND_DIR/dist/chimera-backend/chimera-backend" ]; then
+    if [ ! -f "$DIST_DIR/backend/chimera-backend/chimera-backend" ]; then
         print_warning "Backend not built, building now..."
         build_backend
     fi
@@ -358,13 +405,13 @@ build_deb() {
 test_backend() {
     print_header "Testing Backend Executable"
     
-    if [ ! -f "$BACKEND_DIR/dist/chimera-backend/chimera-backend" ]; then
+    if [ ! -f "$DIST_DIR/backend/chimera-backend/chimera-backend" ]; then
         print_error "Backend executable not found!"
         print_info "Please build backend first (Option 2)"
         return 1
     fi
     
-    cd "$BACKEND_DIR/dist/chimera-backend"
+    cd "$DIST_DIR/backend/chimera-backend"
     
     print_step "Testing production mode (Port 18001)..."
     ./chimera-backend --port 18001 --mode production > /tmp/backend_test.log 2>&1 &
@@ -406,7 +453,7 @@ quick_build_all() {
     print_success "All components built successfully!"
     echo ""
     echo "📦 Build Artifacts:"
-    echo "   Backend: $BACKEND_DIR/dist/chimera-backend/"
+    echo "   Backend: $DIST_DIR/backend/chimera-backend/"
     echo "   Frontend: $PROJECT_ROOT/dist/"
     echo "   .deb Package: $RELEASE_DIR/"
     echo ""
@@ -422,14 +469,16 @@ show_build_info() {
     echo "📂 Project Structure:"
     echo "   Root: $PROJECT_ROOT"
     echo "   Backend: $BACKEND_DIR"
+    echo "   Dist: $DIST_DIR"
+    echo "   Build: $BUILD_DIR"
     echo "   Release: $RELEASE_DIR"
     echo ""
     
     echo "🔨 Build Artifacts:"
     
     # Check backend
-    if [ -f "$BACKEND_DIR/dist/chimera-backend/chimera-backend" ]; then
-        local size=$(du -sh "$BACKEND_DIR/dist/chimera-backend" | cut -f1)
+    if [ -f "$DIST_DIR/backend/chimera-backend/chimera-backend" ]; then
+        local size=$(du -sh "$DIST_DIR/backend/chimera-backend" | cut -f1)
         print_success "Backend: Built ($size)"
     else
         print_warning "Backend: Not built"

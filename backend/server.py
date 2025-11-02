@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
+import sys
 import uuid
 import json
 import yaml
@@ -126,13 +127,24 @@ class CSPMiddleware(BaseHTTPMiddleware):
 app.add_middleware(CSPMiddleware)
 
 # Get backend directory (portable path)
-BACKEND_DIR = Path(__file__).parent
+# PyInstaller compatibility: detect if running as bundled executable
+if getattr(sys, 'frozen', False):
+    # Running as PyInstaller bundle
+    # sys._MEIPASS is the temp folder where PyInstaller extracts files
+    BACKEND_DIR = Path(sys._MEIPASS)
+    # In bundled mode, public directory is inside the bundle
+    PUBLIC_DIR = BACKEND_DIR / "public"
+else:
+    # Running as normal Python script
+    BACKEND_DIR = Path(__file__).parent
+    # In dev/normal mode, public is at project root
+    PUBLIC_DIR = BACKEND_DIR.parent / "public"
+
 DATA_DIR = BACKEND_DIR / "data"
 TOOLS_DIR = BACKEND_DIR / "tools"
 FRONTEND_TOOLS_DIR = BACKEND_DIR / "frontend_tools"
 
 # Mount static files for built tools
-PUBLIC_DIR = BACKEND_DIR.parent / "public"
 PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
 
 # Custom middleware to add no-cache headers for tool files

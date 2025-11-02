@@ -22,6 +22,10 @@ datas = [
     
     # Sample tools (optional)
     ('tools', 'tools'),
+    
+    # Public directory - CRITICAL for StaticFiles
+    # This is where built frontend tools are served from
+    (str(project_root / 'public'), 'public'),
 ]
 
 # Hidden imports (modules that PyInstaller might miss)
@@ -62,6 +66,13 @@ hiddenimports = [
     
     # AI/ML dependencies
     'chromadb',
+    'chromadb.api',
+    'chromadb.config',
+    'chromadb.telemetry',
+    'chromadb.telemetry.product',
+    'chromadb.telemetry.product.posthog',
+    'chromadb.telemetry.opentelemetry',
+    'chromadb.telemetry.opentelemetry.grpc',
     'sentence_transformers',
     'torch',
     'transformers',
@@ -71,10 +82,18 @@ hiddenimports = [
     
     # Other dependencies
     'yaml',
+    '_yaml',
     'dotenv',
     'passlib',
     'jose',
     'cryptography',
+    
+    # Fix for jaraco.text error (pkg_resources dependencies)
+    'jaraco',
+    'jaraco.text',
+    'jaraco.functools',
+    'jaraco.context',
+    'pkg_resources',
 ]
 
 # Exclude unnecessary packages to reduce size
@@ -133,3 +152,6 @@ coll = COLLECT(
     upx_exclude=[],
     name='chimera-backend',
 )
+
+# Post-build: Move to project dist/backend/ for clean structure
+# This will be handled by build scripts
