@@ -1,0 +1,60 @@
+#!/bin/bash
+# Post-installation script for ChimeraAI
+# Runs after .deb package is installed
+
+set -e
+
+PACKAGE=chimera-ai
+INSTALL_DIR="/opt/${PACKAGE}"
+USER_DATA_DIR="${HOME}/.local/share/${PACKAGE}"
+USER_CONFIG_DIR="${HOME}/.config/${PACKAGE}"
+
+echo "Configuring ChimeraAI..."
+
+# Create user data directories
+if [ ! -d "${USER_DATA_DIR}" ]; then
+    mkdir -p "${USER_DATA_DIR}/database"
+    mkdir -p "${USER_DATA_DIR}/logs"
+    mkdir -p "${USER_DATA_DIR}/cache"
+    echo "Created user data directory: ${USER_DATA_DIR}"
+fi
+
+# Create user config directory
+if [ ! -d "${USER_CONFIG_DIR}" ]; then
+    mkdir -p "${USER_CONFIG_DIR}"
+    echo "Created user config directory: ${USER_CONFIG_DIR}"
+fi
+
+# Copy database template if user database doesn't exist
+if [ ! -f "${USER_DATA_DIR}/database/chimera_tools.db" ]; then
+    if [ -f "${INSTALL_DIR}/data/database/chimera_tools.db" ]; then
+        cp "${INSTALL_DIR}/data/database/chimera_tools.db" "${USER_DATA_DIR}/database/"
+        echo "Initialized database from template"
+    fi
+fi
+
+# Set executable permissions
+chmod +x "${INSTALL_DIR}/bin/chimera-ai" 2>/dev/null || true
+chmod +x "${INSTALL_DIR}/bin/chimera-backend" 2>/dev/null || true
+
+# Update desktop database
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications 2>/dev/null || true
+fi
+
+# Update icon cache
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
+fi
+
+echo "ChimeraAI installation complete!"
+echo ""
+echo "To launch ChimeraAI:"
+echo "  1. Run 'chimera-ai' from terminal"
+echo "  2. Or search for 'ChimeraAI' in your application menu"
+echo ""
+echo "Data location: ${USER_DATA_DIR}"
+echo "Config location: ${USER_CONFIG_DIR}"
+echo ""
+
+exit 0

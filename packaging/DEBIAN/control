@@ -1,0 +1,22 @@
+Package: chimera-ai
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: ChimeraAI Team <team@chimeraai.dev>
+Depends: libc6 (>= 2.31), libgcc-s1, libstdc++6
+Description: ChimeraAI Desktop Assistant
+ ChimeraAI is a powerful desktop AI assistant with dynamic tool system,
+ multi-model chat, RAG capabilities, and WebGL games integration.
+ .
+ Features:
+  - Dynamic Python tools with hot-reload
+  - Multi-model AI chat (Ollama integration)
+  - RAG system with ChromaDB
+  - WebGL games library
+  - React + TypeScript frontend
+  - FastAPI Python backend (bundled)
+  - Electron desktop app
+ .
+ No Python installation required - backend is bundled.
+Homepage: https://github.com/yourusername/chimera-ai

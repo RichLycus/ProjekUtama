@@ -1,0 +1,27 @@
+#!/bin/bash
+# Post-removal script for ChimeraAI
+# Runs after package is removed
+
+set -e
+
+PACKAGE=chimera-ai
+USER_DATA_DIR="${HOME}/.local/share/${PACKAGE}"
+USER_CONFIG_DIR="${HOME}/.config/${PACKAGE}"
+
+echo "ChimeraAI has been removed."
+echo ""
+echo "Your data has been preserved:"
+echo "  Data: ${USER_DATA_DIR}"
+echo "  Config: ${USER_CONFIG_DIR}"
+echo ""
+echo "To completely remove all data, run:"
+echo "  rm -rf ${USER_DATA_DIR}"
+echo "  rm -rf ${USER_CONFIG_DIR}"
+echo ""
+
+# Update desktop database
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications 2>/dev/null || true
+fi
+
+exit 0

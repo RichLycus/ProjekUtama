@@ -1,18 +1,34 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""
-PyInstaller spec file for ChimeraAI Backend
-Builds FastAPI backend into standalone executable
-"""
+# PyInstaller spec file for ChimeraAI Backend
+# Build standalone backend executable with all dependencies
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+import sys
 import os
 from pathlib import Path
 
 # Get backend directory
-backend_dir = Path(SPECPATH)
+backend_dir = Path('.')
+project_root = backend_dir.parent
 
-# Collect all FastAPI and uvicorn dependencies
+# Data files to include
+datas = [
+    # Database file
+    ('data/chimera_tools.db', 'data'),
+    
+    # Characters and configurations
+    ('characters', 'characters'),
+    ('data/ai_config.json', 'data'),
+    ('data/vector_db', 'data/vector_db'),
+    
+    # Sample tools (optional)
+    ('tools', 'tools'),
+]
+
+# Hidden imports (modules that PyInstaller might miss)
 hiddenimports = [
+    # FastAPI and dependencies
+    'fastapi',
+    'uvicorn',
     'uvicorn.logging',
     'uvicorn.loops',
     'uvicorn.loops.auto',
@@ -23,82 +39,56 @@ hiddenimports = [
     'uvicorn.protocols.websockets.auto',
     'uvicorn.lifespan',
     'uvicorn.lifespan.on',
-    'fastapi',
+    
+    # Starlette
     'starlette',
+    'starlette.applications',
+    'starlette.middleware',
+    'starlette.middleware.cors',
+    'starlette.responses',
+    'starlette.routing',
+    'starlette.staticfiles',
+    
+    # Pydantic
     'pydantic',
-    'motor',
+    'pydantic.fields',
+    'pydantic.main',
+    'pydantic_core',
+    
+    # Database
     'pymongo',
+    'motor',
+    'sqlite3',
+    
+    # AI/ML dependencies
+    'chromadb',
+    'sentence_transformers',
+    'torch',
+    'transformers',
+    'numpy',
+    'scipy',
+    'sklearn',
+    
+    # Other dependencies
+    'yaml',
+    'dotenv',
+    'passlib',
+    'jose',
+    'cryptography',
 ]
 
-# Collect all submodules
-hiddenimports += collect_submodules('uvicorn')
-hiddenimports += collect_submodules('fastapi')
-hiddenimports += collect_submodules('starlette')
-hiddenimports += collect_submodules('pydantic')
-hiddenimports += collect_submodules('motor')
-
-# Add ChromaDB and AI-related modules carefully
-try:
-    hiddenimports += collect_submodules('chromadb')
-    hiddenimports += collect_submodules('chromadb.api')
-    hiddenimports += collect_submodules('chromadb.db')
-    hiddenimports += collect_submodules('chromadb.utils')
-except Exception:
-    pass
-
-try:
-    hiddenimports += collect_submodules('sentence_transformers')
-except Exception:
-    pass
-
-try:
-    hiddenimports += collect_submodules('torch')
-except Exception:
-    pass
-
-# Collect data files
-datas = []
-datas += collect_data_files('uvicorn')
-datas += collect_data_files('fastapi')
-datas += collect_data_files('starlette')
-
-# Try to collect AI/ML data files
-try:
-    datas += collect_data_files('chromadb')
-except Exception:
-    pass
-
-try:
-    datas += collect_data_files('sentence_transformers')
-except Exception:
-    pass
-
-try:
-    datas += collect_data_files('transformers')
-except Exception:
-    pass
-
-try:
-    datas += collect_data_files('torch')
-except Exception:
-    pass
-
-# Add backend modules
-datas += [
-    (str(backend_dir / 'modules'), 'modules'),
-    (str(backend_dir / 'routes'), 'routes'),
-    (str(backend_dir / 'ai'), 'ai'),
-    (str(backend_dir / 'utils'), 'utils'),
-    (str(backend_dir / 'database.py'), '.'),
+# Exclude unnecessary packages to reduce size
+excludes = [
+    'matplotlib',
+    'tkinter',
+    'PyQt5',
+    'PyQt6',
+    'PySide2',
+    'PySide6',
+    'test',
+    'tests',
+    'setuptools',
 ]
-
-# Add sample tools if exists
-if (backend_dir / 'sample_tools').exists():
-    datas += [(str(backend_dir / 'sample_tools'), 'sample_tools')]
-if (backend_dir / 'sample_tools_v2').exists():
-    datas += [(str(backend_dir / 'sample_tools_v2'), 'sample_tools_v2')]
-
-block_cipher = None
 
 a = Analysis(
     ['server.py'],
@@ -109,21 +99,12 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[
-        'matplotlib',
-        'tkinter',
-        'PyQt5',
-        'PyQt6',
-        'PySide2',
-        'PySide6',
-    ],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
+    excludes=excludes,
     noarchive=False,
+    optimize=0,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
@@ -135,7 +116,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,  # Keep console for logs
+    console=True,  # Keep console for debugging
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -146,7 +127,6 @@ exe = EXE(
 coll = COLLECT(
     exe,
     a.binaries,
-    a.zipfiles,
     a.datas,
     strip=False,
     upx=True,

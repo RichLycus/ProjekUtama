@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=ChimeraAI
+Comment=AI Desktop Assistant with Tools & Chat
+Exec=/usr/bin/chimera-ai
+Icon=chimera-ai
+Terminal=false
+Categories=Utility;Development;Office;Network;
+Keywords=ai;assistant;chat;tools;productivity;
+StartupWMClass=ChimeraAI
+StartupNotify=true
+X-GNOME-Autostart-enabled=false

@@ -1,0 +1,25 @@
+#!/bin/bash
+# Pre-removal script for ChimeraAI
+# Runs before package is removed
+
+set -e
+
+PACKAGE=chimera-ai
+
+echo "Stopping ChimeraAI processes..."
+
+# Kill any running ChimeraAI processes
+if pgrep -f "chimera-ai" >/dev/null 2>&1; then
+    pkill -f "chimera-ai" 2>/dev/null || true
+    echo "Stopped ChimeraAI frontend"
+fi
+
+if pgrep -f "chimera-backend" >/dev/null 2>&1; then
+    pkill -f "chimera-backend" 2>/dev/null || true
+    echo "Stopped ChimeraAI backend"
+fi
+
+# Wait for processes to stop
+sleep 2
+
+exit 0
