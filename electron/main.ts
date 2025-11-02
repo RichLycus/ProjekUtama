@@ -25,11 +25,27 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 let mainWindow: BrowserWindow | null
 let backendProcess: ChildProcess | null = null
+let isQuitting = false
+let restartAttempts = 0
+const MAX_RESTART_ATTEMPTS = 3
+
+// Get backend port based on environment
+function getBackendPort(): number {
+  const isDev = process.env.NODE_ENV !== 'production'
+  return isDev ? 8001 : 18001
+}
+
+// Get backend URL based on environment
+function getBackendURL(): string {
+  const port = getBackendPort()
+  return `http://localhost:${port}`
+}
 
 // Check if backend is already running
 async function checkBackendHealth(): Promise<boolean> {
   try {
-    const response = await fetch('http://localhost:8001/health')
+    const backendURL = getBackendURL()
+    const response = await fetch(`${backendURL}/health`)
     return response.ok
   } catch {
     return false
@@ -39,12 +55,17 @@ async function checkBackendHealth(): Promise<boolean> {
 // Start Python Backend Server
 async function startBackend() {
   try {
+    const backendURL = getBackendURL()
+    const backendPort = getBackendPort()
+    
     console.log('[Backend] Checking if backend is already running...')
+    console.log(`[Backend] Backend URL: ${backendURL}`)
     
     // Check if backend already running (e.g., started by launcher)
     const isRunning = await checkBackendHealth()
     if (isRunning) {
       console.log('[Backend] ✅ Backend already running, skipping startup')
+      restartAttempts = 0 // Reset restart counter
       return
     }
     
@@ -52,10 +73,12 @@ async function startBackend() {
     
     // Determine if running in development or production
     const isDev = process.env.NODE_ENV !== 'production'
+    const mode = isDev ? 'development' : 'production'
     
     if (isDev) {
       // Development mode: Use Python source files
       console.log('[Backend] Running in DEVELOPMENT mode (Python source)')
+      console.log(`[Backend] Port: ${backendPort}`)
       
       const backendDir = path.join(process.env.APP_ROOT || '', 'backend')
       console.log('[Backend] Backend directory:', backendDir)
@@ -68,11 +91,10 @@ async function startBackend() {
       const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
       
       backendProcess = spawn(pythonCmd, [
-        '-m', 'uvicorn',
-        'server:app',
-        '--host', '127.0.0.1',
-        '--port', '8001',
-        '--reload'
+        'server.py',
+        '--port', String(backendPort),
+        '--mode', mode,
+        '--host', '127.0.0.1'
       ], {
         cwd: backendDir,
         env: { ...process.env },
@@ -81,6 +103,7 @@ async function startBackend() {
     } else {
       // Production mode: Use PyInstaller executable
       console.log('[Backend] Running in PRODUCTION mode (bundled executable)')
+      console.log(`[Backend] Port: ${backendPort}`)
       
       const backendExecutable = path.join(
         process.resourcesPath,
@@ -104,7 +127,11 @@ async function startBackend() {
         console.warn('[Backend] Could not chmod executable:', e)
       }
       
-      backendProcess = spawn(backendExecutable, [], {
+      backendProcess = spawn(backendExecutable, [
+        '--port', String(backendPort),
+        '--mode', mode,
+        '--host', '127.0.0.1'
+      ], {
         env: { ...process.env },
         stdio: 'pipe'
       })
@@ -126,9 +153,21 @@ async function startBackend() {
       console.error('[Backend] Failed to start:', error)
     })
     
-    backendProcess.on('exit', (code) => {
-      console.log('[Backend] Process exited with code', code)
+    backendProcess.on('exit', (code, signal) => {
+      console.log(`[Backend] Process exited with code ${code}, signal ${signal}`)
       backendProcess = null
+      
+      // Auto-restart on crash (if not quitting intentionally)
+      if (!isQuitting && code !== 0 && restartAttempts < MAX_RESTART_ATTEMPTS) {
+        restartAttempts++
+        console.log(`[Backend] ⚠️ Unexpected exit, attempting restart (${restartAttempts}/${MAX_RESTART_ATTEMPTS})...`)
+        setTimeout(() => {
+          startBackend()
+        }, 2000) // Wait 2 seconds before restart
+      } else if (restartAttempts >= MAX_RESTART_ATTEMPTS) {
+        console.error('[Backend] ❌ Max restart attempts reached. Backend will not restart automatically.')
+        console.error('[Backend] Please check logs and restart the application.')
+      }
     })
     
     // Wait for backend to start
@@ -139,6 +178,8 @@ async function startBackend() {
       const ready = await checkBackendHealth()
       if (ready) {
         console.log('[Backend] ✅ Backend is ready!')
+        console.log(`[Backend] API available at: ${backendURL}`)
+        restartAttempts = 0 // Reset restart counter on success
         return
       }
       console.log(`[Backend] Retry ${i + 1}/${maxRetries}...`)
@@ -155,9 +196,20 @@ async function startBackend() {
 // Stop backend server
 function stopBackend() {
   if (backendProcess) {
+    isQuitting = true
     console.log('[Backend] Stopping backend server...')
-    backendProcess.kill()
-    backendProcess = null
+    
+    // Try graceful shutdown first (SIGTERM)
+    backendProcess.kill('SIGTERM')
+    
+    // Force kill after 5 seconds if still running
+    setTimeout(() => {
+      if (backendProcess && !backendProcess.killed) {
+        console.log('[Backend] Force killing backend process...')
+        backendProcess.kill('SIGKILL')
+      }
+      backendProcess = null
+    }, 5000)
   }
 }
 
@@ -324,7 +376,8 @@ function setupIPC() {
   })
 
   // Python Tools API handlers
-  const BACKEND_URL = 'http://localhost:8001'
+  const BACKEND_URL = getBackendURL()
+  console.log(`[IPC] Using backend URL: ${BACKEND_URL}`)
 
   ipcMain.handle('tool:upload', async (_event, formData) => {
     try {

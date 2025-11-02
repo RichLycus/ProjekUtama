@@ -2250,4 +2250,46 @@ async def resolve_tool_slug(slug: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    import argparse
+    import signal
+    import sys
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='ChimeraAI Backend Server')
+    parser.add_argument('--port', type=int, default=8001, help='Port to run the server on (default: 8001)')
+    parser.add_argument('--mode', type=str, default='development', choices=['development', 'production'], help='Running mode (default: development)')
+    parser.add_argument('--host', type=str, default='0.0.0.0', help='Host to bind to (default: 0.0.0.0)')
+    args = parser.parse_args()
+    
+    # Configure based on mode
+    port = args.port
+    mode = args.mode
+    host = args.host
+    
+    # Graceful shutdown handler
+    def signal_handler(sig, frame):
+        logger.info("=" * 60)
+        logger.info(f"🛑 Shutdown signal received (mode: {mode})")
+        logger.info("Cleaning up and shutting down gracefully...")
+        logger.info("=" * 60)
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    # Log startup configuration
+    logger.info("=" * 60)
+    logger.info(f"🚀 Starting ChimeraAI Backend Server")
+    logger.info(f"   Mode: {mode.upper()}")
+    logger.info(f"   Host: {host}")
+    logger.info(f"   Port: {port}")
+    logger.info("=" * 60)
+    
+    # Run server
+    uvicorn.run(
+        app, 
+        host=host, 
+        port=port,
+        reload=(mode == 'development'),
+        log_level="info"
+    )

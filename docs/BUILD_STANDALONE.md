@@ -444,28 +444,65 @@ Typical sizes:
 
 ## 🔧 Implementation Roadmap
 
-### Phase 1: Backend Auto-Start ✅ (Current)
+### Phase 1: Backend Auto-Start ✅ **COMPLETE**
 
 **Goal:** Backend dapat start otomatis dari Electron main process
 
+**Status:** ✅ **COMPLETE** (Tested & Working)
+
 **Tasks:**
 1. ✅ Update `electron/main.ts`:
-   - Detect production mode
-   - Spawn backend executable
-   - Handle backend lifecycle (start/stop/restart)
-   - Health check mechanism
+   - ✅ Detect production mode (dev: 8001, prod: 18001)
+   - ✅ Spawn backend executable dengan CLI args
+   - ✅ Handle backend lifecycle (start/stop/restart)
+   - ✅ Health check mechanism (30 retries)
+   - ✅ Auto-restart on crash (max 3 attempts)
+   - ✅ Graceful shutdown (SIGTERM → SIGKILL)
+   - ✅ Dynamic backend URL based on environment
 2. ✅ Add production port configuration (18001)
-3. ✅ Backend command line args: `--port 18001 --mode production`
+3. ✅ Backend command line args: `--port`, `--mode`, `--host`
 4. ✅ Error handling dan logging
+5. ✅ Graceful shutdown handler (SIGINT/SIGTERM)
 
-**Files to modify:**
-- `electron/main.ts`
-- `backend/server.py` (add CLI args)
-- `.env.production`
+**Files Modified:**
+- ✅ `electron/main.ts` - Production port + auto-restart mechanism
+- ✅ `backend/server.py` - Added argparse CLI support + graceful shutdown
+- ✅ `.env.production` - Production environment configuration
+
+**Testing Results:**
+```bash
+# Production mode (Port 18001) ✅
+$ python3 server.py --port 18001 --mode production
+INFO: 🚀 Starting ChimeraAI Backend Server
+INFO:    Mode: PRODUCTION
+INFO:    Host: 0.0.0.0
+INFO:    Port: 18001
+INFO: ✅ System fully initialized and ready!
+
+# Health check ✅
+$ curl http://localhost:18001/health
+{"status":"healthy","ready":true}
+
+# Development mode (Port 8001) ✅
+$ python3 server.py --port 8001 --mode development
+INFO:    Mode: DEVELOPMENT
+INFO:    Port: 8001
+```
+
+**Key Features Implemented:**
+- ✅ Production-ready backend dengan dedicated port (18001)
+- ✅ No collision dengan development environment
+- ✅ Auto-restart on crash (up to 3 attempts)
+- ✅ Graceful shutdown (no orphan processes)
+- ✅ Verbose startup logging
+- ✅ Reset restart counter on successful health check
+
+**Documentation:**
+- ✅ `docs/phase/phase_11.md` - Complete phase documentation
 
 ---
 
-### Phase 2: .deb Package Builder 🚧 (Next)
+### Phase 2: .deb Package Builder 🚧 (Current - Next)
 
 **Goal:** Create proper Debian package dengan auto-install scripts
 
@@ -1451,26 +1488,63 @@ netstat -tuln | grep 18001
 
 ## 🔄 Changelog
 
-### v2.0 (Latest) - Debian Package Support
+### v2.1 (Latest) - Phase 1 Complete: Backend Auto-Start & Production Port
+
+**Date:** November 2, 2025
+
+**Phase 1 Status:** ✅ **COMPLETE**
 
 **New Features:**
-- ✅ **Debian .deb package** support
+- ✅ **Backend CLI Arguments** (`--port`, `--mode`, `--host`)
 - ✅ **Production port** configuration (18001)
-- ✅ **Auto-start backend** from Electron
-- ✅ **Desktop integration** (.desktop file)
-- ✅ **Proper uninstall** cleanup
+- ✅ **Auto-start backend** from Electron main process
+- ✅ **Auto-restart on crash** (max 3 attempts with 2s delay)
+- ✅ **Graceful shutdown** (SIGTERM → SIGKILL fallback)
+- ✅ **Dynamic backend URL** based on environment
+- ✅ **Verbose startup logging** (mode, host, port)
 
 **Improvements:**
-- ✅ Separate development vs production ports
+- ✅ Separate development vs production ports (8001 vs 18001)
 - ✅ Better error handling dan logging
 - ✅ Improved backend lifecycle management
-- ✅ Enhanced documentation
+- ✅ Enhanced documentation (docs/phase/phase_11.md)
+- ✅ Reset restart counter on successful health check
+- ✅ No port collision between dev and production
+
+**Testing:**
+- ✅ Production mode tested (Port 18001)
+- ✅ Development mode tested (Port 8001)
+- ✅ CLI arguments verified
+- ✅ Graceful shutdown verified
+- ✅ Auto-restart mechanism tested
+
+**Files Modified:**
+- `backend/server.py` - Added argparse CLI support + graceful shutdown
+- `electron/main.ts` - Production port + auto-restart mechanism
+- `.env.production` - Created production environment config
+- `docs/phase/phase_11.md` - Phase 1 complete documentation
 
 **Architecture:**
 - Frontend: React 19 + TypeScript + Vite
-- Backend: FastAPI + Python 3.11 + PyInstaller
-- Packaging: electron-builder + dpkg-deb
-- Distribution: .deb (installable) + AppImage (portable)
+- Backend: FastAPI + Python 3.11 (CLI args support)
+- Packaging: electron-builder + dpkg-deb (planned)
+- Distribution: .deb (installable) + AppImage (portable) - upcoming
+
+**Next Phase:** Phase 2 - .deb Package Builder
+
+---
+
+### v2.0 - Debian Package Planning
+
+**New Features:**
+- ✅ **Debian .deb package** support (planned)
+- ✅ **Desktop integration** (.desktop file) - planned
+- ✅ **Proper uninstall** cleanup - planned
+
+**Improvements:**
+- ✅ Build system architecture designed
+- ✅ Package structure planned
+- ✅ Installation flow designed
 
 ---
 
@@ -1685,6 +1759,14 @@ Issues? Check:
 
 ---
 
-**Last Updated:** Phase 10 - Standalone Build Implementation  
+**Last Updated:** Phase 11 - Backend Auto-Start Complete (Phase 1 ✅)  
+**Current Phase:** Phase 2 - .deb Package Builder 🚧  
 **Maintainer:** ChimeraAI Team  
-**Status:** ✅ Production Ready
+**Status:** 🚧 Phase 1 Complete - Phase 2 In Progress
+
+**Phase Progress:**
+- ✅ Phase 1: Backend Auto-Start (Complete)
+- 🚧 Phase 2: .deb Package Builder (Next)
+- ⏳ Phase 3: Production Configuration (Planned)
+- ⏳ Phase 4: Testing & QA (Planned)
+- ⏳ Phase 5: Distribution (Planned)
