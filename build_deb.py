@@ -64,13 +64,15 @@ def clean_builds():
     """Clean all build artifacts"""
     log("Cleaning build artifacts...", "INFO")
     
+    project_root = get_project_root()
+    
     dirs_to_clean = [
-        'backend/build',
-        'backend/dist',
-        'dist',
-        'dist-electron',
-        'release',
-        'packaging/build',
+        project_root / 'backend/build',
+        project_root / 'backend/dist',
+        project_root / 'dist',
+        project_root / 'dist-electron',
+        project_root / 'release',
+        project_root / 'packaging/build',
     ]
     
     for dir_path in dirs_to_clean:
@@ -81,13 +83,35 @@ def clean_builds():
     
     log("Clean complete!", "SUCCESS")
 
+def get_project_root():
+    """Get project root directory (where this script is located)"""
+    return Path(__file__).parent.absolute()
+
 def build_backend():
     """Build backend executable with PyInstaller"""
     log("="*60, "HEADER")
     log("STEP 1: Building Backend Executable (PyInstaller)", "HEADER")
     log("="*60, "HEADER")
     
-    backend_dir = Path('backend')
+    project_root = get_project_root()
+    backend_dir = project_root / 'backend'
+    
+    # Check Python dependencies first
+    log("Checking backend dependencies...", "INFO")
+    req_files = [
+        backend_dir / 'requirements-base.txt',
+        backend_dir / 'requirements-chat.txt',
+        backend_dir / 'requirements-tools.txt'
+    ]
+    
+    for req_file in req_files:
+        if req_file.exists():
+            log(f"Installing {req_file.name}...", "INFO")
+            success, output = run_command([sys.executable, '-m', 'pip', 'install', '-r', str(req_file)])
+            if not success:
+                log(f"Failed to install {req_file.name}!", "WARNING")
+        else:
+            log(f"{req_file.name} not found, skipping...", "WARNING")
     
     # Check if PyInstaller is installed
     log("Checking PyInstaller...", "INFO")
@@ -153,17 +177,27 @@ def build_frontend():
     log("STEP 2: Building Frontend (Electron)", "HEADER")
     log("="*60, "HEADER")
     
+    project_root = get_project_root()
+    
     # Check if node_modules exists
-    if not Path('node_modules').exists():
+    if not (project_root / 'node_modules').exists():
         log("node_modules not found! Running yarn install...", "WARNING")
-        success, output = run_command(['yarn', 'install'])
+        success, output = run_command(['yarn', 'install'], cwd=str(project_root))
         if not success:
             log("yarn install failed!", "ERROR")
             return False
     
-    # Build frontend with Vite
+    # Build frontend with Vite (use npx directly to avoid yarn E2BIG error)
     log("Building frontend with Vite...", "INFO")
-    success, output = run_command(['yarn', 'build'])
+    
+    # Try vite build directly to avoid yarn E2BIG error
+    success, output = run_command(['npx', 'vite', 'build'], cwd=str(project_root))
+    
+    # If npx fails, try yarn build
+    if not success:
+        log("npx vite build failed, trying yarn build...", "WARNING")
+        success, output = run_command(['yarn', 'build'], cwd=str(project_root))
+        
     if not success:
         log("Frontend build failed!", "ERROR")
         log(output, "ERROR")
@@ -172,7 +206,7 @@ def build_frontend():
     log("Frontend build complete!", "SUCCESS")
     
     # Check if dist folder exists
-    dist_dir = Path('dist')
+    dist_dir = project_root / 'dist'
     if not dist_dir.exists():
         log(f"Frontend dist not found: {dist_dir}", "ERROR")
         return False
@@ -185,15 +219,17 @@ def create_deb_structure():
     log("STEP 3: Creating .deb Package Structure", "HEADER")
     log("="*60, "HEADER")
     
+    project_root = get_project_root()
+    
     # Get version from package.json
-    with open('package.json', 'r') as f:
+    with open(project_root / 'package.json', 'r') as f:
         package_data = json.load(f)
         version = package_data.get('version', '1.0.0')
     
     log(f"Package version: {version}", "INFO")
     
     # Create build directory
-    build_dir = Path('packaging/build/chimera-ai')
+    build_dir = project_root / 'packaging/build/chimera-ai'
     if build_dir.exists():
         shutil.rmtree(build_dir)
     build_dir.mkdir(parents=True)
@@ -225,11 +261,12 @@ def copy_files_to_deb(build_dir):
     log("STEP 4: Copying Application Files", "HEADER")
     log("="*60, "HEADER")
     
+    project_root = get_project_root()
     opt_dir = build_dir / 'opt/chimera-ai'
     
     # Copy backend executable
     log("Copying backend executable...", "INFO")
-    backend_src = Path('backend/dist/chimera-backend')
+    backend_src = project_root / 'backend/dist/chimera-backend'
     backend_dst = opt_dir / 'bin'
     if backend_src.exists():
         shutil.copytree(backend_src, backend_dst / 'chimera-backend', dirs_exist_ok=True)
@@ -242,7 +279,7 @@ def copy_files_to_deb(build_dir):
     
     # Copy frontend dist
     log("Copying frontend files...", "INFO")
-    frontend_src = Path('dist')
+    frontend_src = project_root / 'dist'
     frontend_dst = opt_dir / 'lib/resources/app'
     if frontend_src.exists():
         shutil.copytree(frontend_src, frontend_dst, dirs_exist_ok=True)
@@ -253,14 +290,14 @@ def copy_files_to_deb(build_dir):
     
     # Copy electron main
     log("Copying Electron main process...", "INFO")
-    electron_src = Path('dist-electron')
+    electron_src = project_root / 'dist-electron'
     if electron_src.exists():
         shutil.copytree(electron_src, opt_dir / 'lib/resources/electron', dirs_exist_ok=True)
         log("Electron main copied!", "SUCCESS")
     
     # Copy database template
     log("Copying database template...", "INFO")
-    db_src = Path('backend/data/chimera_tools.db')
+    db_src = project_root / 'backend/data/chimera_tools.db'
     db_dst = opt_dir / 'data/database/chimera_tools.db'
     if db_src.exists():
         shutil.copy2(db_src, db_dst)
@@ -268,7 +305,7 @@ def copy_files_to_deb(build_dir):
     
     # Copy icon
     log("Copying application icon...", "INFO")
-    icon_src = Path('build/icon.png')
+    icon_src = project_root / 'build/icon.png'
     if icon_src.exists():
         # Copy to /opt/chimera-ai/share/icons/
         shutil.copy2(icon_src, opt_dir / 'share/icons/chimera-ai.png')
@@ -319,7 +356,8 @@ def copy_debian_files(build_dir, version):
     log("STEP 5: Setting Up DEBIAN Control Files", "HEADER")
     log("="*60, "HEADER")
     
-    debian_src = Path('packaging/DEBIAN')
+    project_root = get_project_root()
+    debian_src = project_root / 'packaging/DEBIAN'
     debian_dst = build_dir / 'DEBIAN'
     
     if not debian_src.exists():
@@ -345,7 +383,7 @@ def copy_debian_files(build_dir, version):
     
     # Copy desktop entry
     log("Copying desktop entry...", "INFO")
-    desktop_src = Path('packaging/chimera-ai.desktop')
+    desktop_src = project_root / 'packaging/chimera-ai.desktop'
     desktop_dst = build_dir / 'usr/share/applications/chimera-ai.desktop'
     if desktop_src.exists():
         shutil.copy2(desktop_src, desktop_dst)
@@ -360,8 +398,10 @@ def build_deb_package(build_dir, version):
     log("STEP 6: Building .deb Package", "HEADER")
     log("="*60, "HEADER")
     
+    project_root = get_project_root()
+    
     # Create release directory
-    release_dir = Path('release')
+    release_dir = project_root / 'release'
     release_dir.mkdir(exist_ok=True)
     
     deb_filename = f'chimera-ai_{version}_amd64.deb'

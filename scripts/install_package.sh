@@ -128,16 +128,40 @@ install_dependencies() {
     # Check if venv exists
     if [ ! -d "/root/.venv" ]; then
         print_warning "Virtual environment not found, using system Python"
-        pip3 install -r requirements.txt
+        
+        # Install from modular requirements files
+        print_step "Installing base dependencies..."
+        pip3 install -r requirements-base.txt
+        
+        print_step "Installing chat dependencies..."
+        pip3 install -r requirements-chat.txt
+        
+        print_step "Installing tools dependencies..."
+        pip3 install -r requirements-tools.txt
     else
-        /root/.venv/bin/pip install -r requirements.txt
+        # Install from modular requirements files
+        print_step "Installing base dependencies..."
+        /root/.venv/bin/pip install -r requirements-base.txt
+        
+        print_step "Installing chat dependencies..."
+        /root/.venv/bin/pip install -r requirements-chat.txt
+        
+        print_step "Installing tools dependencies..."
+        /root/.venv/bin/pip install -r requirements-tools.txt
     fi
     
     # Install PyInstaller if not present
     print_step "Checking PyInstaller..."
-    if ! /root/.venv/bin/pip show pyinstaller &> /dev/null; then
-        print_warning "PyInstaller not found, installing..."
-        /root/.venv/bin/pip install pyinstaller
+    if [ -d "/root/.venv" ]; then
+        if ! /root/.venv/bin/pip show pyinstaller &> /dev/null; then
+            print_warning "PyInstaller not found, installing..."
+            /root/.venv/bin/pip install pyinstaller
+        fi
+    else
+        if ! pip3 show pyinstaller &> /dev/null; then
+            print_warning "PyInstaller not found, installing..."
+            pip3 install pyinstaller
+        fi
     fi
     print_success "PyInstaller ready"
     
@@ -163,6 +187,9 @@ clean_build() {
     print_step "Cleaning release directory..."
     rm -rf "$RELEASE_DIR"
     
+    print_step "Cleaning packaging build..."
+    rm -rf "$PROJECT_ROOT/packaging/build"
+    
     print_success "Build artifacts cleaned!"
     echo ""
 }
@@ -176,29 +203,20 @@ build_backend() {
     
     cd "$BACKEND_DIR"
     
-    print_step "Running PyInstaller..."
-    /root/.venv/bin/pyinstaller \
-        --name chimera-backend \
-        --onedir \
-        --clean \
-        --noconfirm \
-        --console \
-        --add-data "data:data" \
-        --hidden-import uvicorn.logging \
-        --hidden-import uvicorn.loops \
-        --hidden-import uvicorn.loops.auto \
-        --hidden-import uvicorn.protocols \
-        --hidden-import uvicorn.protocols.http \
-        --hidden-import uvicorn.protocols.http.auto \
-        --hidden-import uvicorn.protocols.websockets \
-        --hidden-import uvicorn.protocols.websockets.auto \
-        --hidden-import uvicorn.lifespan \
-        --hidden-import uvicorn.lifespan.on \
-        --collect-all chromadb \
-        --collect-all sentence_transformers \
-        --collect-all transformers \
-        --collect-all torch \
-        server.py
+    # Check if spec file exists
+    if [ ! -f "build_backend.spec" ]; then
+        print_error "build_backend.spec not found!"
+        print_info "Please create PyInstaller spec file first"
+        return 1
+    fi
+    
+    print_step "Running PyInstaller with spec file..."
+    
+    if [ -d "/root/.venv" ]; then
+        /root/.venv/bin/pyinstaller --clean build_backend.spec
+    else
+        pyinstaller --clean build_backend.spec
+    fi
     
     if [ -f "$BACKEND_DIR/dist/chimera-backend/chimera-backend" ]; then
         print_success "Backend executable built successfully!"
@@ -206,17 +224,13 @@ build_backend() {
         # Make executable
         chmod +x "$BACKEND_DIR/dist/chimera-backend/chimera-backend"
         
-        # Test backend
-        print_step "Testing backend executable..."
-        timeout 10 "$BACKEND_DIR/dist/chimera-backend/chimera-backend" --help > /dev/null 2>&1 || true
-        print_success "Backend executable tested"
-        
         # Show size
         local size=$(du -sh "$BACKEND_DIR/dist/chimera-backend" | cut -f1)
         print_info "Backend size: $size"
+        print_info "Location: $BACKEND_DIR/dist/chimera-backend/"
     else
         print_error "Backend build failed!"
-        exit 1
+        return 1
     fi
     
     echo ""
@@ -231,7 +245,7 @@ build_frontend() {
     
     cd "$PROJECT_ROOT"
     
-    print_step "Running electron-builder..."
+    print_step "Running Vite build..."
     yarn build
     
     if [ -d "$PROJECT_ROOT/dist" ] && [ -d "$PROJECT_ROOT/dist-electron" ]; then
@@ -244,7 +258,7 @@ build_frontend() {
         print_info "Electron size: $electron_size"
     else
         print_error "Frontend build failed!"
-        exit 1
+        return 1
     fi
     
     echo ""
@@ -288,7 +302,7 @@ build_appimage() {
         print_info "Location: $RELEASE_DIR"
     else
         print_error "AppImage build failed!"
-        exit 1
+        return 1
     fi
     
     echo ""
@@ -299,16 +313,41 @@ build_appimage() {
 # ============================================================
 
 build_deb() {
-    print_header "Building .deb Package"
+    print_header "Building .deb Package (Phase 2)"
     
-    print_warning ".deb package builder coming in Phase 2!"
-    print_info "Currently implementing:"
-    echo "  - DEBIAN control files"
-    echo "  - Post-install scripts"
-    echo "  - Desktop integration"
-    echo "  - Package assembly"
-    echo ""
-    print_info "For now, use AppImage build instead"
+    cd "$PROJECT_ROOT"
+    
+    # Check if build_deb.py exists
+    if [ ! -f "build_deb.py" ]; then
+        print_error "build_deb.py not found!"
+        print_info "Please create build_deb.py script first"
+        return 1
+    fi
+    
+    print_step "Running build_deb.py..."
+    python3 build_deb.py --clean
+    
+    # Check if .deb was created
+    if ls "$RELEASE_DIR"/*.deb 1> /dev/null 2>&1; then
+        print_success ".deb package created successfully!"
+        
+        local deb_file=$(ls "$RELEASE_DIR"/*.deb | head -1)
+        local size=$(du -sh "$deb_file" | cut -f1)
+        print_info "Package: $(basename "$deb_file")"
+        print_info "Size: $size"
+        print_info "Location: $RELEASE_DIR"
+        echo ""
+        print_info "To install:"
+        echo "  sudo dpkg -i $deb_file"
+        echo ""
+        print_info "To run:"
+        echo "  chimera-ai"
+    else
+        print_error ".deb package build failed!"
+        print_info "Check logs above for errors"
+        return 1
+    fi
+    
     echo ""
 }
 
@@ -361,7 +400,7 @@ quick_build_all() {
     install_dependencies
     build_backend
     build_frontend
-    build_appimage
+    build_deb
     
     print_header "Build Complete!"
     print_success "All components built successfully!"
@@ -369,7 +408,7 @@ quick_build_all() {
     echo "📦 Build Artifacts:"
     echo "   Backend: $BACKEND_DIR/dist/chimera-backend/"
     echo "   Frontend: $PROJECT_ROOT/dist/"
-    echo "   AppImage: $RELEASE_DIR/"
+    echo "   .deb Package: $RELEASE_DIR/"
     echo ""
 }
 
@@ -404,6 +443,15 @@ show_build_info() {
         print_warning "Frontend: Not built"
     fi
     
+    # Check .deb
+    if ls "$RELEASE_DIR"/*.deb 1> /dev/null 2>&1; then
+        local deb=$(ls "$RELEASE_DIR"/*.deb | head -1)
+        local size=$(du -sh "$deb" | cut -f1)
+        print_success ".deb Package: $(basename "$deb") ($size)"
+    else
+        print_warning ".deb Package: Not built"
+    fi
+    
     # Check AppImage
     if ls "$RELEASE_DIR"/*.AppImage 1> /dev/null 2>&1; then
         local appimage=$(ls "$RELEASE_DIR"/*.AppImage | head -1)
@@ -421,7 +469,7 @@ show_build_info() {
     echo "     - Frontend: Port 3000/5173"
     echo ""
     echo "   Production (.deb):"
-    echo "     - Backend: Port 18001"
+    echo "     - Backend: Port 18001 (auto-start)"
     echo "     - Frontend: Internal Electron"
     echo ""
     echo "   Production (AppImage):"
@@ -440,18 +488,18 @@ show_menu() {
     
     echo "Choose an option:"
     echo ""
-    echo "  ${GREEN}[1]${NC} 🚀 Quick Build (All) - Build everything"
-    echo "  ${GREEN}[2]${NC} 🐍 Build Backend Only (PyInstaller)"
-    echo "  ${GREEN}[3]${NC} ⚛️  Build Frontend Only (Electron)"
-    echo "  ${GREEN}[4]${NC} 📦 Build AppImage Package"
-    echo "  ${GREEN}[5]${NC} 📦 Build .deb Package (Coming Soon)"
+    echo -e "  ${GREEN}[1]${NC} 🚀 Quick Build (All) - Build everything"
+    echo -e "  ${GREEN}[2]${NC} 🐍 Build Backend Only (PyInstaller)"
+    echo -e "  ${GREEN}[3]${NC} ⚛️  Build Frontend Only (Electron)"
+    echo -e "  ${GREEN}[4]${NC} 📦 Build AppImage Package"
+    echo -e "  ${GREEN}[5]${NC} 📦 Build .deb Package (Phase 2 ✅)"
     echo ""
-    echo "  ${YELLOW}[6]${NC} 🧪 Test Backend Executable"
-    echo "  ${YELLOW}[7]${NC} 🧹 Clean Build Artifacts"
-    echo "  ${YELLOW}[8]${NC} 📥 Install Dependencies"
+    echo -e "  ${YELLOW}[6]${NC} 🧪 Test Backend Executable"
+    echo -e "  ${YELLOW}[7]${NC} 🧹 Clean Build Artifacts"
+    echo -e "  ${YELLOW}[8]${NC} 📥 Install Dependencies"
     echo ""
-    echo "  ${BLUE}[9]${NC} ℹ️  Show Build Information"
-    echo "  ${BLUE}[0]${NC} 🚪 Exit"
+    echo -e "  ${BLUE}[9]${NC} ℹ️  Show Build Information"
+    echo -e "  ${BLUE}[0]${NC} 🚪 Exit"
     echo ""
     echo -ne "${CYAN}Enter your choice [0-9]: ${NC}"
 }
