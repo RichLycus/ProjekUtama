@@ -218,6 +218,52 @@ release/
 
 ## 🚀 Build Process
 
+### Quick Start (Interactive Builder) ⭐ **RECOMMENDED**
+
+Gunakan interactive script untuk kemudahan:
+
+```bash
+# Make executable (first time only)
+chmod +x scripts/install_package.sh
+
+# Run interactive menu
+./scripts/install_package.sh
+```
+
+**Interactive Menu:**
+```
+ChimeraAI Standalone Package Builder
+============================================================
+
+Choose an option:
+
+  [1] 🚀 Quick Build (All) - Build everything
+  [2] 🐍 Build Backend Only (PyInstaller)
+  [3] ⚛️  Build Frontend Only (Electron)
+  [4] 📦 Build AppImage Package
+  [5] 📦 Build .deb Package (Coming Soon)
+  
+  [6] 🧪 Test Backend Executable
+  [7] 🧹 Clean Build Artifacts
+  [8] 📥 Install Dependencies
+  
+  [9] ℹ️  Show Build Information
+  [0] 🚪 Exit
+
+Enter your choice [0-9]:
+```
+
+**Benefits:**
+- ✅ Color-coded output
+- ✅ Automatic prerequisite checking
+- ✅ Step-by-step progress tracking
+- ✅ Error handling & rollback
+- ✅ Build information display
+
+**See:** `scripts/README.md` for detailed script documentation
+
+---
+
 ### Quick Start (Build Everything)
 
 ```bash
@@ -1579,9 +1625,21 @@ netstat -tuln | grep 18001
 
 ## 🎯 Quick Reference
 
+**Interactive Builder (Recommended):**
+```bash
+# Run interactive menu
+./scripts/install_package.sh
+
+# Choose option:
+# [1] Quick Build (All)
+# [2] Backend Only
+# [3] Frontend Only
+# [4] AppImage Package
+```
+
 **Build Commands:**
 ```bash
-# .deb package
+# .deb package (Phase 2 - Coming Soon)
 python3 build_standalone.py --target deb
 
 # AppImage
